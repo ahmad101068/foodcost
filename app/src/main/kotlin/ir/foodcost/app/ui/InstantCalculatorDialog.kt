@@ -63,7 +63,7 @@ fun InstantCalculatorDialog(
                 InstantQuoteInput(
                     foodCostPerPortion = cost.foodCostPerPortion,
                     extraCostPerPortion = BigDecimal.valueOf(extraRials!!),
-                    menuPrice = menuPrice?.let(BigDecimal::valueOf),
+                    menuPrice = menuPrice?.let { BigDecimal.valueOf(it) },
                     targetFoodCostPercent = target!!,
                     vatPercent = pricing.vatPercent,
                     menuPriceIncludesVat = pricing.menuPriceIncludesVat,
