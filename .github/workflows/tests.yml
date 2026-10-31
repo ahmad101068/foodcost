@@ -26,19 +26,29 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
       - name: Test
         shell: bash
         run: |
           set -o pipefail
           ./gradlew test --no-daemon 2>&1 | tee build.log
-      # Puts the compiler errors and failed tests on the run page as one annotation,
-      # readable through the API without downloading the logs.
+      # The annotations below can be read through the API without downloading the logs.
+      # This one shows how many tests each module ran, so a module that runs none stands out.
+      - name: Count tests
+        shell: bash
+        run: |
+          counts=""
+          for module in core data; do
+            n=$(cat "$module"/build/test-results/test/*.xml 2>/dev/null | grep -c "<testcase " || true)
+            counts="$counts $module: ${n:-0},"
+          done
+          echo "::notice title=Tests passed::${counts%,}"
+      # This one lists the compiler errors and failed tests.
       - name: Report failures
         if: failure()
         shell: bash
