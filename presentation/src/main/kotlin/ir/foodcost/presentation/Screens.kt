@@ -282,6 +282,8 @@ data class RecipeDetail(
     val miscLabel: String,
     val miscCost: String,
     val costPerPortion: String,
+    /** Prevent incomplete zero-priced recipes from being quoted as valid. */
+    val validForCalculator: Boolean,
     val batchCost: String?,
     val outputLabel: String?,
     val pricing: PricingInfo?,
@@ -367,6 +369,7 @@ object RecipeScreens {
             miscLabel = "هزینه‌های جزئی ${Numbers.percent(cost.miscPercent)}" + if (draft.miscPercent == null) " (پیش‌فرض)" else "",
             miscCost = money.full(cost.miscPerPortion),
             costPerPortion = money.full(cost.foodCostPerPortion),
+            validForCalculator = cost.hasLines && cost.isComplete,
             batchCost = if (portions > BigDecimal.ONE) money.full(cost.batchCost) else null,
             outputLabel = output,
             pricing = if (recipe.kind == RecipeKind.PREP) {
