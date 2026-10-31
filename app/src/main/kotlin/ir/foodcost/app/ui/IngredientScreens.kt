@@ -28,7 +28,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -77,11 +76,7 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
         nav = nav,
         actions = actions,
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { nav.open(Screen.EditIngredient(null)) },
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                text = { Text("ماده تازه") },
-            )
+            AddButton("ماده تازه", onClick = { nav.open(Screen.EditIngredient(null)) })
         },
     ) { padding ->
         LazyColumn(
@@ -149,11 +144,7 @@ fun IngredientScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
             }
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { nav.open(Screen.NewPrice(id.value)) },
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                text = { Text("قیمت تازه") },
-            )
+            AddButton("قیمت تازه", onClick = { nav.open(Screen.NewPrice(id.value)) })
         },
     ) { padding ->
         LazyColumn(

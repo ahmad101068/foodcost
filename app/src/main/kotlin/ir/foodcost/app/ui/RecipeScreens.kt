@@ -24,7 +24,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -80,11 +79,7 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
         nav = nav,
         actions = actions,
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { creating = true },
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                text = { Text("دستور تازه") },
-            )
+            AddButton("دستور تازه", onClick = { creating = true })
         },
     ) { padding ->
         LazyColumn(
@@ -164,11 +159,7 @@ fun RecipeScreen(id: RecipeId, state: LedgerState, money: MoneyFormat, today: Lo
             }
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { nav.open(Screen.Line(id.value, null, null)) },
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                text = { Text("افزودن ماده") },
-            )
+            AddButton("افزودن ماده", onClick = { nav.open(Screen.Line(id.value, null, null)) })
         },
     ) { padding ->
         LazyColumn(

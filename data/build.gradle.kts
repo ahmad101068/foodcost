@@ -1,5 +1,5 @@
 // The change log: every edit is an operation, applied in one order on every device.
-// Plain Kotlin like the core; the Android app stores the operations with Room.
+// Plain Kotlin like the core; the Android app stores the operations in SQLite.
 plugins {
     `java-library`
     kotlin("jvm")
