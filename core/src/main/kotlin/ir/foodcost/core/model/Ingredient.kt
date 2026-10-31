@@ -56,8 +56,17 @@ data class PurchasePrice(
         require(packageUom.dimension != Dimension.PORTION) { "A purchase cannot be in portions" }
         require(grossRials >= 0 && discountRials >= 0 && taxRials >= 0 && deliveryRials >= 0) { "Amounts cannot be negative" }
         require(discountRials <= grossRials) { "The discount cannot exceed the gross price" }
+        // Reject impossible totals before they can wrap around a Long and silently corrupt pricing.
+        val total = BigDecimal.valueOf(grossRials - discountRials)
+            .add(BigDecimal.valueOf(if (taxRecoverable) 0L else taxRials))
+            .add(BigDecimal.valueOf(deliveryRials))
+        require(total <= BigDecimal.valueOf(Long.MAX_VALUE)) { "The effective price exceeds the supported range" }
     }
 
-    /** Gross − discount + tax that is not claimed back + delivery. */
-    val netCostRials: Long get() = grossRials - discountRials + (if (taxRecoverable) 0 else taxRials) + deliveryRials
+    /** Gross − discount + non-recoverable tax + delivery, validated against Long overflow. */
+    val netCostRials: Long
+        get() = Math.addExact(
+            Math.addExact(grossRials - discountRials, if (taxRecoverable) 0L else taxRials),
+            deliveryRials,
+        )
 }
