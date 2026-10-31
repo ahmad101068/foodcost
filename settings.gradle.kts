@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "foodcost-app"
 
-include(":core")
+include(":core", ":data")
