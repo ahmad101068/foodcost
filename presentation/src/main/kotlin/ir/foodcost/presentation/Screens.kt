@@ -78,11 +78,11 @@ object MenuStatusScreen {
             kindLabel = if (item.recipe.kind == RecipeKind.EVENT_PACKAGE) Labels.kind(item.recipe.kind) else null,
             status = item.status,
             statusLabel = Labels.status(item.status),
-            foodCost = money.full(item.cost.foodCostPerPortion),
+            foodCost = if (item.cost.isComplete && item.cost.hasLines) money.full(item.cost.foodCostPerPortion) else "ناقص",
             menuPrice = e.currentPrice?.let { money.full(it) },
-            suggestedPrice = money.full(e.suggestion.menuPrice),
-            foodCostPercent = e.foodCostPercent?.let { Numbers.percent(it) },
-            raise = e.changePercent?.takeIf { item.needsRaise() && it.signum() > 0 }?.let { Numbers.percent(it, 0) },
+            suggestedPrice = if (item.cost.isComplete && item.cost.hasLines) money.full(e.suggestion.menuPrice) else "نامشخص",
+            foodCostPercent = e.foodCostPercent?.takeIf { item.cost.isComplete && item.cost.hasLines }?.let { Numbers.percent(it) },
+            raise = e.changePercent?.takeIf { item.cost.isComplete && item.cost.hasLines && item.needsRaise() && it.signum() > 0 }?.let { Numbers.percent(it, 0) },
         )
     }
 }
@@ -322,7 +322,7 @@ object RecipeScreens {
                     id = recipe.id,
                     name = recipe.name,
                     kind = recipe.kind,
-                    cost = money.full(cost.foodCostPerPortion),
+                    cost = if (cost.isComplete && cost.hasLines) money.full(cost.foodCostPerPortion) else "ناقص",
                     status = evaluation?.status,
                     statusLabel = evaluation?.status?.let(Labels::status),
                     complete = cost.isComplete && cost.hasLines,
