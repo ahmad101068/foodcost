@@ -216,7 +216,7 @@ fun RecipeScreen(id: RecipeId, state: LedgerState, money: MoneyFormat, today: Lo
             cost = remember(state, id, today) { state.calculator().cost(id, today) },
             pricing = state.pricing,
             money = money,
-            initialPriceRials = detail.pricing?.menuPriceRials ?: detail.pricing?.suggestedRials,
+            initialPriceRials = detail.pricing?.menuPriceRials,
             onDismiss = { dialog = null },
             onSavePrice = { amount ->
                 actions.run({ it.setMenuPrice(id, today, amount) }) { dialog = null }
