@@ -138,7 +138,7 @@ private fun RecipeListItem(row: RecipeRow, onClick: () -> Unit) {
     HorizontalDivider()
 }
 
-private enum class RecipeDialog { HEADER, ARCHIVE, MENU_PRICE, BATCH }
+private enum class RecipeDialog { HEADER, ARCHIVE, MENU_PRICE, BATCH, INSTANT }
 
 /** One recipe: what goes in it, what a portion costs and what it should sell for. */
 @Composable
@@ -168,6 +168,14 @@ fun RecipeScreen(id: RecipeId, state: LedgerState, money: MoneyFormat, today: Lo
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item { CostCard(detail, onEditPrice = { dialog = RecipeDialog.MENU_PRICE }) }
+            if (detail.kind != RecipeKind.PREP && detail.validForCalculator) {
+                item {
+                    Button(
+                        onClick = { dialog = RecipeDialog.INSTANT },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("ماشین‌حساب لحظه‌ای قیمت و سود") }
+                }
+            }
             if (detail.issues.isNotEmpty()) {
                 item { IssuesCard(detail.issues) }
             }
@@ -204,6 +212,16 @@ fun RecipeScreen(id: RecipeId, state: LedgerState, money: MoneyFormat, today: Lo
         }
     }
     when (dialog) {
+        RecipeDialog.INSTANT -> InstantCalculatorDialog(
+            cost = remember(state, id, today) { state.calculator().cost(id, today) },
+            pricing = state.pricing,
+            money = money,
+            initialPriceRials = detail.pricing?.menuPriceRials ?: detail.pricing?.suggestedRials,
+            onDismiss = { dialog = null },
+            onSavePrice = { amount ->
+                actions.run({ it.setMenuPrice(id, today, amount) }) { dialog = null }
+            },
+        )
         RecipeDialog.HEADER -> RecipeHeaderDialog(
             title = "ویرایش دستور",
             initial = detail.header,
@@ -263,13 +281,13 @@ private fun CostCard(detail: RecipeDetail, onEditPrice: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text("بهای هر پرس", style = MaterialTheme.typography.labelLarge)
-                    Text(detail.costPerPortion, style = MaterialTheme.typography.headlineSmall)
+                    Text(if (detail.validForCalculator) detail.costPerPortion else "محاسبه ناقص", style = MaterialTheme.typography.headlineSmall)
                 }
                 if (detail.kind != RecipeKind.PREP) StatusChip(detail.status, detail.statusLabel)
             }
             detail.batchCost?.let { LabeledValue("کل دستور", it) }
             detail.outputLabel?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-            detail.pricing?.let { pricing ->
+            if (detail.validForCalculator) detail.pricing?.let { pricing ->
                 HorizontalDivider()
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     LabeledValue("قیمت پیشنهادی", pricing.suggested, Modifier.weight(1f), emphasized = true)
