@@ -5,6 +5,9 @@
 set -uo pipefail
 APP=ir.foodcost.app.debug
 
+# Give the emulator's own launcher time to settle, so it does not freeze over the screenshots.
+sleep 30
+
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb logcat -c || true
