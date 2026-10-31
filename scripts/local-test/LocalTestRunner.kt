@@ -1,17 +1,18 @@
-// Local runs only: finds every @Test method in the compiled test classes and runs it.
+// Local runs only: finds every @Test method in the compiled test folders and runs it.
 import java.io.File
 import java.lang.reflect.InvocationTargetException
 import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
-    val root = File(args.single())
     @Suppress("UNCHECKED_CAST")
     val testAnnotation = Class.forName("org.junit.jupiter.api.Test") as Class<out Annotation>
-    val classNames = root.walkTopDown()
-        .filter { it.isFile && it.name.endsWith("Test.class") && '$' !in it.name }
-        .map { it.relativeTo(root).path.removeSuffix(".class").replace(File.separatorChar, '.') }
-        .sorted()
-        .toList()
+    val classNames = args.flatMap { dir ->
+        val root = File(dir)
+        root.walkTopDown()
+            .filter { it.isFile && it.name.endsWith("Test.class") && '$' !in it.name }
+            .map { it.relativeTo(root).path.removeSuffix(".class").replace(File.separatorChar, '.') }
+            .toList()
+    }.sorted()
 
     var passed = 0
     val failures = mutableListOf<String>()
