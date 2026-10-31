@@ -86,3 +86,54 @@ jobs:
           gh release delete preview --yes --cleanup-tag || true
           gh release create preview foodcost-preview.apk --prerelease --target "$GITHUB_SHA" \
             --title "نسخهٔ آزمایشی فودکاست" --notes-file .github/preview-notes.md
+
+  # Walks through the app on an Android emulator and keeps a screenshot of each step,
+  # published as a draft release (visible only to the repository's owners).
+  walkthrough:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Build the app and its test
+        shell: bash
+        run: |
+          set -o pipefail
+          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon 2>&1 | tee build.log
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Walk through the app
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: ./scripts/walkthrough.sh
+      - name: Report failures
+        if: failure()
+        shell: bash
+        run: |
+          lines=$( { grep -E "^e: |error:|What went wrong|FAILED" build.log; grep -E "FAILURES|Exception|Error|expected|Caused by|at ir\.foodcost|Tests run" walkthrough.log; grep -E "FATAL|AndroidRuntime|ir\.foodcost" logcat.txt; } 2>/dev/null | head -90 || true)
+          message=$(printf '%s' "$lines" | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}')
+          echo "::error title=Walk-through failed::${message}"
+      - name: Publish the screenshots
+        if: always() && hashFiles('screenshots/*.png') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          for id in $(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.draft and .name == "Walk-through screenshots") | .id'); do
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"
+          done
+          gh release create walkthrough screenshots/*.png --draft --target "$GITHUB_SHA" \
+            --title "Walk-through screenshots" --notes "Screenshots of the automated walk-through at ${GITHUB_SHA::7}."
