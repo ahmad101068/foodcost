@@ -7,6 +7,7 @@ on:
     paths:
       - "core/**"
       - "data/**"
+      - "presentation/**"
       - "build.gradle.kts"
       - "settings.gradle.kts"
       - "gradle/**"
@@ -15,6 +16,7 @@ on:
     paths:
       - "core/**"
       - "data/**"
+      - "presentation/**"
       - "build.gradle.kts"
       - "settings.gradle.kts"
       - "gradle/**"
@@ -34,16 +36,20 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
       - name: Test
         shell: bash
+        # Leaves the Android app out: these modules build without the Android SDK.
+        env:
+          ANDROID_HOME: ""
+          ANDROID_SDK_ROOT: ""
         run: |
           set -o pipefail
-          ./gradlew test --no-daemon 2>&1 | tee build.log
+          ./gradlew :core:test :data:test :presentation:test --no-daemon 2>&1 | tee build.log
       # The annotations below can be read through the API without downloading the logs.
       # This one shows how many tests each module ran, so a module that runs none stands out.
       - name: Count tests
         shell: bash
         run: |
           counts=""
-          for module in core data; do
+          for module in core data presentation; do
             n=$(cat "$module"/build/test-results/test/*.xml 2>/dev/null | grep -c "<testcase " || true)
             counts="$counts $module: ${n:-0},"
           done

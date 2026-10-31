@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A plate with a percent sign: what a dish costs as a share of its price. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M30,54 A24,24 0 1,0 78,54 A24,24 0 1,0 30,54 Z"
+        android:strokeWidth="4"
+        android:strokeColor="#FFFFFF" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M45,40.5 A4.5,4.5 0 1,0 45,49.5 A4.5,4.5 0 1,0 45,40.5 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M63,58.5 A4.5,4.5 0 1,0 63,67.5 A4.5,4.5 0 1,0 63,58.5 Z" />
+    <path
+        android:pathData="M64,42 L44,66"
+        android:strokeWidth="4.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round" />
+</vector>

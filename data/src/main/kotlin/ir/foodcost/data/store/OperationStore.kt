@@ -4,7 +4,7 @@ import ir.foodcost.data.ops.OpId
 import ir.foodcost.data.ops.Operation
 
 /**
- * Where operations are kept: Room on the phone, PostgreSQL on the server. Operations are only
+ * Where operations are kept: SQLite on the phone, PostgreSQL on the server. Operations are only
  * ever added; the store keeps the first copy of an id and ignores the rest.
  */
 interface OperationStore {

@@ -10,7 +10,7 @@ OUT="$(mktemp -d)"
 trap 'rm -rf "$OUT"' EXIT
 LIB="$KOTLIN_HOME/lib"
 KOTLINC="$KOTLIN_HOME/bin/kotlinc"
-MODULES="core data" # in dependency order
+MODULES="core data presentation" # in dependency order
 
 echo "Compiling the test stand-ins..."
 "$KOTLINC" -nowarn -d "$OUT/stub" "$ROOT/scripts/local-test"
