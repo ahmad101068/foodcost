@@ -244,6 +244,8 @@ fun <T> Segmented(
                 onClick = { onSelect(option) },
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
                 enabled = enabled,
+                // The fill already shows the choice; a check mark would crowd the label.
+                icon = {},
             ) {
                 Text(label(option), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }

@@ -1,7 +1,7 @@
 name: android
 
-# Builds the APK for every change to the app or the modules it uses. A manual run (or a push
-# to main) also publishes it as the "preview" pre-release, with a stable download link.
+# Builds the APK for every change to the app or the modules it uses and keeps it in a draft
+# release, which only the repository's owners can see. Nothing here publishes anything publicly.
 on:
   push:
     paths:
@@ -16,11 +16,6 @@ on:
       - ".github/workflows/android.yml"
       - ".github/preview-notes.md"
   workflow_dispatch:
-    inputs:
-      publish:
-        description: "Publish the APK as the preview release"
-        type: boolean
-        default: true
 
 permissions:
   contents: write
@@ -76,16 +71,17 @@ jobs:
         run: |
           apk=app/build/outputs/apk/release/app-release.apk
           echo "::notice title=APK built::$(du -k "$apk" | cut -f1) KB, version code $((GITHUB_RUN_NUMBER + 1))"
-      - name: Publish the preview
-        if: (github.event_name == 'workflow_dispatch' && inputs.publish) || github.ref == 'refs/heads/main'
+      - name: Keep the APK in a draft release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          cp app/build/outputs/apk/release/app-release.apk foodcost-preview.apk
-          gh release delete preview --yes --cleanup-tag || true
-          gh release create preview foodcost-preview.apk --prerelease --target "$GITHUB_SHA" \
-            --title "نسخهٔ آزمایشی فودکاست" --notes-file .github/preview-notes.md
+          cp app/build/outputs/apk/release/app-release.apk foodcost.apk
+          for id in $(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.draft and .name == "APK for testing") | .id'); do
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"
+          done
+          gh release create apk-for-testing foodcost.apk --draft --target "$GITHUB_SHA" \
+            --title "APK for testing" --notes-file .github/preview-notes.md
 
   # Walks through the app on an Android emulator and keeps a screenshot of each step,
   # published as a draft release (visible only to the repository's owners).
