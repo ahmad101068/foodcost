@@ -95,11 +95,11 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v5
-      - name: Build the app and its test
+      - name: Build the app, its test and the release build
         shell: bash
         run: |
           set -o pipefail
-          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon 2>&1 | tee build.log
+          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease --no-daemon 2>&1 | tee build.log
       - name: Enable KVM
         shell: bash
         run: |
