@@ -47,6 +47,19 @@ class InstantCalculatorTest {
         assertNull(q.remainderPerPortion)
     }
 
+    @Test fun `effective purchase costs cannot overflow signed rials`() {
+        assertFailsWith<IllegalArgumentException> {
+            ir.foodcost.core.model.PurchasePrice(
+                ingredientId = ir.foodcost.core.model.IngredientId("test"),
+                effectiveFrom = java.time.LocalDate.of(2026, 1, 1),
+                packageQty = BigDecimal.ONE,
+                packageUom = ir.foodcost.core.units.Uom.KILOGRAM,
+                grossRials = Long.MAX_VALUE,
+                deliveryRials = 1L,
+            )
+        }
+    }
+
     @Test fun `invalid price, targets, costs and counts are rejected`() {
         assertFailsWith<IllegalArgumentException> { InstantQuoteInput(foodCostPerPortion = "-1".bd) }
         assertFailsWith<IllegalArgumentException> { InstantQuoteInput(foodCostPerPortion = "1".bd, menuPrice = "0".bd) }
