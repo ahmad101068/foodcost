@@ -114,6 +114,13 @@ class WalkThroughTest {
         click("ذخیره")
         waitFor("تغییر قیمت منو")
         shot("10-recipe")
+
+        // The live calculator opens on a complete recipe and shows immediately recomputed metrics.
+        click("ماشین‌حساب لحظه‌ای قیمت و سود")
+        waitFor("درصد فودکاست")
+        waitFor("مانده پس از هزینه‌های واردشده")
+        shot("10a-instant-calculator")
+        click("بستن")
         back()
         shot("11-recipes")
 
