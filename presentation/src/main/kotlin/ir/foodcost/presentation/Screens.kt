@@ -218,7 +218,7 @@ object IngredientScreens {
             ingredient.conversions.gramsPerPiece?.let { add("هر عدد ${Prices.quantity(it, Uom.GRAM)}") }
             ingredient.conversions.gramsPerMilliliter?.let { add("هر میلی‌لیتر ${Prices.quantity(it, Uom.GRAM)}") }
         }
-        return parts.joinToString(" · ").ifEmpty { null }
+        return parts.joinToString("، ").ifEmpty { null }
     }
 
     private fun priceRow(record: PriceRecord, ingredient: Ingredient, money: MoneyFormat, inForce: Boolean): PriceRow {
@@ -229,7 +229,7 @@ object IngredientScreens {
             if (p.taxRials > 0) add((if (p.taxRecoverable) "مالیات قابل کسر " else "مالیات ") + money.full(p.taxRials))
             if (p.deliveryRials > 0) add("حمل ${money.full(p.deliveryRials)}")
             p.supplier?.let { add(it) }
-        }.joinToString(" · ").ifEmpty { null }
+        }.joinToString("، ").ifEmpty { null }
         return PriceRow(
             priceId = record.priceId,
             date = JalaliDate.of(p.effectiveFrom).format(),
@@ -315,6 +315,31 @@ data class ComponentChoice(
     val hasWaste: Boolean,
 )
 
+/** The dishes tab: plates with how their price stands, the ones that need a new price first, then preparations. */
+data class DishesModel(
+    /** Plates whose menu price no longer covers their cost, or barely does, whatever is searched. */
+    val needsRepricing: Int,
+    /** True when every plate has a menu price that covers its cost. */
+    val allCovered: Boolean,
+    val plates: List<MenuRow>,
+    val preparations: List<RecipeRow>,
+) {
+    val isEmpty: Boolean get() = plates.isEmpty() && preparations.isEmpty()
+}
+
+object DishesScreen {
+    fun build(state: LedgerState, date: LocalDate, money: MoneyFormat, query: String = ""): DishesModel {
+        val menu = MenuStatusScreen.build(state, date, money)
+        val preparations = RecipeScreens.groups(state, date, money, query).firstOrNull { it.kind == RecipeKind.PREP }?.rows.orEmpty()
+        return DishesModel(
+            needsRepricing = menu.needsRepricing,
+            allCovered = menu.rows.isNotEmpty() && menu.rows.all { it.status == PriceStatus.OK },
+            plates = menu.rows.filter { Persian.matches(it.name, query) },
+            preparations = preparations,
+        )
+    }
+}
+
 object RecipeScreens {
     private val KIND_ORDER = listOf(RecipeKind.MENU_ITEM, RecipeKind.EVENT_PACKAGE, RecipeKind.PREP)
 
@@ -363,7 +388,7 @@ object RecipeScreens {
             val qty = v.outputQty ?: return@let null
             val uom = v.outputUom ?: return@let null
             val perUnit = cost.costPerOutputUnit?.let { Prices.perUnit(it, uom.dimension, money) }
-            listOfNotNull("خروجی ${Prices.quantity(qty, uom)}", perUnit).joinToString(" · ")
+            listOfNotNull("خروجی ${Prices.quantity(qty, uom)}", perUnit).joinToString("، ")
         }
         val s = evaluation.suggestion
         return RecipeDetail(
@@ -453,7 +478,7 @@ object RecipeScreens {
         ComponentChoice(
             ref = ComponentRef.RecipeRef(recipe.id),
             name = recipe.name,
-            detail = "${Labels.kind(recipe.kind)} · هر پرس ${money.full(costPerPortion)}",
+            detail = "${Labels.kind(recipe.kind)}، هر پرس ${money.full(costPerPortion)}",
             units = UnitOptions.forSubRecipe(recipe.versionAt(date)),
             defaultUnit = Uom.PORTION,
             hasWaste = false,
@@ -474,7 +499,7 @@ object RecipeScreens {
             index = line.index,
             name = name,
             isSubRecipe = l.component is ComponentRef.RecipeRef,
-            quantity = if (raw) "$quantity · ${Labels.basis(QtyBasis.AS_PURCHASED)}" else quantity,
+            quantity = if (raw) "$quantity، ${Labels.basis(QtyBasis.AS_PURCHASED)}" else quantity,
             cost = money.full(line.cost),
             issue = line.issue?.let { Labels.issue(it.type, name) },
         )

@@ -22,6 +22,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardColors
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -52,6 +54,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import ir.foodcost.app.ui.theme.displayColors
 import ir.foodcost.app.ui.theme.statusColors
 import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.presentation.DigitGroups
@@ -69,7 +72,7 @@ fun TabScaffold(
     Scaffold(
         topBar = { TopAppBar(title = { Text(title) }, actions = topActions) },
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest) {
                 Tab.entries.forEach { tab ->
                     NavigationBarItem(
                         selected = nav.tab == tab,
@@ -124,6 +127,42 @@ fun AddButton(text: String, onClick: () -> Unit) {
         Icon(Icons.Filled.Add, contentDescription = null)
         Spacer(Modifier.width(12.dp))
         Text(text)
+    }
+}
+
+/** White cards on the paper background: calculator rows, dishes, prices and settings. */
+@Composable
+fun whiteCardColors(): CardColors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
+
+/**
+ * The lapis window that shows a cost: the calculator's display and the top of a recipe. Inside
+ * it, text is light, the result color is saffron (as `primary`) and dividers and buttons follow.
+ */
+@Composable
+fun DisplayPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    val display = displayColors()
+    val scheme = MaterialTheme.colorScheme.copy(
+        primary = display.result,
+        onPrimary = display.container,
+        onSurface = display.value,
+        onSurfaceVariant = display.label,
+        surfaceVariant = display.divider,
+        outline = display.label,
+        outlineVariant = display.divider,
+    )
+    MaterialTheme(colorScheme = scheme) {
+        Surface(
+            modifier = modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = display.container,
+            contentColor = display.value,
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                content = content,
+            )
+        }
     }
 }
 
@@ -312,7 +351,7 @@ fun SwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Uni
 
 @Composable
 fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
+    Card(Modifier.fillMaxWidth(), colors = whiteCardColors()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             content()

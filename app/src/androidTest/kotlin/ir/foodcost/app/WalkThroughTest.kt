@@ -1,7 +1,9 @@
 package ir.foodcost.app
 
 import android.graphics.Bitmap
+import android.os.ParcelFileDescriptor
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -27,7 +29,7 @@ import java.io.File
 
 /**
  * Walks through the app the way the hall owner uses it: the koobideh priced in the calculator with
- * his own numbers, saved, found on the menu, re-priced when meat gets dearer, an ingredient price
+ * his own numbers, saved, found among the dishes, re-priced when meat gets dearer, an ingredient price
  * updated from the list, then the detailed screens. Screenshots of each step are left in the
  * app's files for the workflow to collect.
  */
@@ -68,8 +70,8 @@ class WalkThroughTest {
         typeRow(1, "دمبه", "1100000", "30")
         typeRow(2, "پیاز", "80000", "50")
         typeRow(3, "برنج", "350000", "200")
-        waitFor("۳۶۴٬۱۰۵ تومان")
-        waitFor("۱٬۱۵۰٬۰۰۰ تومان")
+        waitForFigure("cost", "۳۶۴٬۱۰۵")
+        waitForFigure("suggested", "۱٬۱۵۰٬۰۰۰")
         shot("02-calculator")
 
         // Sold at 630,000 toman (VAT included) the food cost is 63.6%: under-priced.
@@ -83,16 +85,18 @@ class WalkThroughTest {
         waitForPart("در غذاها ذخیره شد")
         shot("04-saved")
 
-        click("منو")
+        // The dishes tab shows the plate and that its price no longer covers it.
+        click("غذاها")
         waitFor("چلوکباب کوبیده")
         waitFor("زیر قیمت")
-        shot("05-menu")
+        waitFor("۱ غذا باید گران‌تر شود")
+        shot("05-dishes")
 
         // The saved dish opens in the calculator; dearer meat shows at once.
         click("چلوکباب کوبیده")
         waitForTag("row-0-price")
         replaceTag("row-0-price", "1600000")
-        waitFor("۳۹۰٬۳۷۰ تومان")
+        waitForFigure("cost", "۳۹۰٬۳۷۰")
         shot("06-dish")
         click("ذخیره")
         waitForPart("در غذاها ذخیره شد")
@@ -118,7 +122,7 @@ class WalkThroughTest {
         shot("09-ingredient")
         back()
 
-        click("دستورها")
+        click("غذاها")
         click("دستور تازه")
         type("نام", "چلو")
         click(Labels.kind(RecipeKind.PREP))
@@ -134,6 +138,28 @@ class WalkThroughTest {
         click("تنظیمات")
         waitFor("ذخیرهٔ قیمت‌گذاری")
         shot("11-settings")
+
+        darkTheme()
+    }
+
+    /** Two pictures in the dark theme, for a look at its colors. A missing picture fails nothing. */
+    private fun darkTheme() {
+        try {
+            shell("cmd uimode night yes")
+            Thread.sleep(1500)
+            click("ماشین‌حساب")
+            shot("12-dark-calculator")
+            click("غذاها")
+            shot("13-dark-dishes")
+        } catch (e: Throwable) {
+            // The walk itself is done.
+        } finally {
+            shell("cmd uimode night no")
+        }
+    }
+
+    private fun shell(command: String) {
+        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use { it.readBytes() }
     }
 
     private fun typeRow(index: Int, name: String, price: String, qty: String) {
@@ -162,6 +188,13 @@ class WalkThroughTest {
     private fun next(from: String, to: String) {
         rule.onNodeWithTag(from).performImeAction()
         waitForFocus(to)
+    }
+
+    /** Waits until the display's figure [tag] shows [number]. */
+    private fun waitForFigure(tag: String, number: String) {
+        rule.waitUntil(timeoutMillis = 15_000) {
+            rule.onAllNodes(hasTestTag(tag) and hasText(number, substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     private fun waitForTag(tag: String) {

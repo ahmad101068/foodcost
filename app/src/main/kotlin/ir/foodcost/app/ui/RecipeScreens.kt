@@ -30,6 +30,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,21 +43,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import ir.foodcost.app.ui.theme.statusColors
 import ir.foodcost.core.model.ComponentRef
 import ir.foodcost.core.model.QtyBasis
 import ir.foodcost.core.model.RecipeId
 import ir.foodcost.core.model.RecipeKind
 import ir.foodcost.core.model.RecipeLine
+import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.core.units.Uom
 import ir.foodcost.data.ledger.LedgerState
 import ir.foodcost.data.ops.Opt
 import ir.foodcost.presentation.Batch
 import ir.foodcost.presentation.Checked
 import ir.foodcost.presentation.ComponentChoice
+import ir.foodcost.presentation.DishesScreen
 import ir.foodcost.presentation.Field
 import ir.foodcost.presentation.Labels
 import ir.foodcost.presentation.LineInput
 import ir.foodcost.presentation.LineRow
+import ir.foodcost.presentation.MenuRow
 import ir.foodcost.presentation.MoneyFormat
 import ir.foodcost.presentation.Persian
 import ir.foodcost.presentation.PricingInfo
@@ -68,14 +73,17 @@ import ir.foodcost.presentation.RecipeScreens
 import ir.foodcost.presentation.checkMenuPrice
 import java.time.LocalDate
 
-/** The recipes tab: every recipe, grouped by kind. */
+/**
+ * The dishes tab: every plate with what it costs, its menu price, the suggested price and whether
+ * the price still covers it, the ones that need a new price first; then the preparations.
+ */
 @Composable
 fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav: Navigator, actions: AppActions) {
     var query by rememberSaveable { mutableStateOf("") }
     var creating by rememberSaveable { mutableStateOf(false) }
-    val groups = remember(state, money, today, query) { RecipeScreens.groups(state, today, money, query) }
+    val model = remember(state, money, today, query) { DishesScreen.build(state, today, money, query) }
     TabScaffold(
-        title = "دستورها",
+        title = "غذاها",
         nav = nav,
         actions = actions,
         floatingActionButton = {
@@ -84,25 +92,37 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
     ) { padding ->
         LazyColumn(
             modifier = Modifier.padding(padding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item { SearchField(query, { query = it }, "جستجوی دستور") }
-            if (groups.isEmpty()) {
+            item { SearchField(query, { query = it }, "جستجوی غذا") }
+            if (model.isEmpty) {
                 item {
                     if (query.isBlank()) {
                         EmptyState(
-                            title = "هنوز دستوری ساخته نشده",
-                            body = "برای هر غذا یک دستور بسازید و مواد و مقدارشان را وارد کنید. چیزهایی مثل چلو یا سس را می‌شود «نیمه‌آماده» ساخت و در چند غذا به کار برد.",
+                            title = "هنوز غذایی ذخیره نشده",
+                            body = "یک غذا را در ماشین‌حساب حساب و ذخیره کنید تا بها، قیمت پیشنهادی و وضعیت قیمتش اینجا دیده شود.",
+                            action = "رفتن به ماشین‌حساب",
+                            onAction = { nav.tab(Tab.CALC) },
                         )
                     } else {
-                        EmptyState(title = "دستوری با این نام پیدا نشد", body = "نام دیگری را جستجو کنید.")
+                        EmptyState(title = "غذایی با این نام پیدا نشد", body = "نام دیگری را جستجو کنید.")
                     }
                 }
             }
-            groups.forEach { group ->
-                item(key = "group-${group.kind.name}") { SectionTitle(group.title, Modifier.padding(top = 12.dp)) }
-                items(group.rows, key = { it.id.value }) { row ->
-                    RecipeListItem(row) { nav.open(dishScreen(state, row.id, today, money)) }
+            if (query.isBlank() && (model.needsRepricing > 0 || model.allCovered)) {
+                item { PriceVerdict(model.needsRepricing) }
+            }
+            if (model.plates.isNotEmpty()) {
+                item { SectionTitle("غذاهای منو", Modifier.padding(start = 4.dp)) }
+                items(model.plates, key = { it.recipeId.value }) { row ->
+                    PlateCard(row) { nav.open(dishScreen(state, row.recipeId, today, money)) }
+                }
+            }
+            if (model.preparations.isNotEmpty()) {
+                item { SectionTitle("نیمه‌آماده‌ها", Modifier.padding(start = 4.dp)) }
+                items(model.preparations, key = { it.id.value }) { row ->
+                    PreparationCard(row) { nav.open(Screen.Recipe(row.id.value)) }
                 }
             }
         }
@@ -122,20 +142,65 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
     }
 }
 
+/** One line on top of the list: how many plates need a new price, or that none does. */
 @Composable
-private fun RecipeListItem(row: RecipeRow, onClick: () -> Unit) {
-    val status = row.status
-    ListItem(
-        headlineContent = { Text(row.name) },
-        supportingContent = { Text("بهای هر پرس ${row.cost}") },
-        trailingContent = if (status != null) {
-            { StatusChip(status, row.statusLabel.orEmpty()) }
-        } else {
-            null
-        },
-        modifier = Modifier.clickable(onClick = onClick),
-    )
-    HorizontalDivider()
+private fun PriceVerdict(needsRepricing: Int) {
+    val colors = statusColors(if (needsRepricing > 0) PriceStatus.UNDER else PriceStatus.OK)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = colors.container,
+        contentColor = colors.content,
+    ) {
+        Text(
+            if (needsRepricing > 0) "${Persian.digits(needsRepricing)} غذا باید گران‌تر شود" else "قیمت همهٔ غذاها بهایشان را می‌پوشاند",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+        )
+    }
+}
+
+@Composable
+private fun PlateCard(row: MenuRow, onClick: () -> Unit) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), colors = whiteCardColors()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(row.name, style = MaterialTheme.typography.titleMedium)
+                    row.kindLabel?.let {
+                        Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                StatusChip(row.status, row.statusLabel)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                LabeledValue("بهای هر پرس", row.foodCost, Modifier.weight(1f))
+                LabeledValue("قیمت منو", row.menuPrice ?: "ثبت نشده", Modifier.weight(1f))
+                LabeledValue("پیشنهادی", row.suggestedPrice, Modifier.weight(1f), emphasized = row.raise != null)
+            }
+            val notes = listOfNotNull(
+                row.foodCostPercent?.let { "فودکاست $it" },
+                row.raise?.let { "باید $it گران‌تر شود" },
+            )
+            if (notes.isNotEmpty()) {
+                Text(
+                    notes.joinToString("، "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (row.raise != null) statusColors(row.status).content else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreparationCard(row: RecipeRow, onClick: () -> Unit) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), colors = whiteCardColors()) {
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(row.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            LabeledValue("بهای هر پرس", row.cost)
+        }
+    }
 }
 
 private enum class RecipeDialog { HEADER, ARCHIVE, MENU_PRICE, BATCH }
@@ -253,41 +318,43 @@ fun RecipeScreen(id: RecipeId, state: LedgerState, money: MoneyFormat, today: Lo
 
 @Composable
 private fun CostCard(detail: RecipeDetail, onEditPrice: () -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
+    // The same lapis window as the calculator's display, so a cost always looks the same.
+    DisplayPanel {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                val about = listOfNotNull(detail.kindLabel, detail.category)
+                if (about.isNotEmpty()) {
                     Text(
-                        listOfNotNull(detail.kindLabel, detail.category).joinToString(" · "),
+                        about.joinToString("، "),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Text("بهای هر پرس", style = MaterialTheme.typography.labelLarge)
-                    Text(detail.costPerPortion, style = MaterialTheme.typography.headlineSmall)
                 }
-                if (detail.kind != RecipeKind.PREP) StatusChip(detail.status, detail.statusLabel)
+                Text("بهای هر پرس", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(detail.costPerPortion, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
             }
-            detail.batchCost?.let { LabeledValue("کل دستور", it) }
-            detail.outputLabel?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-            detail.pricing?.let { pricing ->
-                HorizontalDivider()
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    LabeledValue("قیمت پیشنهادی", pricing.suggested, Modifier.weight(1f), emphasized = true)
-                    LabeledValue("قیمت فعلی منو", pricing.menuPrice ?: "ثبت نشده", Modifier.weight(1f), emphasized = true)
-                }
-                val notes = listOfNotNull(
-                    pricing.method,
-                    pricing.foodCostPercent?.let { "فودکاست با قیمت فعلی $it" },
-                    pricing.raise?.let { "باید $it گران‌تر شود" },
-                )
-                Text(
-                    notes.joinToString(" · "),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                OutlinedButton(onClick = onEditPrice) {
-                    Text(if (pricing.menuPrice == null) "ثبت قیمت منو" else "تغییر قیمت منو")
-                }
+            if (detail.kind != RecipeKind.PREP) StatusChip(detail.status, detail.statusLabel)
+        }
+        detail.batchCost?.let { LabeledValue("کل دستور", it) }
+        detail.outputLabel?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+        detail.pricing?.let { pricing ->
+            HorizontalDivider()
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                LabeledValue("قیمت پیشنهادی", pricing.suggested, Modifier.weight(1f), emphasized = true)
+                LabeledValue("قیمت فعلی منو", pricing.menuPrice ?: "ثبت نشده", Modifier.weight(1f), emphasized = true)
+            }
+            val notes = listOfNotNull(
+                pricing.method,
+                pricing.foodCostPercent?.let { "فودکاست با قیمت فعلی $it" },
+                pricing.raise?.let { "باید $it گران‌تر شود" },
+            )
+            Text(
+                notes.joinToString("، "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(onClick = onEditPrice) {
+                Text(if (pricing.menuPrice == null) "ثبت قیمت منو" else "تغییر قیمت منو")
             }
         }
     }
@@ -315,14 +382,10 @@ private fun IssuesCard(issues: List<String>) {
 
 @Composable
 private fun LineItem(line: LineRow, onClick: () -> Unit) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), colors = whiteCardColors()) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(line.name + if (line.isSubRecipe) " · دستور" else "", style = MaterialTheme.typography.bodyLarge)
+                Text(line.name + if (line.isSubRecipe) " (دستور)" else "", style = MaterialTheme.typography.bodyLarge)
                 Text(line.quantity, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 line.issue?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
             }

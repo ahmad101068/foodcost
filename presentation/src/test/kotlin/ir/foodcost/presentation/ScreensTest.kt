@@ -99,6 +99,27 @@ class ScreensTest {
     }
 
     @Test
+    fun `the dishes tab lists plates by how their price stands, then preparations, and finds them by name`() {
+        val k = Kitchen()
+        assertTrue(DishesScreen.build(k.state, D1, toman).allCovered)
+        k.ledger.recordPrice(k.perKilo(k.meat, D15, 20_000_000))
+        val salad = k.ledger.createRecipe("سالاد شیرازی", RecipeKind.MENU_ITEM)
+        k.ledger.saveRecipeVersion(salad, RecipeVersion(D1, batchLines = listOf(k.grams(k.rice, "10"))))
+
+        val model = DishesScreen.build(k.state, D15, toman)
+        assertEquals(listOf("چلوکباب کوبیده", "سالاد شیرازی"), model.plates.map { it.name })
+        assertEquals(listOf("چلو"), model.preparations.map { it.name })
+        assertEquals(1, model.needsRepricing)
+        assertFalse(model.allCovered)
+
+        val found = DishesScreen.build(k.state, D15, toman, query = "چلو")
+        assertEquals(listOf("چلوکباب کوبیده"), found.plates.map { it.name })
+        assertEquals(listOf("چلو"), found.preparations.map { it.name })
+        assertEquals(1, found.needsRepricing)
+        assertTrue(DishesScreen.build(k.state, D15, toman, query = "ماهی").isEmpty)
+    }
+
+    @Test
     fun `the ingredient list shows the price per kilo and the yield`() {
         val k = Kitchen()
         val egg = k.ledger.createIngredient("تخم‌مرغ", Dimension.COUNT)
@@ -212,7 +233,7 @@ class ScreensTest {
         assertEquals(setOf("برنج طارم", "گوشت چرخ‌کرده"), forChelow.map { it.name }.toSet())
         val forKebab = RecipeScreens.choices(k.state, k.kebab, D1, toman)
         val chelow = forKebab.single { it.ref == ComponentRef.RecipeRef(k.chelow) }
-        assertEquals("نیمه‌آماده · هر پرس ۷۰٬۴۰۸ تومان", chelow.detail)
+        assertEquals("نیمه‌آماده، هر پرس ۷۰٬۴۰۸ تومان", chelow.detail)
         assertEquals(listOf(Uom.PORTION), chelow.units)
         val rice = forKebab.single { it.ref == ComponentRef.IngredientRef(k.rice) }
         assertTrue(rice.hasWaste)

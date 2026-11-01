@@ -1,5 +1,7 @@
 package ir.foodcost.app.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +16,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -23,13 +27,12 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -45,12 +48,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathFillType
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import ir.foodcost.app.AppContainer
@@ -61,6 +61,7 @@ import ir.foodcost.presentation.Checked
 import ir.foodcost.presentation.Field
 import ir.foodcost.presentation.Labels
 import ir.foodcost.presentation.MoneyFormat
+import ir.foodcost.presentation.Numbers
 import ir.foodcost.presentation.Persian
 import ir.foodcost.presentation.QuickCalculator
 import ir.foodcost.presentation.QuickInput
@@ -68,43 +69,8 @@ import ir.foodcost.presentation.QuickResult
 import ir.foodcost.presentation.QuickRow
 import ir.foodcost.presentation.QuickRowResult
 import ir.foodcost.presentation.QuickSuggestion
+import java.math.BigDecimal
 import java.time.LocalDate
-
-/** A calculator glyph for the tab, drawn here because the bundled icon set has none. */
-val CalculatorIcon: ImageVector = ImageVector.Builder(
-    name = "Calculator",
-    defaultWidth = 24.dp,
-    defaultHeight = 24.dp,
-    viewportWidth = 24f,
-    viewportHeight = 24f,
-).path(fill = SolidColor(Color.Black), pathFillType = PathFillType.EvenOdd) {
-    moveTo(7f, 2f)
-    lineTo(17f, 2f)
-    arcToRelative(2f, 2f, 0f, false, true, 2f, 2f)
-    lineTo(19f, 20f)
-    arcToRelative(2f, 2f, 0f, false, true, -2f, 2f)
-    lineTo(7f, 22f)
-    arcToRelative(2f, 2f, 0f, false, true, -2f, -2f)
-    lineTo(5f, 4f)
-    arcToRelative(2f, 2f, 0f, false, true, 2f, -2f)
-    close()
-    moveTo(7.5f, 4.5f)
-    lineTo(16.5f, 4.5f)
-    lineTo(16.5f, 8.5f)
-    lineTo(7.5f, 8.5f)
-    close()
-    for (row in 0..2) {
-        for (col in 0..2) {
-            val x = 7.5f + col * 3.25f
-            val y = 11f + row * 3.25f
-            moveTo(x, y)
-            lineTo(x + 2.5f, y)
-            lineTo(x + 2.5f, y + 2.5f)
-            lineTo(x, y + 2.5f)
-            close()
-        }
-    }
-}.build()
 
 /**
  * The calculator: type each ingredient's price per kilo and how many grams go in, and the cost, the
@@ -178,20 +144,39 @@ fun CalculatorScreen(
     val body: @Composable (PaddingValues) -> Unit = { padding ->
         // The keyboard shortens the list instead of covering it, so the field being typed in stays in sight.
         Column(Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()) {
-            Summary(result, input.menuPrice, money) { update(input.copy(menuPrice = it)) }
+            Display(result, money, Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(horizontal = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                TextInput(
-                    value = input.dishName,
-                    onValueChange = { update(input.copy(dishName = it)) },
-                    label = "نام غذا (برای ذخیره)",
-                    modifier = Modifier.padding(top = 8.dp).testTag("dish-name"),
-                    imeAction = ImeAction.Next,
+                Card(colors = whiteCardColors(), modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
+                    Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextInput(
+                            value = input.dishName,
+                            onValueChange = { update(input.copy(dishName = it)) },
+                            label = "نام غذا",
+                            modifier = Modifier.weight(1f).testTag("dish-name"),
+                            imeAction = ImeAction.Next,
+                        )
+                        TextInput(
+                            value = input.menuPrice,
+                            onValueChange = { update(input.copy(menuPrice = it)) },
+                            label = "قیمت منو",
+                            modifier = Modifier.weight(1f).testTag("menu-price"),
+                            number = true,
+                            suffix = money.unit,
+                            imeAction = ImeAction.Done,
+                        )
+                    }
+                }
+                Text(
+                    portionsTitle(input),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp, top = 4.dp),
                 )
                 input.rows.forEachIndexed { i, row ->
                     RowCard(
@@ -245,44 +230,92 @@ fun CalculatorScreen(
 
 /** The calculator's display: always on top, so the result stays in sight while typing below. */
 @Composable
-private fun Summary(result: QuickResult, menuPrice: String, money: MoneyFormat, onMenuPrice: (String) -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row {
-                LabeledValue("بهای هر پرس", result.costPerPortion, Modifier.weight(1f).testTag("cost"), emphasized = true)
-                LabeledValue("قیمت پیشنهادی", result.suggested ?: "—", Modifier.weight(1f).testTag("suggested"), emphasized = true)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TextInput(
-                    value = menuPrice,
-                    onValueChange = onMenuPrice,
-                    label = "قیمت فعلی منو",
-                    modifier = Modifier.weight(1f).testTag("menu-price"),
-                    number = true,
-                    suffix = money.unit,
-                    imeAction = ImeAction.Done,
-                )
-                if (result.hasLines) StatusChip(result.status, result.statusLabel)
-            }
-            val notes = listOfNotNull(
-                result.foodCostPercent?.let { "فودکاست $it" },
-                result.profit?.let { "سود ناخالص هر پرس $it" },
-                result.raise?.let { "باید $it گران‌تر شود" },
-            )
+private fun Display(result: QuickResult, money: MoneyFormat, modifier: Modifier = Modifier) {
+    DisplayPanel(modifier) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Figure("بهای هر پرس", result.costPerPortion, money, Modifier.weight(1.1f).testTag("cost"), isResult = true)
+            Figure("قیمت پیشنهادی", result.suggested ?: "—", money, Modifier.weight(1f).testTag("suggested"))
+        }
+        HorizontalDivider()
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (result.hasLines) StatusChip(result.status, result.statusLabel)
             Text(
-                if (notes.isEmpty()) "${result.method} · ${result.miscNote}" else notes.joinToString(" · "),
+                note(result),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
             )
-            if (result.incompleteRows > 0) {
-                val wrong = result.rows.any { it.problem != null && !it.waiting }
+        }
+        if (result.incompleteRows > 0) {
+            val wrong = result.rows.any { it.problem != null && !it.waiting }
+            Text(
+                "${Persian.digits(result.incompleteRows)} ردیف کامل نیست و در جمع نیامده است.",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (wrong) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** A figure on the display, with its unit set smaller than the number. Read out as one item. */
+@Composable
+private fun Figure(label: String, text: String, money: MoneyFormat, modifier: Modifier, isResult: Boolean = false) {
+    val number = text.removeSuffix(" ${money.unit}")
+    Column(modifier.semantics(mergeDescendants = true) {}) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row {
+            Text(
+                number,
+                style = if (isResult) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,
+                color = if (isResult) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                modifier = Modifier.alignByBaseline(),
+            )
+            if (number != text) {
                 Text(
-                    "${Persian.digits(result.incompleteRows)} ردیف کامل نیست و در جمع نیامده است.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (wrong) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    money.unit,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp).alignByBaseline(),
                 )
             }
         }
+    }
+}
+
+/** Under the figures: how the menu price stands, or how the suggestion was made, or how to start. */
+private fun note(result: QuickResult): String {
+    if (!result.hasLines) return "قیمت هر کیلو و مقدار هر ماده را بنویسید."
+    val withPrice = listOfNotNull(
+        result.foodCostPercent?.let { "فودکاست $it" },
+        result.profit?.let { "سود ناخالص هر پرس $it" },
+        result.raise?.let { "باید $it گران‌تر شود" },
+    )
+    return if (withPrice.isEmpty()) "${result.method}، ${result.miscNote}" else withPrice.joinToString("، ")
+}
+
+/** The quantities are for one portion unless the saved dish says otherwise. */
+private fun portionsTitle(input: QuickInput): String {
+    val portions = Numbers.parse(input.portions)
+    return if (portions == null || portions.compareTo(BigDecimal.ONE) == 0) "مواد یک پرس" else "مواد ${Numbers.format(portions, 2)} پرس"
+}
+
+/** The row's number, which the messages about unfinished rows refer to. */
+@Composable
+private fun RowNumber(number: Int, blank: Boolean) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(28.dp)
+            .background(if (blank) Color.Transparent else colors.primaryContainer, CircleShape)
+            .border(1.dp, if (blank) colors.outlineVariant else Color.Transparent, CircleShape),
+    ) {
+        Text(
+            Persian.digits(number),
+            style = MaterialTheme.typography.labelLarge,
+            color = if (blank) colors.outline else colors.onPrimaryContainer,
+        )
     }
 }
 
@@ -299,12 +332,10 @@ private fun RowCard(
     onRemove: () -> Unit,
     onPick: (QuickSuggestion) -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = whiteCardColors()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                RowNumber(index + 1, row.isBlank)
                 TextInput(
                     value = row.name,
                     onValueChange = { onChange(row.copy(name = it, ingredientId = null)) },
@@ -326,7 +357,7 @@ private fun RowCard(
                     suggestions.forEach { s ->
                         AssistChip(
                             onClick = { onPick(s) },
-                            label = { Text("${s.name} · ${s.detail}") },
+                            label = { Text("${s.name}، ${s.detail}") },
                             modifier = Modifier.focusProperties { canFocus = false },
                         )
                     }
@@ -353,7 +384,7 @@ private fun RowCard(
                 UnitMenu(row.uom, result.units) { onChange(row.copy(uom = it)) }
             }
             val problem = result.problem
-            val info = problem ?: listOfNotNull(result.cost?.let { "هزینه: $it" }, result.note).joinToString(" · ").ifEmpty { null }
+            val info = problem ?: listOfNotNull(result.cost?.let { "هزینه: $it" }, result.note).joinToString("، ").ifEmpty { null }
             if (info != null) {
                 Text(
                     info,

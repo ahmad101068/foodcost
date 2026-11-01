@@ -1,8 +1,6 @@
 package ir.foodcost.app.ui
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.SnackbarHostState
@@ -32,10 +30,7 @@ sealed interface Screen {
         override val key: String = "calculator"
     }
 
-    data object Menu : Screen {
-        override val key: String = "menu"
-    }
-
+    /** The dishes tab: plates with how their price stands, and preparations. */
     data object Recipes : Screen {
         override val key: String = "recipes"
     }
@@ -80,8 +75,8 @@ sealed interface Screen {
             val parts = key.split('|')
             return when (parts[0]) {
                 "calculator" -> Calculator
-                "menu" -> Menu
-                "recipes" -> Recipes
+                // The menu tab became part of the dishes tab.
+                "menu", "recipes" -> Recipes
                 "ingredients" -> Ingredients
                 "settings" -> Settings
                 "recipe" -> parts.getOrNull(1)?.let { Recipe(it) }
@@ -106,8 +101,7 @@ sealed interface Screen {
 
 enum class Tab(val label: String, val icon: ImageVector, val screen: Screen) {
     CALC("ماشین‌حساب", CalculatorIcon, Screen.Calculator),
-    MENU("منو", Icons.Filled.Home, Screen.Menu),
-    RECIPES("دستورها", Icons.AutoMirrored.Filled.List, Screen.Recipes),
+    RECIPES("غذاها", DishesIcon, Screen.Recipes),
     INGREDIENTS("مواد", Icons.Filled.ShoppingCart, Screen.Ingredients),
     SETTINGS("تنظیمات", Icons.Filled.Settings, Screen.Settings),
 }

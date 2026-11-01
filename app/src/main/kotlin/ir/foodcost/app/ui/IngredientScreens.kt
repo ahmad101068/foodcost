@@ -244,10 +244,16 @@ fun IngredientScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
 
 @Composable
 private fun IngredientCard(detail: IngredientDetail) {
-    Card(Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        ),
+    ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                listOfNotNull(detail.dimensionLabel, detail.category).joinToString(" · "),
+                listOfNotNull(detail.dimensionLabel, detail.category).joinToString("، "),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -268,10 +274,7 @@ private fun IngredientCard(detail: IngredientDetail) {
 @Composable
 private fun PriceItem(price: PriceRow, onVoid: () -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = whiteCardColors()) {
         Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

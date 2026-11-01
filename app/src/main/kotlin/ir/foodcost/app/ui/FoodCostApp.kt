@@ -61,7 +61,6 @@ private fun AppContent(container: AppContainer, state: LedgerState, currency: Di
     when (val screen = nav.current) {
         Screen.Calculator -> CalculatorScreen(container, null, state, money, today, nav, actions)
         is Screen.Dish -> CalculatorScreen(container, RecipeId(screen.id), state, money, today, nav, actions)
-        Screen.Menu -> MenuScreen(state, money, today, nav, actions)
         Screen.Recipes -> RecipesScreen(state, money, today, nav, actions)
         Screen.Ingredients -> IngredientsScreen(state, money, today, nav, actions)
         Screen.Settings -> SettingsScreen(container, state, money, today, nav, actions)
