@@ -131,6 +131,7 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
         RecipeHeaderDialog(
             title = "دستور تازه",
             initial = RecipeInput(),
+            sections = state.pricing.methodByCategory.keys.toList(),
             onDismiss = { creating = false },
             onSave = { input ->
                 actions.run({ it.createRecipe(input.name, input.kind, input.categoryOrNull) }) { id ->
@@ -167,7 +168,7 @@ private fun PlateCard(row: MenuRow, onClick: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(row.name, style = MaterialTheme.typography.titleMedium)
-                    row.kindLabel?.let {
+                    listOfNotNull(row.kindLabel, row.category).joinToString("، ").ifEmpty { null }?.let {
                         Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -272,6 +273,7 @@ fun RecipeScreen(id: RecipeId, state: LedgerState, money: MoneyFormat, today: Lo
         RecipeDialog.HEADER -> RecipeHeaderDialog(
             title = "ویرایش دستور",
             initial = detail.header,
+            sections = state.pricing.methodByCategory.keys.toList(),
             onDismiss = { dialog = null },
             onSave = { input ->
                 actions.run({
@@ -401,6 +403,8 @@ fun RecipeHeaderDialog(
     onDismiss: () -> Unit,
     onSave: (RecipeInput) -> Unit,
     onArchive: (() -> Unit)? = null,
+    /** The sections with a food cost target of their own in the settings, offered with one tap. */
+    sections: List<String> = emptyList(),
 ) {
     var input by remember { mutableStateOf(initial) }
     var errors by remember { mutableStateOf(emptyMap<Field, String>()) }
@@ -417,6 +421,9 @@ fun RecipeHeaderDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 TextInput(input.category, { input = input.copy(category = it) }, "بخش منو (اختیاری)")
+                if (sections.isNotEmpty()) {
+                    ChoiceChips(sections, input.category.trim(), { it }) { input = input.copy(category = it) }
+                }
                 if (onArchive != null) {
                     TextButton(onClick = onArchive) {
                         Text("حذف این دستور", color = MaterialTheme.colorScheme.error)

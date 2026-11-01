@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,19 +14,31 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import ir.foodcost.app.AppContainer
 import ir.foodcost.core.money.DisplayCurrency
@@ -61,6 +74,11 @@ fun SettingsScreen(
     var errors by remember { mutableStateOf(emptyMap<Field, String>()) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val categoryNames = remember { HashMap<Int, FocusRequester>() }
+    val categoryPercents = remember { HashMap<Int, FocusRequester>() }
+    fun categoryName(i: Int): FocusRequester = categoryNames.getOrPut(i) { FocusRequester() }
+    fun categoryPercent(i: Int): FocusRequester = categoryPercents.getOrPut(i) { FocusRequester() }
+    var focusCategory by remember { mutableStateOf<Pair<Int, Boolean>?>(null) }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) {
@@ -161,6 +179,67 @@ fun SettingsScreen(
                     number = true,
                     suffix = "٪",
                 )
+            }
+
+            SettingsCard("فودکاست هدف هر بخش منو") {
+                Text(
+                    "برای بخش‌هایی که فودکاستشان با بقیه فرق دارد؛ نوشیدنی‌ها معمولاً فودکاست کمتری از غذا دارند. بخش هر غذا در ماشین‌حساب انتخاب می‌شود و غذای بی‌بخش با قیمت‌گذاری بالا حساب می‌شود.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                input.categories.forEachIndexed { i, category ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextInput(
+                            value = category.name,
+                            onValueChange = { input = input.withCategory(i, category.copy(name = it)) },
+                            label = "نام بخش",
+                            modifier = Modifier.weight(1.4f).focusRequester(categoryName(i)).testTag("category-$i-name"),
+                            imeAction = ImeAction.Next,
+                        )
+                        TextInput(
+                            value = category.percent,
+                            onValueChange = { input = input.withCategory(i, category.copy(percent = it)) },
+                            label = "فودکاست هدف",
+                            modifier = Modifier.weight(1f).focusRequester(categoryPercent(i)).testTag("category-$i-percent"),
+                            number = true,
+                            suffix = "٪",
+                            imeAction = ImeAction.Done,
+                        )
+                        IconButton(onClick = { input = input.withoutCategory(i) }) {
+                            Icon(Icons.Filled.Close, contentDescription = "حذف بخش")
+                        }
+                    }
+                }
+                errors[Field.CATEGORY]?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    input.categoryPresets().forEach { name ->
+                        AssistChip(
+                            onClick = {
+                                focusCategory = input.categories.size to true
+                                input = input.plusCategory(name)
+                            },
+                            label = { Text(name) },
+                            leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                        )
+                    }
+                    AssistChip(
+                        onClick = {
+                            focusCategory = input.categories.size to false
+                            input = input.plusCategory("")
+                        },
+                        label = { Text("بخش دیگر") },
+                        leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    )
+                }
+                // A new section takes the keyboard: on its target when it came with a name, else on its name.
+                LaunchedEffect(focusCategory, input.categories.size) {
+                    val (i, named) = focusCategory ?: return@LaunchedEffect
+                    if (i < input.categories.size) {
+                        runCatching { (if (named) categoryPercent(i) else categoryName(i)).requestFocus() }
+                        focusCategory = null
+                    }
+                }
             }
 
             SettingsCard("هزینه‌های ثابت ماهانه") {

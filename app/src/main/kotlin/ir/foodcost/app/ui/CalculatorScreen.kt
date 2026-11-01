@@ -1,5 +1,7 @@
 package ir.foodcost.app.ui
 
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,12 +30,14 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,30 +57,34 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import ir.foodcost.app.AppContainer
+import ir.foodcost.app.ui.theme.statusColors
 import ir.foodcost.core.model.RecipeId
+import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.core.units.Uom
 import ir.foodcost.data.ledger.LedgerState
 import ir.foodcost.presentation.Checked
 import ir.foodcost.presentation.Field
 import ir.foodcost.presentation.Labels
 import ir.foodcost.presentation.MoneyFormat
-import ir.foodcost.presentation.Numbers
 import ir.foodcost.presentation.Persian
 import ir.foodcost.presentation.QuickCalculator
+import ir.foodcost.presentation.QuickChange
 import ir.foodcost.presentation.QuickChannel
 import ir.foodcost.presentation.QuickExtra
 import ir.foodcost.presentation.QuickInput
+import ir.foodcost.presentation.QuickPlan
 import ir.foodcost.presentation.QuickResult
+import ir.foodcost.presentation.QuickReview
 import ir.foodcost.presentation.QuickRow
 import ir.foodcost.presentation.QuickRowResult
 import ir.foodcost.presentation.QuickSuggestion
-import java.math.BigDecimal
 import java.time.LocalDate
 
 /**
@@ -106,6 +114,9 @@ fun CalculatorScreen(
     val update: (QuickInput) -> Unit = { if (recipeId == null) container.quickDraft.value = it else dish = it }
     val result = remember(input, state, money, today) { QuickCalculator.compute(input, state, money, today) }
     var askName by remember { mutableStateOf(false) }
+    // A save that changes a dish on the menu or recorded prices waits for a look at what it changes.
+    var reviewing by remember { mutableStateOf<Pair<QuickPlan, QuickReview>?>(null) }
+    val context = LocalContext.current
     val firstName = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val quantities = remember { HashMap<Int, FocusRequester>() }
@@ -113,6 +124,14 @@ fun CalculatorScreen(
     val extraAmounts = remember { HashMap<Int, FocusRequester>() }
     fun extraAmount(index: Int): FocusRequester = extraAmounts.getOrPut(index) { FocusRequester() }
     var focusExtra by remember { mutableStateOf<Int?>(null) }
+
+    fun commit(plan: QuickPlan, current: QuickInput) {
+        actions.run({ ledger -> QuickCalculator.save(ledger, plan, today) }) { id ->
+            val saved = container.state.value?.let { QuickCalculator.open(it, id, today, money) }
+            update(saved ?: current.copy(recipeId = id))
+            actions.say("«${plan.name}» در غذاها ذخیره شد.")
+        }
+    }
 
     fun save(current: QuickInput) {
         when (val checked = QuickCalculator.check(current, state, money, today)) {
@@ -124,15 +143,19 @@ fun CalculatorScreen(
                     else -> checked.errors[Field.NAME]?.let { actions.say(it) }
                 }
             }
-            is Checked.Valid -> actions.run({ ledger -> QuickCalculator.save(ledger, checked.value, today) }) { id ->
-                val saved = container.state.value?.let { QuickCalculator.open(it, id, today, money) }
-                update(saved ?: current.copy(recipeId = id))
-                actions.say("«${checked.value.name}» در غذاها ذخیره شد.")
+            is Checked.Valid -> {
+                val review = QuickCalculator.review(current, checked.value, state, money, today)
+                if (review.isEmpty) commit(checked.value, current) else reviewing = checked.value to review
             }
         }
     }
 
     val topActions: @Composable RowScope.() -> Unit = {
+        if (result.hasLines) {
+            IconButton(onClick = { share(context, input.dishName, QuickCalculator.shareText(input, result, money)) }) {
+                Icon(Icons.Filled.Share, contentDescription = "فرستادن نتیجه")
+            }
+        }
         if (recipeId == null && input != QuickInput()) {
             IconButton(
                 onClick = {
@@ -182,9 +205,15 @@ fun CalculatorScreen(
                             imeAction = ImeAction.Done,
                         )
                     }
+                    val sections = QuickCalculator.categories(state, input)
+                    if (sections.isNotEmpty()) {
+                        SectionChips(sections, input.category, Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
+                            update(input.copy(category = it))
+                        }
+                    }
                 }
                 Text(
-                    portionsTitle(input),
+                    QuickCalculator.portionsLabel(input),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 4.dp, top = 4.dp),
@@ -245,6 +274,18 @@ fun CalculatorScreen(
         TabScaffold(title = title, nav = nav, actions = actions, topActions = topActions, content = body)
     } else {
         DetailScaffold(title = title, nav = nav, actions = actions, topActions = topActions, content = body)
+    }
+
+    reviewing?.let { (plan, review) ->
+        ReviewDialog(
+            review = review,
+            money = money,
+            onDismiss = { reviewing = null },
+            onSave = {
+                reviewing = null
+                commit(plan, input)
+            },
+        )
     }
 
     if (askName) {
@@ -488,12 +529,6 @@ private fun ChannelTable(channels: List<QuickChannel>, money: MoneyFormat) {
     )
 }
 
-/** The quantities are for one portion unless the saved dish says otherwise. */
-private fun portionsTitle(input: QuickInput): String {
-    val portions = Numbers.parse(input.portions)
-    return if (portions == null || portions.compareTo(BigDecimal.ONE) == 0) "مواد یک پرس" else "مواد ${Numbers.format(portions, 2)} پرس"
-}
-
 /** The row's number, which the messages about unfinished rows refer to. */
 @Composable
 private fun RowNumber(number: Int, blank: Boolean) {
@@ -590,6 +625,15 @@ private fun RowCard(
                     },
                 )
             }
+            // A slip of a zero or the same ingredient twice: counted, but worth a second look.
+            result.warning?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag("row-$index-warning"),
+                )
+            }
         }
     }
 }
@@ -638,4 +682,90 @@ private fun NameDialog(onDismiss: () -> Unit, onSave: (String) -> Unit) {
         confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onSave(name.trim()) }) { Text("ذخیره") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } },
     )
+}
+
+/** The dish's menu section; one with a target of its own prices the dish by it. Tapped again, it is cleared. */
+@Composable
+private fun SectionChips(sections: List<String>, selected: String?, modifier: Modifier = Modifier, onSelect: (String?) -> Unit) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text("بخش منو", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            sections.forEach { name ->
+                FilterChip(
+                    selected = name == selected,
+                    onClick = { onSelect(if (name == selected) null else name) },
+                    label = { Text(name) },
+                    modifier = Modifier.focusProperties { canFocus = false },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Before a save that changes what is already saved: the dish's figures before and after, the
+ * ingredient prices it records for every dish, and anything that looks like a slip.
+ */
+@Composable
+private fun ReviewDialog(review: QuickReview, money: MoneyFormat, onDismiss: () -> Unit, onSave: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("ذخیرهٔ «${review.name}»") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                if (review.changes.isNotEmpty()) ChangeTable(review.changes, money)
+                if (review.prices.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("قیمت‌های تازه", style = MaterialTheme.typography.titleSmall)
+                        review.prices.forEach { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                    }
+                }
+                if (review.warnings.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("پیش از ذخیره ببینید", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.error)
+                        review.warnings.forEach {
+                            Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onSave, modifier = Modifier.testTag("review-save")) { Text("ذخیره") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("برگشت") } },
+    )
+}
+
+/** The figures that change, before and after, with how far the amounts move. */
+@Composable
+private fun ChangeTable(changes: List<QuickChange>, money: MoneyFormat) {
+    val better = statusColors(PriceStatus.OK).content
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth()) {
+            Text("به ${money.unit}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1.25f))
+            Text("قبل", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+            Text("بعد", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+        }
+        changes.forEach { change ->
+            Row(Modifier.fillMaxWidth().testTag("change-${change.label}")) {
+                Text(change.label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1.25f))
+                Text(change.before, style = MaterialTheme.typography.bodyMedium, maxLines = 1, modifier = Modifier.weight(1f))
+                Column(Modifier.weight(1f)) {
+                    Text(change.after, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                    change.change?.let {
+                        Text(it, style = MaterialTheme.typography.labelSmall, color = if (change.worse) MaterialTheme.colorScheme.error else better)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Hands the calculation as text to whichever app the user picks: a messenger, notes, email. */
+private fun share(context: Context, title: String, text: String) {
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, text)
+        if (title.isNotBlank()) putExtra(Intent.EXTRA_SUBJECT, title.trim())
+    }
+    context.startActivity(Intent.createChooser(send, "فرستادن نتیجه"))
 }

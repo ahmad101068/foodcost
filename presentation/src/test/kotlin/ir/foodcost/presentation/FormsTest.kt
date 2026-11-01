@@ -155,4 +155,26 @@ class FormsTest {
         assertEquals("30", full.withMethod(MethodChoice.MARKUP).percent)
         assertNull(full.equivalents())
     }
+
+    @Test
+    fun `menu sections get their own food cost target, checked and shown back`() {
+        val input = SettingsInput.of(PricingSettings(), CostingRules(), toman)
+            .plusCategory("نوشیدنی گرم")
+            .let { it.withCategory(0, it.categories[0].copy(percent = "۲۰")) }
+            .plusCategory("")
+        assertEquals(listOf("غذای اصلی", "پیش‌غذا و سالاد", "نوشیدنی سرد", "دسر و کیک", "صبحانه"), input.categoryPresets())
+        val pricing = valid(input.check(PricingSettings(), CostingRules(), toman)).pricing
+        assertEquals(mapOf("نوشیدنی گرم" to PricingMethod.TargetFoodCost(BigDecimal(20))), pricing.methodByCategory)
+        assertEquals(listOf(CategoryTargetInput("نوشیدنی گرم", "20")), SettingsInput.of(pricing, CostingRules(), toman).categories)
+
+        fun error(form: SettingsInput) = assertIs<Checked.Invalid>(form.check(PricingSettings(), CostingRules(), toman)).errors[Field.CATEGORY]
+        assertEquals("فودکاست هدف «دسر و کیک» باید بیشتر از ۰ و کمتر از ۱۰۰ باشد.", error(input.plusCategory("دسر و کیک")))
+        assertEquals("بخش «نوشيدني گرم» دو بار آمده است.", error(input.plusCategory("نوشيدني گرم").let { it.withCategory(2, it.categories[2].copy(percent = "25")) }))
+        assertEquals("نام بخش را بنویسید.", error(input.withCategory(1, CategoryTargetInput("", "30"))))
+        assertEquals(emptyMap(), valid(input.withoutCategory(0).check(PricingSettings(), CostingRules(), toman)).pricing.methodByCategory)
+
+        // A section stored as a margin or markup shows as its food cost target.
+        val margin = PricingSettings(methodByCategory = mapOf("نوشیدنی سرد" to PricingMethod.TargetMargin(BigDecimal(75))))
+        assertEquals(listOf(CategoryTargetInput("نوشیدنی سرد", "25")), SettingsInput.of(margin, CostingRules(), toman).categories)
+    }
 }

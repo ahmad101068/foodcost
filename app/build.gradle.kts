@@ -21,7 +21,7 @@ android {
         targetSdk = 35
         // Every build on GitHub gets a higher number, so a new APK installs over the old one.
         versionCode = (System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 0) + 1
-        versionName = "0.4.0"
+        versionName = "0.5.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

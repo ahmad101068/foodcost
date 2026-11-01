@@ -117,6 +117,7 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
         QuickPriceDialog(
             row = row,
             money = money,
+            warningFor = { text -> state.catalog.ingredient(row.id)?.let { QuickCalculator.quickPriceWarning(state, it, text, money, today) } },
             onDismiss = { repricing = null },
             onSave = { text ->
                 val ingredient = state.catalog.ingredient(row.id)
@@ -133,10 +134,26 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
     }
 }
 
-/** One field, ready for typing: the new price per kilo (liter, piece), from today. */
+/**
+ * One field, ready for typing: the new price per kilo (liter, piece), from today. A price about ten
+ * times the last one (a zero too many, or rials for toman) is said at once and saved only on a
+ * second press, since every dish made with the ingredient would take it.
+ */
 @Composable
-private fun QuickPriceDialog(row: IngredientRow, money: MoneyFormat, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+private fun QuickPriceDialog(
+    row: IngredientRow,
+    money: MoneyFormat,
+    warningFor: (String) -> String?,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
     var text by remember(row.id) { mutableStateOf("") }
+    var confirmed by remember(row.id) { mutableStateOf<String?>(null) }
+    val warning = warningFor(text)
+    val asks = warning != null && confirmed == text
+    fun submit() {
+        if (warning != null && confirmed != text) confirmed = text else onSave(text)
+    }
     val field = remember { FocusRequester() }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -146,16 +163,17 @@ private fun QuickPriceDialog(row: IngredientRow, money: MoneyFormat, onDismiss: 
                 value = text,
                 onValueChange = { text = it },
                 label = "${row.priceLabel} از امروز",
+                error = warning,
                 supporting = money.parse(text)?.let { money.full(it) } ?: row.unitPrice?.let { "قیمت فعلی: $it" },
                 number = true,
                 suffix = money.unit,
                 modifier = Modifier.focusRequester(field).testTag("quick-price"),
                 imeAction = ImeAction.Done,
-                onImeAction = { onSave(text) },
+                onImeAction = { submit() },
             )
             LaunchedEffect(Unit) { runCatching { field.requestFocus() } }
         },
-        confirmButton = { TextButton(onClick = { onSave(text) }) { Text("ذخیره") } },
+        confirmButton = { TextButton(onClick = { submit() }) { Text(if (asks) "ذخیره با همین قیمت" else "ذخیره") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } },
     )
 }
@@ -421,7 +439,9 @@ fun IngredientEditScreen(id: IngredientId?, state: LedgerState, nav: Navigator, 
                         is Checked.Invalid -> errors = checked.errors
                         is Checked.Valid -> {
                             val draft = checked.value
-                            if (id == null) {
+                            if (IngredientScreens.nameTaken(state, draft.name, except = id)) {
+                                errors = mapOf(Field.NAME to "«${draft.name}» از قبل در فهرست مواد هست.")
+                            } else if (id == null) {
                                 actions.run({
                                     it.createIngredient(draft.name, draft.dimension, draft.category, draft.yields, draft.conversions)
                                 }) { newId ->
