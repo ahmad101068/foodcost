@@ -3,6 +3,7 @@ package ir.foodcost.app.ui
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
@@ -20,7 +21,9 @@ import ir.foodcost.presentation.QuickCalculator
 import ir.foodcost.presentation.QuickSaveRefused
 import java.time.LocalDate
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** A place in the app. Ids are kept as text, so the way back survives the app being recreated. */
 sealed interface Screen {
@@ -146,31 +149,45 @@ class AppActions(
     private val scope: CoroutineScope,
     val snackbar: SnackbarHostState,
 ) {
+    private var message: Job? = null
+
     /** Runs [change] off the main thread. If it is refused, says why; otherwise passes its result to [onDone]. */
     fun <T> run(change: (Ledger) -> T, onDone: (T) -> Unit = {}) {
         scope.launch {
             val result = try {
                 container.change(change)
             } catch (e: QuickSaveRefused) {
-                snackbar.showSnackbar(Labels.rejection(e.reason))
+                say(Labels.rejection(e.reason))
                 return@launch
             } catch (e: IllegalArgumentException) {
-                snackbar.showSnackbar("این مقدار پذیرفته نشد.")
+                say("این مقدار پذیرفته نشد.")
                 return@launch
             } catch (e: IllegalStateException) {
-                snackbar.showSnackbar("این کار انجام نشد.")
+                say("این کار انجام نشد.")
                 return@launch
             }
             if (result is Ledger.Outcome.Rejected) {
-                snackbar.showSnackbar(Labels.rejection(result.reason))
+                say(Labels.rejection(result.reason))
             } else {
                 onDone(result)
             }
         }
     }
 
-    fun say(message: String) {
-        scope.launch { snackbar.showSnackbar(message) }
+    /**
+     * Shows [text] for four seconds, in place of any message still showing. The time is kept here,
+     * not by the screen: each screen has its own message bar, which started the time again, so a
+     * message followed the user from screen to screen.
+     */
+    fun say(text: String) {
+        message?.cancel()
+        message = scope.launch {
+            withTimeoutOrNull(MESSAGE_MILLIS) { snackbar.showSnackbar(text, duration = SnackbarDuration.Indefinite) }
+        }
+    }
+
+    private companion object {
+        const val MESSAGE_MILLIS = 4_000L
     }
 }
 
