@@ -139,10 +139,14 @@ fun CalculatorScreen(
     fun quantity(index: Int): FocusRequester = quantities.getOrPut(index) { FocusRequester() }
 
     fun save(current: QuickInput) {
-        when (val checked = QuickCalculator.check(current, state, money)) {
+        when (val checked = QuickCalculator.check(current, state, money, today)) {
             is Checked.Invalid -> {
                 val other = checked.errors.filterKeys { it != Field.NAME }
-                if (other.isEmpty()) askName = true else actions.say(other.values.first())
+                when {
+                    other.isNotEmpty() -> actions.say(other.values.first())
+                    current.dishName.isBlank() -> askName = true
+                    else -> checked.errors[Field.NAME]?.let { actions.say(it) }
+                }
             }
             is Checked.Valid -> actions.run({ ledger -> QuickCalculator.save(ledger, checked.value, today) }) { id ->
                 val saved = container.state.value?.let { QuickCalculator.open(it, id, today, money) }

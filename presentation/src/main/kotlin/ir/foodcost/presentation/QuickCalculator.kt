@@ -290,11 +290,19 @@ object QuickCalculator {
         )
     }
 
-    /** Checks the calculator before saving it as a dish, so nothing is left half saved. */
-    fun check(input: QuickInput, state: LedgerState, money: MoneyFormat): Checked<QuickPlan> {
+    /**
+     * Checks the calculator before saving it as a dish, so nothing is left half saved. A new
+     * calculation saved under the name of a dish on the menu updates that dish instead of making a
+     * second one; a dish that needs the full recipe screen is not overwritten from here.
+     */
+    fun check(input: QuickInput, state: LedgerState, money: MoneyFormat, today: LocalDate): Checked<QuickPlan> {
         val p = Problems()
         val name = input.dishName.trim()
         if (name.isEmpty()) p.add(Field.NAME, "نام غذا را بنویسید.")
+        val namesake = if (input.recipeId == null && name.isNotEmpty()) dishNamed(state, name) else null
+        if (namesake != null && open(state, namesake, today, money) == null) {
+            p.add(Field.NAME, "«$name» با جزئیات بیشتر در دستورها هست؛ از منو بازش کنید یا نام دیگری بنویسید.")
+        }
         val rows = ArrayList<QuickPlanRow>()
         input.rows.forEachIndexed { i, row ->
             if (row.isBlank) return@forEachIndexed
@@ -316,7 +324,7 @@ object QuickCalculator {
         val portions = p.decimal(input.portions.ifBlank { "1" }, Field.PORTIONS, "تعداد پرس باید بیشتر از صفر باشد.") { it.signum() > 0 }
         val menu = if (input.menuPrice.isBlank()) null else money.parse(input.menuPrice)
         if (input.menuPrice.isNotBlank() && (menu == null || menu <= 0)) p.add(Field.AMOUNT, "قیمت منو درست نیست.")
-        return p.result { QuickPlan(name, rows, portions!!, menu, input.recipeId, input.miscPercent) }
+        return p.result { QuickPlan(name, rows, portions!!, menu, input.recipeId ?: namesake, input.miscPercent) }
     }
 
     /**
@@ -383,6 +391,14 @@ object QuickCalculator {
 
     private fun lineUnits(dimension: Dimension, conversions: Conversions, saved: Boolean): List<Uom> =
         if (saved) LINE_UNITS.filter { fits(it, dimension, conversions) } else LINE_UNITS
+
+    /** The plate on the menu called [name], however its spaces and letters were typed. */
+    private fun dishNamed(state: LedgerState, name: String): RecipeId? {
+        val key = Persian.searchKey(name)
+        return state.recipes.values.firstOrNull {
+            !it.archived && it.kind == RecipeKind.MENU_ITEM && Persian.searchKey(it.name.orEmpty()) == key
+        }?.id
+    }
 
     private fun findByName(state: LedgerState, name: String, dimension: Dimension): IngredientId? {
         val key = Persian.searchKey(name)

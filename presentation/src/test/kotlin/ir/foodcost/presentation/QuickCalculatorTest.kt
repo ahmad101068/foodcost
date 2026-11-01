@@ -101,7 +101,7 @@ class QuickCalculatorTest {
     @Test
     fun `a unit that does not fit a saved ingredient is an error, not a row still being typed`() {
         val ledger = ledger()
-        val id = QuickCalculator.save(ledger, valid(QuickCalculator.check(koobideh(), ledger.state, toman)), today)
+        val id = QuickCalculator.save(ledger, valid(QuickCalculator.check(koobideh(), ledger.state, toman, today)), today)
         val opened = assertNotNull(QuickCalculator.open(ledger.state, id, today, toman))
         val pieces = opened.withRow(0, opened.rows[0].copy(uom = Uom.PIECE))
         val row = QuickCalculator.compute(pieces, ledger.state, toman, today).rows[0]
@@ -112,7 +112,7 @@ class QuickCalculatorTest {
     @Test
     fun `saving creates the ingredients, their prices and the dish, and opening it shows the same`() {
         val ledger = ledger()
-        val id = QuickCalculator.save(ledger, valid(QuickCalculator.check(koobideh("630000"), ledger.state, toman)), today)
+        val id = QuickCalculator.save(ledger, valid(QuickCalculator.check(koobideh("630000"), ledger.state, toman, today)), today)
 
         val state = ledger.state
         assertEquals(setOf("گوشت", "دمبه", "پیاز", "برنج"), state.ingredients.values.map { it.name }.toSet())
@@ -132,10 +132,10 @@ class QuickCalculatorTest {
     @Test
     fun `saving again reuses the ingredients and records only the prices that changed`() {
         val ledger = ledger()
-        val id = QuickCalculator.save(ledger, valid(QuickCalculator.check(koobideh(), ledger.state, toman)), today)
+        val id = QuickCalculator.save(ledger, valid(QuickCalculator.check(koobideh(), ledger.state, toman, today)), today)
         val opened = assertNotNull(QuickCalculator.open(ledger.state, id, today, toman))
         val dearer = opened.withRow(0, opened.rows[0].copy(price = "1600000"))
-        assertEquals(id, QuickCalculator.save(ledger, valid(QuickCalculator.check(dearer, ledger.state, toman)), today))
+        assertEquals(id, QuickCalculator.save(ledger, valid(QuickCalculator.check(dearer, ledger.state, toman, today)), today))
 
         assertEquals(4, ledger.state.ingredients.size)
         assertEquals(5, ledger.state.catalog.prices.size)
@@ -146,9 +146,9 @@ class QuickCalculatorTest {
     @Test
     fun `a name typed again matches the saved ingredient instead of making a second one`() {
         val ledger = ledger()
-        QuickCalculator.save(ledger, valid(QuickCalculator.check(koobideh(), ledger.state, toman)), today)
+        QuickCalculator.save(ledger, valid(QuickCalculator.check(koobideh(), ledger.state, toman, today)), today)
         val salad = QuickInput(dishName = "سالاد").withRow(0, QuickRow("پیاز", "80000", "20"))
-        QuickCalculator.save(ledger, valid(QuickCalculator.check(salad, ledger.state, toman)), today)
+        QuickCalculator.save(ledger, valid(QuickCalculator.check(salad, ledger.state, toman, today)), today)
         assertEquals(4, ledger.state.ingredients.size)
         assertEquals(4, ledger.state.catalog.prices.size)
     }
@@ -156,7 +156,7 @@ class QuickCalculatorTest {
     @Test
     fun `saved ingredients are suggested with today's price and picking one fills the row`() {
         val ledger = ledger()
-        QuickCalculator.save(ledger, valid(QuickCalculator.check(koobideh(), ledger.state, toman)), today)
+        QuickCalculator.save(ledger, valid(QuickCalculator.check(koobideh(), ledger.state, toman, today)), today)
         val typed = QuickRow(name = "گوش")
         val suggestion = QuickCalculator.suggestions(ledger.state, typed, today, toman).single()
         assertEquals("گوشت", suggestion.name)
@@ -180,12 +180,41 @@ class QuickCalculatorTest {
     @Test
     fun `nothing is saved without a dish name or with an unfinished row`() {
         val state = ledger().state
-        val noName = assertIs<Checked.Invalid>(QuickCalculator.check(koobideh().copy(dishName = " "), state, toman))
+        val noName = assertIs<Checked.Invalid>(QuickCalculator.check(koobideh().copy(dishName = " "), state, toman, today))
         assertEquals(setOf(Field.NAME), noName.errors.keys)
         val unfinished = koobideh().withRow(4, QuickRow("زعفران", "", "0.5"))
-        assertEquals("قیمت «زعفران» را بنویسید.", assertIs<Checked.Invalid>(QuickCalculator.check(unfinished, state, toman)).errors[Field.ROW])
-        val empty = assertIs<Checked.Invalid>(QuickCalculator.check(QuickInput(dishName = "خالی"), state, toman))
+        assertEquals("قیمت «زعفران» را بنویسید.", assertIs<Checked.Invalid>(QuickCalculator.check(unfinished, state, toman, today)).errors[Field.ROW])
+        val empty = assertIs<Checked.Invalid>(QuickCalculator.check(QuickInput(dishName = "خالی"), state, toman, today))
         assertEquals("دست‌کم یک ماده با قیمت و مقدار لازم است.", empty.errors[Field.ROW])
+    }
+
+    @Test
+    fun `a new calculation under the name of a dish on the menu updates it instead of making a second one`() {
+        val ledger = ledger()
+        val id = QuickCalculator.save(ledger, valid(QuickCalculator.check(koobideh("630000"), ledger.state, toman, today)), today)
+        val again = koobideh().let { it.withRow(0, it.rows[0].copy(price = "1600000")) }.copy(dishName = "چلوکباب کوبیده ")
+        val plan = valid(QuickCalculator.check(again, ledger.state, toman, today))
+        assertEquals(id, plan.recipeId)
+        assertEquals(id, QuickCalculator.save(ledger, plan, today))
+        assertEquals(1, ledger.state.recipes.size)
+        val row = MenuStatusScreen.build(ledger.state, today, toman).rows.single()
+        assertEquals("۳۹۰٬۳۷۰ تومان", row.foodCost)
+        assertEquals("۶۳۰٬۰۰۰ تومان", row.menuPrice)
+    }
+
+    @Test
+    fun `a dish that needs the full recipe screen is not overwritten by a calculation with its name`() {
+        val ledger = ledger()
+        val rice = ledger.createIngredient("برنج", Dimension.MASS)
+        val chelow = ledger.createRecipe("چلو", RecipeKind.PREP)
+        ledger.saveRecipeVersion(chelow, RecipeVersion(today, batchLines = listOf(RecipeLine(ComponentRef.IngredientRef(rice), BigDecimal("150"), Uom.GRAM))))
+        val plate = ledger.createRecipe("چلوکباب کوبیده", RecipeKind.MENU_ITEM)
+        ledger.saveRecipeVersion(plate, RecipeVersion(today, batchLines = listOf(RecipeLine(ComponentRef.RecipeRef(chelow), BigDecimal.ONE, Uom.PORTION))))
+        val refused = assertIs<Checked.Invalid>(QuickCalculator.check(koobideh(), ledger.state, toman, today))
+        assertEquals(setOf(Field.NAME), refused.errors.keys)
+
+        // A preparation is not a plate on the menu: a plate with its name is a dish of its own.
+        assertNull(valid(QuickCalculator.check(koobideh().copy(dishName = "چلو"), ledger.state, toman, today)).recipeId)
     }
 
     @Test
