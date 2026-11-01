@@ -20,6 +20,8 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
 import ir.foodcost.core.model.RecipeKind
 import ir.foodcost.presentation.Labels
 import org.junit.Rule
@@ -277,8 +279,22 @@ class WalkThroughTest {
         rule.waitForIdle()
     }
 
+    /**
+     * The CI emulator's launcher sometimes stops answering under load, and the system's dialog about
+     * it covers the screen. The app is not involved; "Wait" closes the dialog and kills nothing.
+     */
+    private fun dismissSystemDialogs() {
+        val device = UiDevice.getInstance(instrumentation)
+        repeat(3) {
+            val wait = device.findObject(By.res("android", "aerr_wait")) ?: device.findObject(By.text("Wait")) ?: return
+            wait.click()
+            device.waitForIdle()
+        }
+    }
+
     private fun shot(name: String) {
         rule.waitForIdle()
+        dismissSystemDialogs()
         // The emulator draws slowly; without the pause a picture can still show the screen before.
         Thread.sleep(1200)
         val bitmap = instrumentation.uiAutomation.takeScreenshot() ?: return
