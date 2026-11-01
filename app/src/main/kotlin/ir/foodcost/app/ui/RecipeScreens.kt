@@ -102,7 +102,7 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
             groups.forEach { group ->
                 item(key = "group-${group.kind.name}") { SectionTitle(group.title, Modifier.padding(top = 12.dp)) }
                 items(group.rows, key = { it.id.value }) { row ->
-                    RecipeListItem(row) { nav.open(Screen.Recipe(row.id.value)) }
+                    RecipeListItem(row) { nav.open(dishScreen(state, row.id, today, money)) }
                 }
             }
         }
@@ -127,7 +127,7 @@ private fun RecipeListItem(row: RecipeRow, onClick: () -> Unit) {
     val status = row.status
     ListItem(
         headlineContent = { Text(row.name) },
-        supportingContent = { Text("بهای هر پرس ${row.cost}" + if (row.complete) "" else " · ناقص") },
+        supportingContent = { Text("بهای هر پرس ${row.cost}") },
         trailingContent = if (status != null) {
             { StatusChip(status, row.statusLabel.orEmpty()) }
         } else {

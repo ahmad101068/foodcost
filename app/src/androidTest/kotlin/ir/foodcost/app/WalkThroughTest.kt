@@ -2,14 +2,17 @@ package ir.foodcost.app
 
 import android.graphics.Bitmap
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import ir.foodcost.core.model.RecipeKind
@@ -20,9 +23,10 @@ import org.junit.runner.RunWith
 import java.io.File
 
 /**
- * Walks through what a hall owner does first: two ingredients with their prices, plain rice as a
- * preparation, a koobideh plate with its menu price, then the menu status and the settings.
- * Screenshots of each step are left in the app's files for the workflow to collect.
+ * Walks through the app the way the hall owner uses it: the koobideh priced in the calculator with
+ * his own numbers, saved, found on the menu, re-priced when meat gets dearer, an ingredient price
+ * updated from the list, then the detailed screens. Screenshots of each step are left in the
+ * app's files for the workflow to collect.
  */
 @RunWith(AndroidJUnit4::class)
 class WalkThroughTest {
@@ -36,7 +40,7 @@ class WalkThroughTest {
     }
 
     @Test
-    fun aPlateIsCostedAndPricedFromAnEmptyApp() {
+    fun aPlateIsCostedInTheCalculatorAndSaved() {
         try {
             walk()
         } catch (e: Throwable) {
@@ -46,113 +50,135 @@ class WalkThroughTest {
     }
 
     private fun walk() {
-        waitFor("هنوز غذایی در منو نیست")
-        shot("01-menu-empty")
+        waitForTag("row-0-name")
+        shot("01-calculator-empty")
 
-        // Rice, with 2% lost in washing, bought in 10 kg bags.
-        click("ثبت مواد اولیه")
-        click("ماده تازه")
-        type("نام ماده", "برنج طارم")
-        replace("بازدهی", "98")
-        shot("02-new-ingredient")
+        // Prices per kilo in toman, grams per portion: 364,105 toman a portion with 3% for spices.
+        typeRow(0, "گوشت", "1450000", "170")
+        typeRow(1, "دمبه", "1100000", "30")
+        typeRow(2, "پیاز", "80000", "50")
+        typeRow(3, "برنج", "350000", "200")
+        waitFor("۳۶۴٬۱۰۵ تومان")
+        waitFor("۱٬۱۵۰٬۰۰۰ تومان")
+        shot("02-calculator")
+
+        // Sold at 630,000 toman (VAT included) the food cost is 63.6%: under-priced.
+        typeTag("menu-price", "630000")
+        waitFor("زیر قیمت")
+        waitForPart("فودکاست ۶۳٫۶٪")
+        shot("03-under-priced")
+
+        typeTag("dish-name", "چلوکباب کوبیده")
         click("ذخیره")
-        waitFor("مقدار خرید")
-        replace("مقدار خرید", "10")
-        type("مبلغ کل", "4600000")
-        waitFor("هر کیلو ۴۶۰٬۰۰۰ تومان")
-        shot("03-purchase")
-        click("ثبت قیمت")
-        waitFor("قیمت امروز")
-        shot("04-ingredient")
+        waitForPart("در غذاها ذخیره شد")
+        shot("04-saved")
+
+        click("منو")
+        waitFor("چلوکباب کوبیده")
+        waitFor("زیر قیمت")
+        shot("05-menu")
+
+        // The saved dish opens in the calculator; dearer meat shows at once.
+        click("چلوکباب کوبیده")
+        waitForTag("row-0-price")
+        replaceTag("row-0-price", "1600000")
+        waitFor("۳۹۰٬۳۷۰ تومان")
+        shot("06-dish")
+        click("ذخیره")
+        waitForPart("در غذاها ذخیره شد")
         back()
 
-        // Minced meat, bought by the kilo.
-        click("ماده تازه")
-        type("نام ماده", "گوشت چرخ‌کرده")
-        click("ذخیره")
-        waitFor("مقدار خرید")
-        type("مبلغ کل", "1600000")
-        click("ثبت قیمت")
-        waitFor("قیمت امروز")
-        back()
+        // A new onion price from the list, in one field.
+        click("مواد")
         waitFor("هر کیلو ۱٬۶۰۰٬۰۰۰ تومان")
-        shot("05-ingredients")
+        shot("07-ingredients")
+        rule.onNodeWithContentDescription("قیمت تازهٔ پیاز").performClick()
+        replaceTag("quick-price", "90000")
+        click("ذخیره")
+        waitFor("هر کیلو ۹۰٬۰۰۰ تومان")
+        shot("08-quick-price")
 
-        // Plain rice, made in the kitchen and used inside plates.
+        // The detailed screens are still there: a purchase by the bag, and plain rice as a preparation.
+        click("برنج")
+        click("قیمت تازه")
+        replace("مقدار خرید", "10")
+        type("مبلغ کل", "3600000")
+        click("ثبت قیمت")
+        waitFor("قیمت امروز")
+        shot("09-ingredient")
+        back()
+
         click("دستورها")
         click("دستور تازه")
         type("نام", "چلو")
         click(Labels.kind(RecipeKind.PREP))
-        shot("06-new-recipe")
         click("ذخیره")
         click("افزودن ماده")
-        click("برنج طارم")
+        click("برنج")
         type("مقدار", "150")
-        shot("07-line")
         click("ذخیره")
         waitFor("۱۵۰ گرم")
-        back()
-
-        // The plate: 220 g of meat and one portion of rice, sold at 1,350,000 toman.
-        click("دستور تازه")
-        type("نام", "چلوکباب کوبیده")
-        click("ذخیره")
-        click("افزودن ماده")
-        shot("08-picker")
-        click("گوشت چرخ‌کرده")
-        type("مقدار", "220")
-        click("ذخیره")
-        waitFor("۲۲۰ گرم")
-        click("افزودن ماده")
-        click("چلو")
-        type("مقدار", "1")
-        click("ذخیره")
-        waitFor("۱ پرس")
-        click("ثبت قیمت منو")
-        type("قیمت (تومان)", "1350000")
-        shot("09-menu-price")
-        click("ذخیره")
-        waitFor("تغییر قیمت منو")
         shot("10-recipe")
         back()
-        shot("11-recipes")
-
-        // With the default 3% for salt and spices a portion costs 435,080 toman, so 1,350,000 is
-        // just under the suggested 1,370,000.
-        click("منو")
-        waitFor("۴۳۵٬۰۸۰ تومان")
-        waitFor("نزدیک مرز")
-        shot("12-menu")
 
         click("تنظیمات")
         waitFor("ذخیرهٔ قیمت‌گذاری")
-        shot("13-settings")
+        shot("11-settings")
+    }
+
+    private fun typeRow(index: Int, name: String, price: String, qty: String) {
+        typeTag("row-$index-name", name)
+        typeTag("row-$index-price", price)
+        typeTag("row-$index-qty", qty)
     }
 
     private fun waitFor(text: String) {
         rule.waitUntil(timeoutMillis = 15_000) { rule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
     }
 
-    private fun click(text: String) {
-        waitFor(text)
-        val node = rule.onAllNodesWithText(text).onFirst()
+    private fun waitForPart(text: String) {
+        rule.waitUntil(timeoutMillis = 15_000) {
+            rule.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    private fun waitForTag(tag: String) {
+        rule.waitUntil(timeoutMillis = 15_000) { rule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    private fun scrolled(node: SemanticsNodeInteraction): SemanticsNodeInteraction {
         try {
             node.performScrollTo()
         } catch (e: AssertionError) {
             // Not inside a scrolling column.
         }
-        node.performClick()
+        return node
+    }
+
+    private fun click(text: String) {
+        waitFor(text)
+        scrolled(rule.onAllNodesWithText(text).onFirst()).performClick()
         rule.waitForIdle()
     }
 
     private fun type(label: String, value: String) {
         waitFor(label)
-        rule.onNodeWithText(label).performTextInput(value)
+        scrolled(rule.onNodeWithText(label)).performTextInput(value)
     }
 
     private fun replace(label: String, value: String) {
         waitFor(label)
-        rule.onNodeWithText(label).performTextReplacement(value)
+        scrolled(rule.onNodeWithText(label)).performTextReplacement(value)
+    }
+
+    private fun typeTag(tag: String, value: String) {
+        waitForTag(tag)
+        scrolled(rule.onNodeWithTag(tag)).performTextInput(value)
+    }
+
+    private fun replaceTag(tag: String, value: String) {
+        waitForTag(tag)
+        scrolled(rule.onNodeWithTag(tag)).performTextReplacement(value)
     }
 
     private fun back() {

@@ -178,6 +178,20 @@ class ScreensTest {
     }
 
     @Test
+    fun `lists show no invented cost for a plate whose ingredient has no price`() {
+        val k = Kitchen()
+        val saffron = k.ledger.createIngredient("زعفران", Dimension.MASS)
+        k.ledger.saveRecipeVersion(k.kebab, RecipeEdits.addLine(RecipeEdits.base(k.state.catalog.recipe(k.kebab), N2), k.grams(saffron, "0.2")))
+        val row = MenuStatusScreen.build(k.state, N2, toman).rows.single()
+        assertEquals("ناقص", row.foodCost)
+        assertEquals("نامشخص", row.suggestedPrice)
+        assertNull(row.foodCostPercent)
+        assertEquals("۱٬۳۵۰٬۰۰۰ تومان", row.menuPrice)
+        val listed = RecipeScreens.groups(k.state, N2, toman).first { it.kind == RecipeKind.MENU_ITEM }.rows.single()
+        assertEquals("ناقص", listed.cost)
+    }
+
+    @Test
     fun `edits start from the version in force and are dated the day they are made`() {
         val k = Kitchen()
         val base = RecipeEdits.base(k.state.catalog.recipe(k.kebab), N2)

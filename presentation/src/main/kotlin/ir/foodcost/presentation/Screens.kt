@@ -72,19 +72,28 @@ object MenuStatusScreen {
 
     private fun row(item: MenuItemReport, money: MoneyFormat): MenuRow {
         val e = item.evaluation
+        // A cost with lines missing would look exact and be wrong, so it is not shown as a number.
+        val reliable = item.cost.hasLines && item.cost.isComplete
         return MenuRow(
             recipeId = item.recipe.id,
             name = item.recipe.name,
             kindLabel = if (item.recipe.kind == RecipeKind.EVENT_PACKAGE) Labels.kind(item.recipe.kind) else null,
             status = item.status,
             statusLabel = Labels.status(item.status),
-            foodCost = money.full(item.cost.foodCostPerPortion),
+            foodCost = costText(item.cost.hasLines, item.cost.isComplete, item.cost.foodCostPerPortion, money),
             menuPrice = e.currentPrice?.let { money.full(it) },
-            suggestedPrice = money.full(e.suggestion.menuPrice),
-            foodCostPercent = e.foodCostPercent?.let { Numbers.percent(it) },
-            raise = e.changePercent?.takeIf { item.needsRaise() && it.signum() > 0 }?.let { Numbers.percent(it, 0) },
+            suggestedPrice = if (reliable) money.full(e.suggestion.menuPrice) else "نامشخص",
+            foodCostPercent = e.foodCostPercent?.takeIf { reliable }?.let { Numbers.percent(it) },
+            raise = e.changePercent?.takeIf { reliable && item.needsRaise() && it.signum() > 0 }?.let { Numbers.percent(it, 0) },
         )
     }
+}
+
+/** A cost per portion for lists: the amount when every line is costed, otherwise a word. */
+internal fun costText(hasLines: Boolean, complete: Boolean, cost: BigDecimal, money: MoneyFormat): String = when {
+    !hasLines -> "—"
+    !complete -> "ناقص"
+    else -> money.full(cost)
 }
 
 // ---------------------------------------------------------------- ingredients
@@ -93,6 +102,10 @@ data class IngredientRow(
     val id: IngredientId,
     val name: String,
     val category: String?,
+    /** قیمت هر کیلو, هر لیتر or هر عدد: what a quick price update asks for. */
+    val priceLabel: String,
+    /** Today's price per kilo (liter, piece), ready to edit; empty when there is none. */
+    val currentPrice: String,
     /** هر کیلو ۴۶۰٬۰۰۰ تومان, as bought. */
     val unitPrice: String?,
     /** Why there is no price, when there is none. */
@@ -146,6 +159,8 @@ object IngredientScreens {
                     id = ingredient.id,
                     name = ingredient.name,
                     category = ingredient.category,
+                    priceLabel = "قیمت هر ${Labels.priceUnit(ingredient.baseDimension)}",
+                    currentPrice = QuickCalculator.currentPrice(state, ingredient, date, money).orEmpty(),
                     unitPrice = (unit as? UnitCostResult.Found)?.let { Prices.perUnit(it.rialsPerBaseUnit, ingredient.baseDimension, money) },
                     priceProblem = priceProblem(unit),
                     yieldLabel = yieldPercent(ingredient)?.let { "بازدهی ${Numbers.percent(it)}" },
@@ -320,7 +335,7 @@ object RecipeScreens {
                     id = recipe.id,
                     name = recipe.name,
                     kind = recipe.kind,
-                    cost = money.full(cost.foodCostPerPortion),
+                    cost = costText(cost.hasLines, cost.isComplete, cost.foodCostPerPortion, money),
                     status = evaluation?.status,
                     statusLabel = evaluation?.status?.let(Labels::status),
                     complete = cost.isComplete && cost.hasLines,

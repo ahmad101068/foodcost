@@ -45,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import ir.foodcost.core.model.IngredientId
@@ -63,6 +64,7 @@ import ir.foodcost.presentation.Labels
 import ir.foodcost.presentation.MoneyFormat
 import ir.foodcost.presentation.PriceInput
 import ir.foodcost.presentation.PriceRow
+import ir.foodcost.presentation.QuickCalculator
 import ir.foodcost.presentation.UnitOptions
 import java.time.LocalDate
 
@@ -70,6 +72,7 @@ import java.time.LocalDate
 @Composable
 fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav: Navigator, actions: AppActions) {
     var query by rememberSaveable { mutableStateOf("") }
+    var repricing by remember { mutableStateOf<IngredientRow?>(null) }
     val rows = remember(state, money, today, query) { IngredientScreens.rows(state, today, money, query) }
     TabScaffold(
         title = "مواد اولیه",
@@ -97,14 +100,59 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
                 }
             }
             items(rows, key = { it.id.value }) { row ->
-                IngredientListItem(row) { nav.open(Screen.Ingredient(row.id.value)) }
+                IngredientListItem(
+                    row = row,
+                    onClick = { nav.open(Screen.Ingredient(row.id.value)) },
+                    onReprice = { repricing = row },
+                )
             }
         }
     }
+    repricing?.let { row ->
+        QuickPriceDialog(
+            row = row,
+            money = money,
+            onDismiss = { repricing = null },
+            onSave = { text ->
+                val ingredient = state.catalog.ingredient(row.id)
+                when (val checked = ingredient?.let { QuickCalculator.quickPrice(it, text, money, today) }) {
+                    null -> repricing = null
+                    is Checked.Invalid -> actions.say(checked.errors.values.first())
+                    is Checked.Valid -> actions.run({ it.recordPrice(checked.value) }) {
+                        repricing = null
+                        actions.say("قیمت «${row.name}» به‌روز شد.")
+                    }
+                }
+            },
+        )
+    }
+}
+
+/** One field: the new price per kilo (liter, piece), from today. */
+@Composable
+private fun QuickPriceDialog(row: IngredientRow, money: MoneyFormat, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var text by remember(row.id) { mutableStateOf(row.currentPrice) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(row.name) },
+        text = {
+            TextInput(
+                value = text,
+                onValueChange = { text = it },
+                label = "${row.priceLabel} از امروز",
+                supporting = money.parse(text)?.let { money.full(it) },
+                number = true,
+                suffix = money.unit,
+                modifier = Modifier.testTag("quick-price"),
+            )
+        },
+        confirmButton = { TextButton(onClick = { onSave(text) }) { Text("ذخیره") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } },
+    )
 }
 
 @Composable
-private fun IngredientListItem(row: IngredientRow, onClick: () -> Unit) {
+private fun IngredientListItem(row: IngredientRow, onClick: () -> Unit, onReprice: () -> Unit) {
     val yieldLabel = row.yieldLabel
     val price = row.unitPrice
     ListItem(
@@ -115,10 +163,13 @@ private fun IngredientListItem(row: IngredientRow, onClick: () -> Unit) {
                 color = if (price == null) MaterialTheme.colorScheme.error else Color.Unspecified,
             )
         },
-        trailingContent = if (yieldLabel != null) {
-            { Text(yieldLabel, style = MaterialTheme.typography.labelMedium) }
-        } else {
-            null
+        trailingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (yieldLabel != null) Text(yieldLabel, style = MaterialTheme.typography.labelMedium)
+                IconButton(onClick = onReprice) {
+                    Icon(Icons.Filled.Edit, contentDescription = "قیمت تازهٔ ${row.name}")
+                }
+            }
         },
         modifier = Modifier.clickable(onClick = onClick),
     )

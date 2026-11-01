@@ -8,6 +8,7 @@ import ir.foodcost.data.ledger.Ledger
 import ir.foodcost.data.ledger.LedgerState
 import ir.foodcost.data.ops.Actor
 import ir.foodcost.data.ops.Role
+import ir.foodcost.presentation.QuickInput
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +37,9 @@ class AppContainer(context: Context) {
 
     private val _currency = MutableStateFlow(readCurrency())
     val currency: StateFlow<DisplayCurrency> = _currency.asStateFlow()
+
+    /** The calculator tab's calculation, kept while the app runs so switching tabs does not lose it. */
+    val quickDraft = MutableStateFlow(QuickInput())
 
     /** Stored rows that could not be read, if any. */
     val unreadableRows: Int get() = store?.unreadable ?: 0

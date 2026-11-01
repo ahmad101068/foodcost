@@ -36,10 +36,10 @@ fun MenuScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav: Na
         if (model.rows.isEmpty()) {
             EmptyState(
                 title = "هنوز غذایی در منو نیست",
-                body = "اول مواد اولیه و قیمت خریدشان را ثبت کنید. بعد در «دستورها» غذاهای منو را بسازید تا بها و قیمت پیشنهادی هر غذا اینجا دیده شود.",
+                body = "یک غذا را در «ماشین‌حساب» حساب و ذخیره کنید تا بها، قیمت پیشنهادی و وضعیت قیمتش اینجا دیده شود.",
                 modifier = Modifier.padding(padding),
-                action = "ثبت مواد اولیه",
-                onAction = { nav.tab(Tab.INGREDIENTS) },
+                action = "رفتن به ماشین‌حساب",
+                onAction = { nav.tab(Tab.CALC) },
             )
         } else {
             LazyColumn(
@@ -49,7 +49,7 @@ fun MenuScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav: Na
             ) {
                 item { MenuSummary(model) }
                 items(model.rows, key = { it.recipeId.value }) { row ->
-                    MenuRowCard(row) { nav.open(Screen.Recipe(row.recipeId.value)) }
+                    MenuRowCard(row) { nav.open(dishScreen(state, row.recipeId, today, money)) }
                 }
             }
         }
