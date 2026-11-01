@@ -15,6 +15,13 @@ class MainActivity : ComponentActivity() {
         setContent { FoodCostApp(container) }
     }
 
+    // The calculation in the calculator is kept as it is typed; this catches the last keys before
+    // the phone may close the app in the background.
+    override fun onStop() {
+        super.onStop()
+        (application as FoodCostApplication).container.saveDraft()
+    }
+
     // The activity handles a change to the dark theme itself, so the status and navigation bar
     // icons have to be told to follow it; otherwise they stay dark on a dark screen.
     override fun onConfigurationChanged(newConfig: Configuration) {

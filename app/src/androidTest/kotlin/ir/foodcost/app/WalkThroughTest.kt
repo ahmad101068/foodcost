@@ -21,7 +21,9 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.Until
 import ir.foodcost.core.model.RecipeKind
 import ir.foodcost.presentation.Labels
 import org.junit.Rule
@@ -31,9 +33,10 @@ import java.io.File
 
 /**
  * Walks through the app the way the hall owner uses it: the koobideh priced in the calculator with
- * his own numbers, saved, found among the dishes, re-priced when meat gets dearer, an ingredient price
- * updated from the list, then the detailed screens. Screenshots of each step are left in the
- * app's files for the workflow to collect.
+ * his own numbers, saved, found among the dishes, re-priced when meat gets dearer (a slip of a zero
+ * flagged on the way, and the change shown before it is saved), an ingredient price updated from the
+ * list, the detailed screens, then a food cost target for main dishes and the calculation shared as
+ * text. Screenshots of each step are left in the app's files for the workflow to collect.
  */
 @RunWith(AndroidJUnit4::class)
 class WalkThroughTest {
@@ -97,6 +100,7 @@ class WalkThroughTest {
         show("channel-remaining")
         shot("04-takeaway")
 
+        // A new dish of new ingredients changes nothing saved, so it is saved at once.
         typeTag("dish-name", "چلوکباب کوبیده")
         click("ذخیره")
         waitForPart("در غذاها ذخیره شد")
@@ -109,25 +113,37 @@ class WalkThroughTest {
         waitFor("۱ غذا باید گران‌تر شود")
         shot("06-dishes")
 
-        // The saved dish opens in the calculator; dearer meat shows at once.
+        // The saved dish opens in the calculator. A meat price with a zero too many is flagged at once.
         click("چلوکباب کوبیده")
         waitForTag("row-0-price")
+        replaceTag("row-0-price", "16000000")
+        waitForPart("۱۰ برابر قیمت قبلی")
+        show("row-0-warning")
+        shot("07-price-slip")
+
+        // Dearer meat, typed right: the cost shows at once.
         replaceTag("row-0-price", "1600000")
         waitForFigure("cost", "۳۹۰٬۳۷۰")
-        shot("07-dish")
+        shot("08-dish")
+
+        // Before the save, what it changes: the plate's figures and the meat price for every dish.
         click("ذخیره")
+        waitForTag("review-save")
+        waitForPart("از ۱٬۴۵۰٬۰۰۰ به ۱٬۶۰۰٬۰۰۰")
+        shot("09-review")
+        rule.onNodeWithTag("review-save").performClick()
         waitForPart("در غذاها ذخیره شد")
         back()
 
         // A new onion price from the list, in one field.
         click("مواد")
         waitFor("هر کیلو ۱٬۶۰۰٬۰۰۰ تومان")
-        shot("08-ingredients")
+        shot("10-ingredients")
         rule.onNodeWithContentDescription("قیمت تازهٔ پیاز").performClick()
         replaceTag("quick-price", "90000")
         click("ذخیره")
         waitFor("هر کیلو ۹۰٬۰۰۰ تومان")
-        shot("09-quick-price")
+        shot("11-quick-price")
 
         // The detailed screens are still there: a purchase by the bag, and plain rice as a preparation.
         click("برنج")
@@ -136,7 +152,7 @@ class WalkThroughTest {
         type("مبلغ کل", "3600000")
         click("ثبت قیمت")
         waitFor("قیمت امروز")
-        shot("10-ingredient")
+        shot("12-ingredient")
         back()
 
         click("غذاها")
@@ -149,7 +165,7 @@ class WalkThroughTest {
         type("مقدار", "150")
         click("ذخیره")
         waitFor("۱۵۰ گرم")
-        shot("11-recipe")
+        shot("13-recipe")
         back()
 
         // The three pricing methods put the same price: a 35% food cost is a 185.71% markup.
@@ -158,8 +174,16 @@ class WalkThroughTest {
         click("مارک‌آپ")
         waitFor("185.71")
         waitForPart("یعنی فودکاست ۳۵٪ و حاشیهٔ سود ۶۵٪")
-        shot("12-settings")
+        quiet()
+        shot("14-settings")
         click("فودکاست هدف")
+
+        // Main dishes aim at a 30% food cost; a tap on the section puts the keyboard on its target.
+        click("غذای اصلی")
+        waitForFocus("category-0-percent")
+        typeTag("category-0-percent", "30")
+        show("category-0-name")
+        shot("15-sections")
 
         // Online sales with a 20% commission: the online column joins the restaurant and takeaway.
         type("کمیسیون سامانه", "20")
@@ -167,10 +191,36 @@ class WalkThroughTest {
         waitForPart("تنظیمات ذخیره شد")
         click("ماشین‌حساب")
         waitFor("آنلاین")
+        quiet()
         show("channel-remaining")
-        shot("13-online")
+        shot("16-online")
 
+        // The koobideh put among the main dishes is priced at their 30%: 1,340,000 toman.
+        click("غذای اصلی")
+        waitForPart("۱٬۳۴۰٬۰۰۰")
+        show("dish-name")
+        shot("17-section-price")
+
+        share()
         darkTheme()
+    }
+
+    /** The calculation handed to the phone's share sheet as text. A missing picture fails nothing. */
+    private fun share() {
+        val device = UiDevice.getInstance(instrumentation)
+        val app = instrumentation.targetContext.packageName
+        try {
+            rule.onNodeWithContentDescription("فرستادن نتیجه").performClick()
+            device.wait(Until.gone(By.pkg(app).depth(0)), 5_000)
+            Thread.sleep(1500)
+            shot("18-share")
+        } catch (e: Throwable) {
+            // The walk itself is done.
+        } finally {
+            if (device.currentPackageName != app) device.pressBack()
+            device.wait(Until.hasObject(By.pkg(app).depth(0)), 5_000)
+            rule.waitForIdle()
+        }
     }
 
     /** Two pictures in the dark theme, for a look at its colors. A missing picture fails nothing. */
@@ -179,14 +229,20 @@ class WalkThroughTest {
             shell("cmd uimode night yes")
             Thread.sleep(1500)
             click("ماشین‌حساب")
-            shot("14-dark-calculator")
+            shot("19-dark-calculator")
             click("غذاها")
-            shot("15-dark-dishes")
+            shot("20-dark-dishes")
         } catch (e: Throwable) {
             // The walk itself is done.
         } finally {
             shell("cmd uimode night no")
         }
+    }
+
+    /** Lets the message at the bottom run out, so it does not cover the picture. */
+    private fun quiet() {
+        rule.mainClock.advanceTimeBy(5_000)
+        rule.waitForIdle()
     }
 
     private fun shell(command: String) {
@@ -287,7 +343,11 @@ class WalkThroughTest {
         val device = UiDevice.getInstance(instrumentation)
         repeat(3) {
             val wait = device.findObject(By.res("android", "aerr_wait")) ?: device.findObject(By.text("Wait")) ?: return
-            wait.click()
+            try {
+                wait.click()
+            } catch (e: StaleObjectException) {
+                // The dialog went away by itself between being found and the click.
+            }
             device.waitForIdle()
         }
     }

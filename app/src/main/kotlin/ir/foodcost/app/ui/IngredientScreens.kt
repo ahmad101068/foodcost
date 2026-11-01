@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -117,6 +118,7 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
         QuickPriceDialog(
             row = row,
             money = money,
+            warningFor = { text -> state.catalog.ingredient(row.id)?.let { QuickCalculator.quickPriceWarning(state, it, text, money, today) } },
             onDismiss = { repricing = null },
             onSave = { text ->
                 val ingredient = state.catalog.ingredient(row.id)
@@ -133,10 +135,26 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
     }
 }
 
-/** One field, ready for typing: the new price per kilo (liter, piece), from today. */
+/**
+ * One field, ready for typing: the new price per kilo (liter, piece), from today. A price about ten
+ * times the last one (a zero too many, or rials for toman) is said at once and saved only on a
+ * second press, since every dish made with the ingredient would take it.
+ */
 @Composable
-private fun QuickPriceDialog(row: IngredientRow, money: MoneyFormat, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+private fun QuickPriceDialog(
+    row: IngredientRow,
+    money: MoneyFormat,
+    warningFor: (String) -> String?,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
     var text by remember(row.id) { mutableStateOf("") }
+    var confirmed by remember(row.id) { mutableStateOf<String?>(null) }
+    val warning = warningFor(text)
+    val asks = warning != null && confirmed == text
+    fun submit() {
+        if (warning != null && confirmed != text) confirmed = text else onSave(text)
+    }
     val field = remember { FocusRequester() }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -146,16 +164,17 @@ private fun QuickPriceDialog(row: IngredientRow, money: MoneyFormat, onDismiss: 
                 value = text,
                 onValueChange = { text = it },
                 label = "${row.priceLabel} از امروز",
+                error = warning,
                 supporting = money.parse(text)?.let { money.full(it) } ?: row.unitPrice?.let { "قیمت فعلی: $it" },
                 number = true,
                 suffix = money.unit,
                 modifier = Modifier.focusRequester(field).testTag("quick-price"),
                 imeAction = ImeAction.Done,
-                onImeAction = { onSave(text) },
+                onImeAction = { submit() },
             )
             LaunchedEffect(Unit) { runCatching { field.requestFocus() } }
         },
-        confirmButton = { TextButton(onClick = { onSave(text) }) { Text("ذخیره") } },
+        confirmButton = { TextButton(onClick = { submit() }) { Text(if (asks) "ذخیره با همین قیمت" else "ذخیره") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } },
     )
 }
@@ -361,7 +380,7 @@ fun IngredientEditScreen(id: IngredientId?, state: LedgerState, nav: Navigator, 
         },
     ) { padding ->
         Column(
-            Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).imePadding().padding(16.dp),
+            Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             TextInput(input.name, { input = input.copy(name = it) }, "نام ماده", error = errors[Field.NAME])
@@ -421,7 +440,9 @@ fun IngredientEditScreen(id: IngredientId?, state: LedgerState, nav: Navigator, 
                         is Checked.Invalid -> errors = checked.errors
                         is Checked.Valid -> {
                             val draft = checked.value
-                            if (id == null) {
+                            if (IngredientScreens.nameTaken(state, draft.name, except = id)) {
+                                errors = mapOf(Field.NAME to "«${draft.name}» از قبل در فهرست مواد هست.")
+                            } else if (id == null) {
                                 actions.run({
                                     it.createIngredient(draft.name, draft.dimension, draft.category, draft.yields, draft.conversions)
                                 }) { newId ->
@@ -483,9 +504,13 @@ fun PriceEntryScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
     var errors by remember { mutableStateOf(emptyMap<Field, String>()) }
     var showMore by rememberSaveable { mutableStateOf(false) }
     val preview = input.unitPrice(ingredient, money)
+    // A price about ten times the last one is recorded only on a second press, once it has been seen.
+    val warning = QuickCalculator.purchaseWarning(state, ingredient, input, money, today)
+    var confirmed by remember(id) { mutableStateOf<PriceInput?>(null) }
+    val asks = warning != null && confirmed == input
     DetailScaffold(title = "قیمت خرید ${ingredient.name}", nav = nav, actions = actions) { padding ->
         Column(
-            Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).imePadding().padding(16.dp),
+            Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             TextInput(
@@ -524,6 +549,9 @@ fun PriceEntryScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
                 ) {
                     Text(text, modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
                 }
+            }
+            warning?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
             }
             TextButton(onClick = { showMore = !showMore }) {
                 Text(if (showMore) "بستن جزئیات" else "تخفیف، مالیات، حمل و فروشنده")
@@ -566,11 +594,16 @@ fun PriceEntryScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
                 onClick = {
                     when (val checked = input.check(id, money)) {
                         is Checked.Invalid -> errors = checked.errors
-                        is Checked.Valid -> actions.run({ it.recordPrice(checked.value) }) { nav.back() }
+                        is Checked.Valid -> if (warning != null && confirmed != input) {
+                            errors = emptyMap()
+                            confirmed = input
+                        } else {
+                            actions.run({ it.recordPrice(checked.value) }) { nav.back() }
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("ثبت قیمت") }
+            ) { Text(if (asks) "ثبت با همین قیمت" else "ثبت قیمت") }
         }
     }
 }

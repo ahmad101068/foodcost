@@ -17,6 +17,7 @@ import ir.foodcost.core.units.Uom
 import ir.foodcost.data.clock.HybridClock
 import ir.foodcost.data.ledger.Ledger
 import ir.foodcost.data.ops.Actor
+import ir.foodcost.data.ops.Opt
 import ir.foodcost.data.ops.Role
 import ir.foodcost.data.store.InMemoryOperationStore
 import org.junit.jupiter.api.Test
@@ -131,6 +132,17 @@ class ScreensTest {
         assertNull(rows.getValue(k.meat).yieldLabel)
         assertEquals("قیمت خرید ثبت نشده", rows.getValue(egg).priceProblem)
         assertEquals(listOf(k.meat), IngredientScreens.rows(k.state, D1, toman, query = "گوشت چرخ کرده").map { it.id })
+    }
+
+    @Test
+    fun `a second ingredient cannot take a name already in the list, however it is typed`() {
+        val k = Kitchen()
+        assertTrue(IngredientScreens.nameTaken(k.state, "گوشت چرخ کرده"))
+        assertTrue(IngredientScreens.nameTaken(k.state, "برنج  طارم"))
+        assertFalse(IngredientScreens.nameTaken(k.state, "گوشت چرخ‌کرده", except = k.meat))
+        assertFalse(IngredientScreens.nameTaken(k.state, "پیاز"))
+        k.ledger.updateIngredient(k.meat, archived = Opt.Value(true))
+        assertFalse(IngredientScreens.nameTaken(k.state, "گوشت چرخ‌کرده"))
     }
 
     @Test

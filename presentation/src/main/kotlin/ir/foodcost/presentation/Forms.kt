@@ -31,7 +31,7 @@ import java.time.LocalDate
 /** The fields a form can report a problem on. */
 enum class Field {
     NAME, DATE, QUANTITY, AMOUNT, DISCOUNT, TAX, DELIVERY, YIELD, PIECE_WEIGHT, DENSITY, PORTIONS, MISC, OUTPUT, PERCENT, VAT, ROW,
-    EXTRA, FIXED_COSTS, MONTHLY_PORTIONS, COMMISSION, UPLIFT,
+    EXTRA, FIXED_COSTS, MONTHLY_PORTIONS, COMMISSION, UPLIFT, CATEGORY,
 }
 
 /** A checked form: either a value ready to save or, field by field, what to fix. */
@@ -170,7 +170,14 @@ data class PriceInput(
     }
 
     /** What one kilo, liter or piece costs at what has been typed so far; null until it can be worked out. */
-    fun unitPrice(ingredient: Ingredient, money: MoneyFormat): String? {
+    fun unitPrice(ingredient: Ingredient, money: MoneyFormat): String? =
+        perBaseUnit(ingredient, money)?.let { Prices.perUnit(it, ingredient.baseDimension, money) }
+
+    /** The same in rials per kilo, liter or piece, for comparing with the last price. */
+    fun unitRials(ingredient: Ingredient, money: MoneyFormat): Long? =
+        perBaseUnit(ingredient, money)?.multiply(Prices.shownUnitSize(ingredient.baseDimension))?.setScale(0, RoundingMode.HALF_UP)?.toLong()
+
+    private fun perBaseUnit(ingredient: Ingredient, money: MoneyFormat): BigDecimal? {
         val qty = Numbers.parse(packageQty)?.takeIf { it.signum() > 0 } ?: return null
         val gross = money.parse(amount) ?: return null
         fun extra(text: String): Long? = if (text.isBlank()) 0L else money.parse(text)
@@ -180,7 +187,7 @@ data class PriceInput(
         val net = gross - off + (if (taxRecoverable) 0L else taxRials) + deliveryRials
         if (net < 0) return null
         val base = UnitConverter.toBase(qty, packageUom, ingredient.baseDimension, ingredient.conversions) ?: return null
-        return Prices.perUnit(BigDecimal.valueOf(net).over(base), ingredient.baseDimension, money)
+        return BigDecimal.valueOf(net).over(base)
     }
 
     companion object {
@@ -263,6 +270,11 @@ fun checkMenuPrice(text: String, money: MoneyFormat): Checked<Long> {
 
 enum class MethodChoice { FOOD_COST, MARGIN, MARKUP }
 
+/** A menu section with a food cost target of its own, as typed: drinks usually aim lower than plates. */
+data class CategoryTargetInput(val name: String = "", val percent: String = "") {
+    val isBlank: Boolean get() = name.isBlank() && percent.isBlank()
+}
+
 /** The pricing rules and misc share, ready to save. */
 data class SettingsDraft(val costing: CostingRules, val pricing: PricingSettings)
 
@@ -283,7 +295,22 @@ data class SettingsInput(
     val onlineCommission: String = "",
     val onlineDiscount: String = "",
     val onlineUplift: String = "",
+    /** Sections priced with their own food cost target instead of the general rule. */
+    val categories: List<CategoryTargetInput> = emptyList(),
 ) {
+    fun plusCategory(name: String): SettingsInput = copy(categories = categories + CategoryTargetInput(name))
+
+    fun withCategory(index: Int, category: CategoryTargetInput): SettingsInput =
+        copy(categories = categories.toMutableList().also { it[index] = category })
+
+    fun withoutCategory(index: Int): SettingsInput = copy(categories = categories.filterIndexed { i, _ -> i != index })
+
+    /** The suggested sections not added yet. */
+    fun categoryPresets(): List<String> {
+        val taken = categories.map { Persian.searchKey(it.name) }.toSet()
+        return CATEGORY_PRESETS.filter { Persian.searchKey(it) !in taken }
+    }
+
     /** The portion's share of the month's fixed costs, as typed so far; null until both are readable. */
     fun overheadShare(money: MoneyFormat): String? {
         val fixed = money.parse(monthlyFixed)?.takeIf { it >= 0 } ?: return null
@@ -323,6 +350,20 @@ data class SettingsInput(
         val uplift = p.decimal(onlineUplift.ifBlank { "0" }, Field.UPLIFT, "درصد گران‌تر بودن آنلاین نمی‌تواند منفی باشد.") {
             it.signum() >= 0
         }
+        val byCategory = LinkedHashMap<String, PricingMethod>()
+        val seen = HashSet<String>()
+        categories.forEach { category ->
+            if (category.isBlank) return@forEach
+            val name = category.name.trim()
+            val target = Numbers.parse(category.percent)
+            when {
+                name.isEmpty() -> p.add(Field.CATEGORY, "نام بخش را بنویسید.")
+                !seen.add(Persian.searchKey(name)) -> p.add(Field.CATEGORY, "بخش «$name» دو بار آمده است.")
+                target == null || target.signum() <= 0 || target >= HUNDRED ->
+                    p.add(Field.CATEGORY, "فودکاست هدف «$name» باید بیشتر از ۰ و کمتر از ۱۰۰ باشد.")
+                else -> byCategory[name] = PricingMethod.TargetFoodCost(target)
+            }
+        }
         return p.result {
             val newMethod = when (method) {
                 MethodChoice.FOOD_COST -> PricingMethod.TargetFoodCost(value!!)
@@ -338,6 +379,7 @@ data class SettingsInput(
                     rounding = PriceRounding(roundingStepRials, roundingDirection),
                     overhead = overhead,
                     online = OnlineTerms(commission!!, discount!!, uplift!!),
+                    methodByCategory = byCategory,
                 ),
             )
         }
@@ -405,6 +447,18 @@ data class SettingsInput(
         /** Rounding steps offered, in rials: 1,000 to 100,000 toman. */
         val ROUNDING_STEPS: List<Long> = listOf(10_000L, 50_000L, 100_000L, 500_000L, 1_000_000L)
 
+        /** Sections offered with one tap, for restaurants and cafes; any other name can be typed. */
+        val CATEGORY_PRESETS: List<String> = listOf(
+            "غذای اصلی", "پیش‌غذا و سالاد", "نوشیدنی گرم", "نوشیدنی سرد", "دسر و کیک", "صبحانه",
+        )
+
+        /** A section's rule as a food cost target, whichever way it was stored. */
+        private fun foodCostTarget(method: PricingMethod): BigDecimal? = when (method) {
+            is PricingMethod.TargetFoodCost -> method.percent
+            is PricingMethod.TargetMargin -> equivalent(method.percent, MethodChoice.MARGIN, MethodChoice.FOOD_COST)
+            is PricingMethod.Markup -> equivalent(method.percent, MethodChoice.MARKUP, MethodChoice.FOOD_COST)
+        }
+
         fun of(pricing: PricingSettings, costing: CostingRules, money: MoneyFormat): SettingsInput {
             val m = pricing.defaultMethod
             val (choice, value) = when (m) {
@@ -431,6 +485,9 @@ data class SettingsInput(
                 onlineCommission = percentOrBlank(pricing.online.commissionPercent),
                 onlineDiscount = percentOrBlank(pricing.online.discountPercent),
                 onlineUplift = percentOrBlank(pricing.online.priceUpliftPercent),
+                categories = pricing.methodByCategory.map { (name, method) ->
+                    CategoryTargetInput(name, foodCostTarget(method)?.let { Numbers.editable(it) }.orEmpty())
+                },
             )
         }
     }

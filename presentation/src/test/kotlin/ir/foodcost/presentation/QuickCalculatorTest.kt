@@ -10,6 +10,7 @@ import ir.foodcost.core.model.YieldStage
 import ir.foodcost.core.money.DisplayCurrency
 import ir.foodcost.core.pricing.OnlineTerms
 import ir.foodcost.core.pricing.PriceStatus
+import ir.foodcost.core.pricing.PricingMethod
 import ir.foodcost.core.units.Dimension
 import ir.foodcost.core.units.Uom
 import ir.foodcost.data.clock.HybridClock
@@ -295,6 +296,148 @@ class QuickCalculatorTest {
             QuickCalculator.compute(koobideh(), ledger.state, toman, today).suggested
         }
         assertEquals(List(3) { "۱٬۱۵۰٬۰۰۰ تومان" }, suggested)
+    }
+
+    @Test
+    fun `a dish in a section with its own target is priced by it, and keeps its section`() {
+        val ledger = ledger()
+        ledger.saveSettings(ledger.state.costing, ledger.state.pricing.copy(methodByCategory = mapOf("غذای اصلی" to PricingMethod.TargetFoodCost(BigDecimal(30)))))
+        assertEquals(listOf("غذای اصلی"), QuickCalculator.categories(ledger.state, QuickInput()))
+
+        val main = koobideh("630000").copy(category = "غذای اصلی")
+        val result = QuickCalculator.compute(main, ledger.state, toman, today)
+        assertEquals("۱٬۳۴۰٬۰۰۰ تومان", result.suggested) // 364,105 at 30%, with VAT, rounded up
+        assertEquals("فودکاست هدف ۳۰٪ برای غذای اصلی", result.method)
+        assertEquals("۱٬۱۵۰٬۰۰۰ تومان", QuickCalculator.compute(koobideh(), ledger.state, toman, today).suggested)
+
+        val id = QuickCalculator.save(ledger, valid(QuickCalculator.check(main, ledger.state, toman, today)), today)
+        assertEquals("غذای اصلی", ledger.state.recipes.getValue(id).category)
+        assertEquals("غذای اصلی", QuickCalculator.open(ledger.state, id, today, toman)?.category)
+        val row = MenuStatusScreen.build(ledger.state, today, toman).rows.single()
+        assertEquals("۱٬۳۴۰٬۰۰۰ تومان", row.suggestedPrice)
+        assertEquals("غذای اصلی، هدف ۳۰٪", row.category)
+
+        // Saved again without a section, the dish leaves it; a section not in the settings is still offered.
+        QuickCalculator.save(ledger, valid(QuickCalculator.check(main.copy(recipeId = id, category = null), ledger.state, toman, today)), today)
+        assertNull(ledger.state.recipes.getValue(id).category)
+        assertEquals(listOf("غذای اصلی", "کباب"), QuickCalculator.categories(ledger.state, QuickInput(category = "کباب")))
+    }
+
+    @Test
+    fun `a price ten times the last one is flagged as a slip, and a real rise is not`() {
+        val ledger = ledger()
+        val id = QuickCalculator.save(ledger, valid(QuickCalculator.check(koobideh(), ledger.state, toman, today)), today)
+        val opened = assertNotNull(QuickCalculator.open(ledger.state, id, today, toman))
+        fun warning(price: String, money: MoneyFormat = toman) =
+            QuickCalculator.compute(opened.withRow(0, opened.rows[0].copy(price = price)), ledger.state, money, today).rows[0].warning
+
+        assertEquals("قیمت «گوشت» ۱۰ برابر قیمت قبلی (۱٬۴۵۰٬۰۰۰ تومان) است؛ شاید به ریال نوشته شده.", warning("14500000"))
+        assertEquals("قیمت «گوشت» یک‌دهم قیمت قبلی (۱٬۴۵۰٬۰۰۰ تومان) است؛ صفرهایش را دوباره ببینید.", warning("145000"))
+        assertNull(warning("1600000"))
+        assertNull(warning("2900000")) // twice the price is a rise, not a slip
+        val rial = MoneyFormat(DisplayCurrency.RIAL)
+        assertEquals("قیمت «گوشت» یک‌دهم قیمت قبلی (۱۴٬۵۰۰٬۰۰۰ ریال) است؛ شاید به تومان نوشته شده.", warning("1450000", rial))
+
+        // A name typed again stands for the saved ingredient, so its price is checked too.
+        val typed = QuickInput().withRow(0, QuickRow("گوشت", "14500000", "170"))
+        assertEquals(warning("14500000"), QuickCalculator.compute(typed, ledger.state, toman, today).rows[0].warning)
+        val meat = assertNotNull(ledger.state.catalog.ingredient(opened.rows[0].ingredientId!!))
+        assertEquals(warning("14500000"), QuickCalculator.quickPriceWarning(ledger.state, meat, "14500000", toman, today))
+        assertNull(QuickCalculator.quickPriceWarning(ledger.state, meat, "1500000", toman, today))
+
+        // A purchase of 10 kilos for 145,000,000 toman is 14,500,000 a kilo: the same slip.
+        val bag = PriceInput.new(today, Dimension.MASS).copy(packageQty = "10", amount = "145000000")
+        assertEquals(warning("14500000"), QuickCalculator.purchaseWarning(ledger.state, meat, bag, toman, today))
+        assertNull(QuickCalculator.purchaseWarning(ledger.state, meat, bag.copy(amount = "15000000"), toman, today))
+    }
+
+    @Test
+    fun `the same ingredient twice is flagged, and twice at two prices is not saved`() {
+        val state = ledger().state
+        val twice = koobideh().withRow(4, QuickRow("پياز", "80000", "20")) // typed with an Arabic yeh
+        assertEquals("«پیاز» در ردیف ۳ هم آمده است.", QuickCalculator.compute(twice, state, toman, today).rows[4].warning)
+        valid(QuickCalculator.check(twice, state, toman, today))
+
+        val twoPrices = koobideh().withRow(4, QuickRow("پیاز", "90000", "20"))
+        assertEquals(
+            "«پیاز» دو بار با دو قیمت آمده است؛ یکی را بردارید.",
+            assertIs<Checked.Invalid>(QuickCalculator.check(twoPrices, state, toman, today)).errors[Field.ROW],
+        )
+    }
+
+    @Test
+    fun `before saving over a dish, the review shows what changes and which prices reach other dishes`() {
+        val ledger = ledger()
+        val id = QuickCalculator.save(ledger, valid(QuickCalculator.check(koobideh("630000"), ledger.state, toman, today)), today)
+        val loqmeh = QuickInput(dishName = "کباب لقمه").withRow(0, QuickRow("گوشت", "1450000", "150"))
+        QuickCalculator.save(ledger, valid(QuickCalculator.check(loqmeh, ledger.state, toman, today)), today)
+
+        val opened = assertNotNull(QuickCalculator.open(ledger.state, id, today, toman))
+        val dearer = opened.withRow(0, opened.rows[0].copy(price = "1600000"))
+        val review = QuickCalculator.review(dearer, valid(QuickCalculator.check(dearer, ledger.state, toman, today)), ledger.state, toman, today)
+        assertEquals("چلوکباب کوبیده", review.name)
+        assertEquals(
+            listOf(
+                QuickChange("هزینهٔ هر پرس", "۳۶۴٬۱۰۵", "۳۹۰٬۳۷۰", "‎+۷٫۲٪", worse = true),
+                QuickChange("قیمت پیشنهادی", "۱٬۱۵۰٬۰۰۰", "۱٬۲۳۰٬۰۰۰", "‎+۷٪", worse = true),
+                QuickChange("فودکاست", "۶۳٫۶٪", "۶۸٫۲٪", null, worse = true),
+                QuickChange("مانده هر پرس", "‎+۲۰۸٬۶۲۲", "‎+۱۸۲٬۳۵۷", null, worse = true),
+            ),
+            review.changes,
+        )
+        assertEquals(listOf("گوشت: هر کیلو از ۱٬۴۵۰٬۰۰۰ به ۱٬۶۰۰٬۰۰۰ تومان؛ ۱ غذای دیگر هم با آن حساب می‌شود."), review.prices)
+        assertEquals(emptyList(), review.warnings)
+
+        // A raise of the menu price alone is good news, and says so.
+        val raised = opened.copy(menuPrice = "1200000")
+        val raise = QuickCalculator.review(raised, valid(QuickCalculator.check(raised, ledger.state, toman, today)), ledger.state, toman, today)
+        assertEquals(listOf("قیمت منو", "فودکاست", "مانده هر پرس"), raise.changes.map { it.label })
+        assertEquals(listOf(false, false, false), raise.changes.map { it.worse })
+
+        // A new dish of new ingredients changes nothing already saved.
+        val fresh = QuickInput(dishName = "املت").withRow(0, QuickRow("تخم‌مرغ", "10000", "2", Uom.PIECE))
+        assertTrue(QuickCalculator.review(fresh, valid(QuickCalculator.check(fresh, ledger.state, toman, today)), ledger.state, toman, today).isEmpty)
+    }
+
+    @Test
+    fun `the calculation goes out as text`() {
+        val input = koobideh("630000").plusExtra(QuickExtra("ظرف و بسته‌بندی", "15000", takeawayOnly = true))
+        val result = QuickCalculator.compute(input, ledger().state, toman, today)
+        assertEquals(
+            """
+            چلوکباب کوبیده
+
+            مواد یک پرس:
+            • گوشت، ۱۷۰ گرم، هر کیلو ۱٬۴۵۰٬۰۰۰ تومان: ۲۴۶٬۵۰۰ تومان
+            • دمبه، ۳۰ گرم، هر کیلو ۱٬۱۰۰٬۰۰۰ تومان: ۳۳٬۰۰۰ تومان
+            • پیاز، ۵۰ گرم، هر کیلو ۸۰٬۰۰۰ تومان: ۴٬۰۰۰ تومان
+            • برنج، ۲۰۰ گرم، هر کیلو ۳۵۰٬۰۰۰ تومان: ۷۰٬۰۰۰ تومان
+            هزینه‌های دیگر هر پرس:
+            • ظرف و بسته‌بندی (فقط بیرون‌بر و آنلاین): ۱۵٬۰۰۰ تومان
+
+            بهای مواد هر پرس: ۳۶۴٬۱۰۵ تومان، با ۳٪ برای نمک، ادویه و روغن
+            قیمت پیشنهادی: ۱٬۱۵۰٬۰۰۰ تومان، فودکاست هدف ۳۵٪
+            قیمت منو: ۶۳۰٬۰۰۰ تومان، زیر قیمت
+            فروش خالص: ۵۷۲٬۷۲۷ تومان
+            فودکاست: ۶۳٫۶٪
+            مانده هر پرس: ‎+۲۰۸٬۶۲۲ تومان
+            """.trimIndent(),
+            QuickCalculator.shareText(input, result, toman),
+        )
+    }
+
+    @Test
+    fun `a draft comes back as it was typed, and an unreadable one is dropped`() {
+        val ledger = ledger()
+        val id = QuickCalculator.save(ledger, valid(QuickCalculator.check(koobideh(), ledger.state, toman, today)), today)
+        val draft = assertNotNull(QuickCalculator.open(ledger.state, id, today, toman))
+            .copy(menuPrice = "630000", miscPercent = BigDecimal("2.5"), category = "غذای اصلی")
+            .plusExtra(QuickExtra("ظرف و بسته‌بندی", "15000", takeawayOnly = true))
+            .withRow(4, QuickRow("زعفران", "", "0.5", Uom.MESGHAL))
+        assertEquals(draft, QuickDrafts.decode(QuickDrafts.encode(draft)))
+        assertEquals(QuickInput(), QuickDrafts.decode(QuickDrafts.encode(QuickInput())))
+        assertNull(QuickDrafts.decode("{"))
+        assertNull(QuickDrafts.decode("""{"v":99}"""))
     }
 
     @Test
