@@ -2,10 +2,12 @@ package ir.foodcost.presentation
 
 import ir.foodcost.core.FoodCostCalculator
 import ir.foodcost.core.costing.LatestPurchasePrice
+import ir.foodcost.core.costing.RecipeCost
 import ir.foodcost.core.costing.Section
 import ir.foodcost.core.costing.UnitCostResult
 import ir.foodcost.core.model.Catalog
 import ir.foodcost.core.model.ComponentRef
+import ir.foodcost.core.model.ExtraCost
 import ir.foodcost.core.model.Ingredient
 import ir.foodcost.core.model.IngredientId
 import ir.foodcost.core.model.MenuPrice
@@ -16,7 +18,12 @@ import ir.foodcost.core.model.RecipeId
 import ir.foodcost.core.model.RecipeKind
 import ir.foodcost.core.model.RecipeLine
 import ir.foodcost.core.model.RecipeVersion
+import ir.foodcost.core.model.SalesChannel
+import ir.foodcost.core.pricing.CostBasis
 import ir.foodcost.core.pricing.PriceStatus
+import ir.foodcost.core.pricing.Pricer
+import ir.foodcost.core.pricing.PricingMethod
+import ir.foodcost.core.pricing.Sale
 import ir.foodcost.core.roundToRials
 import ir.foodcost.core.units.Conversions
 import ir.foodcost.core.units.Dimension
@@ -41,6 +48,11 @@ data class QuickRow(
     val isBlank: Boolean get() = name.isBlank() && price.isBlank() && qty.isBlank()
 }
 
+/** A cost of a portion that is not food, as typed: a box, a cup and lid, a share of a wage. */
+data class QuickExtra(val name: String = "", val amount: String = "", val takeawayOnly: Boolean = false) {
+    val isBlank: Boolean get() = name.isBlank() && amount.isBlank()
+}
+
 /** The calculator as typed. [recipeId] is the saved dish being edited, if any. */
 data class QuickInput(
     val dishName: String = "",
@@ -50,7 +62,15 @@ data class QuickInput(
     val recipeId: RecipeId? = null,
     /** The saved dish's own share for salt and spices; null takes the default. */
     val miscPercent: BigDecimal? = null,
+    /** Costs of a portion that are not food, each counted once. */
+    val extras: List<QuickExtra> = emptyList(),
 ) {
+    fun plusExtra(extra: QuickExtra): QuickInput = copy(extras = extras + extra)
+
+    fun withExtra(index: Int, extra: QuickExtra): QuickInput = copy(extras = extras.toMutableList().also { it[index] = extra })
+
+    fun withoutExtra(index: Int): QuickInput = copy(extras = extras.filterIndexed { i, _ -> i != index })
+
     /** Replaces row [index]. Typing into the last row brings a fresh empty row below it. */
     fun withRow(index: Int, row: QuickRow): QuickInput {
         val updated = rows.toMutableList()
@@ -79,21 +99,58 @@ data class QuickRowResult(
     val units: List<Uom>,
 )
 
+data class QuickExtraResult(val problem: String?, val waiting: Boolean)
+
+/**
+ * The same portion sold in another channel, beside the restaurant's own figures. [priceForSameRemaining]
+ * is what to charge there for a portion to leave as much as one eaten in.
+ */
+data class QuickChannel(
+    val label: String,
+    val price: String,
+    val cost: String,
+    val remaining: String,
+    val remainingNegative: Boolean,
+    val foodCostPercent: String?,
+    val priceForSameRemaining: String?,
+)
+
 data class QuickResult(
     val rows: List<QuickRowResult>,
     val hasLines: Boolean,
+    /** The food alone. */
     val costPerPortion: String,
+    /** Food and the other costs of a portion eaten in: the cost on the display. */
+    val totalCost: String,
+    /** The other costs of a portion eaten in, its overhead share included; null when there are none. */
+    val otherCosts: String?,
+    /** The portion's share of the month's fixed costs from the settings; null when none is set. */
+    val overheadShare: String?,
     val miscNote: String,
     val method: String,
+    /** True when the suggested price counts the food alone, so the other costs only lower what is left. */
+    val pricesFoodOnly: Boolean,
     val suggested: String?,
     val suggestedRials: Long?,
+    /** At the menu price typed: what a portion sells for without VAT. */
+    val netSales: String?,
     val foodCostPercent: String?,
-    /** What a portion leaves after its food cost, at the menu price typed. */
-    val profit: String?,
+    /** At the menu price typed: what a portion leaves after every cost entered, signed. Not profit. */
+    val remaining: String?,
+    val remainingNegative: Boolean,
+    /** On every cost entered. */
+    val margin: String?,
+    val markup: String?,
+    /** Pricing backwards: the most a portion may cost for the menu price typed, and what that covers. */
+    val maxCost: String?,
+    val maxCostLabel: String?,
     val raise: String?,
     val status: PriceStatus,
     val statusLabel: String,
     val incompleteRows: Int,
+    val extras: List<QuickExtraResult>,
+    /** The restaurant, takeaway and online side by side; empty when they would all show the same. */
+    val channels: List<QuickChannel>,
 )
 
 data class QuickSuggestion(val id: IngredientId, val name: String, val detail: String)
@@ -115,6 +172,7 @@ data class QuickPlan(
     val menuPriceRials: Long?,
     val recipeId: RecipeId?,
     val miscPercent: BigDecimal?,
+    val extras: List<ExtraCost> = emptyList(),
 )
 
 /** The ledger refused part of a save, such as a price for a closed period. */
@@ -126,6 +184,14 @@ class QuickSaveRefused(val reason: RejectReason) : IllegalStateException("Refuse
  * until the dish is saved.
  */
 object QuickCalculator {
+    /** Other costs offered with one tap; the box is for takeaway and online orders only. */
+    val EXTRA_PRESETS: List<QuickExtra> = listOf(
+        QuickExtra("ظرف و بسته‌بندی", takeawayOnly = true),
+        QuickExtra("دستمزد"),
+        QuickExtra("گاز و برق"),
+        QuickExtra("سایر"),
+    )
+
     private val QUICK = RecipeId("quick")
     private val LINE_UNITS = listOf(
         Uom.GRAM, Uom.KILOGRAM, Uom.PIECE, Uom.MILLILITER, Uom.LITER,
@@ -164,13 +230,26 @@ object QuickCalculator {
             lines += RecipeLine(ComponentRef.IngredientRef(id), qty, row.uom)
         }
 
+        val extras = ArrayList<ExtraCost>()
+        val extraResults = input.extras.map { extra ->
+            val rials = money.parse(extra.amount)?.takeIf { it >= 0 }
+            when {
+                extra.isBlank -> QuickExtraResult(null, waiting = true)
+                rials == null -> QuickExtraResult("مبلغ را بنویسید.", waiting = true)
+                else -> {
+                    extras += ExtraCost(extra.name.ifBlank { "هزینه" }, rials, extra.takeawayOnly)
+                    QuickExtraResult(null, waiting = false)
+                }
+            }
+        }
+
         val savedDish = input.recipeId?.let { catalog.recipe(it) }
         val portions = Numbers.parse(input.portions)?.takeIf { it.signum() > 0 } ?: BigDecimal.ONE
         val recipe = Recipe(
             id = QUICK,
             name = input.dishName.ifBlank { "محاسبه" },
             kind = savedDish?.kind ?: RecipeKind.MENU_ITEM,
-            versions = listOf(RecipeVersion(today, portions, lines, miscPercent = input.miscPercent)),
+            versions = listOf(RecipeVersion(today, portions, lines, miscPercent = input.miscPercent, extras = extras)),
             category = savedDish?.category,
             pricing = savedDish?.pricing,
         )
@@ -204,23 +283,80 @@ object QuickCalculator {
             else -> evaluation.status
         }
         val s = evaluation.suggestion
+        val pricer = calculator.pricer
+        val other = pricer.otherCosts(cost, SalesChannel.DINE_IN)
+        val sale = menuRials?.takeIf { hasLines }?.let { pricer.sale(cost, SalesChannel.DINE_IN, it) }
+        val maxCost = menuRials?.takeIf { hasLines }?.let { pricer.maxCost(recipe, it) }
+        val overhead = state.pricing.overhead?.perPortion?.takeIf { it.signum() > 0 && recipe.kind != RecipeKind.PREP }
         return QuickResult(
             rows = rows,
             hasLines = hasLines,
             costPerPortion = if (hasLines) money.full(cost.foodCostPerPortion) else "—",
+            totalCost = if (hasLines) money.full(cost.foodCostPerPortion + other) else "—",
+            otherCosts = other.takeIf { hasLines && it.signum() > 0 }?.let { money.full(it) },
+            overheadShare = overhead?.let { money.full(it) },
             miscNote = "با ${Numbers.percent(cost.miscPercent)} برای نمک، ادویه و روغن",
             method = Labels.method(s.method),
+            pricesFoodOnly = basisOf(s.method) == CostBasis.FOOD_COST,
             suggested = if (hasLines) money.full(s.menuPrice) else null,
             suggestedRials = if (hasLines) s.menuPrice else null,
-            foodCostPercent = if (hasLines) evaluation.foodCostPercent?.let { Numbers.percent(it) } else null,
-            profit = if (hasLines) evaluation.grossProfit?.let { money.full(it) } else null,
+            netSales = sale?.let { money.full(it.netSales) },
+            foodCostPercent = sale?.foodCostPercent?.let { Numbers.percent(it) },
+            remaining = sale?.let { signed(it.remaining, money) },
+            remainingNegative = sale != null && sale.remaining.signum() < 0,
+            margin = sale?.marginPercent?.let { Numbers.percent(it) },
+            markup = sale?.markupPercent?.let { Numbers.percent(it) },
+            maxCost = maxCost?.let { money.full(it.amount) },
+            maxCostLabel = maxCost?.let { if (it.basis == CostBasis.FOOD_COST) "حداکثر بهای مواد برای این قیمت" else "حداکثر هزینهٔ هر پرس برای این قیمت" },
             raise = evaluation.changePercent
                 ?.takeIf { hasLines && it.signum() > 0 && (status == PriceStatus.UNDER || status == PriceStatus.NEAR) }
                 ?.let { Numbers.percent(it, 0) },
             status = status,
             statusLabel = Labels.status(status),
             incompleteRows = problems.size,
+            extras = extraResults,
+            channels = if (sale == null) emptyList() else channels(pricer, cost, sale, extras, state.pricing.online.isSet, money),
         )
+    }
+
+    /** The restaurant, takeaway and online side by side, leaving out a channel that would repeat another. */
+    private fun channels(
+        pricer: Pricer,
+        cost: RecipeCost,
+        dineIn: Sale,
+        extras: List<ExtraCost>,
+        online: Boolean,
+        money: MoneyFormat,
+    ): List<QuickChannel> {
+        fun row(sale: Sale, same: Long?) = QuickChannel(
+            label = Labels.channel(sale.channel),
+            price = money.full(sale.price),
+            cost = money.full(sale.registeredCost),
+            remaining = signed(sale.remaining, money),
+            remainingNegative = sale.remaining.signum() < 0,
+            foodCostPercent = sale.foodCostPercent?.let { Numbers.percent(it) },
+            priceForSameRemaining = same?.let { money.full(it) },
+        )
+        val list = mutableListOf(row(dineIn, null))
+        if (extras.any { it.takeawayOnly }) {
+            val takeaway = pricer.sale(cost, SalesChannel.TAKEAWAY, dineIn.price)
+            list += row(takeaway, pricer.priceLeaving(dineIn.remaining, cost, SalesChannel.TAKEAWAY))
+        }
+        if (online) {
+            val price = pricer.channelPrice(dineIn.price, SalesChannel.ONLINE)
+            list += row(pricer.sale(cost, SalesChannel.ONLINE, price), pricer.priceLeaving(dineIn.remaining, cost, SalesChannel.ONLINE))
+        }
+        return if (list.size > 1) list else emptyList()
+    }
+
+    /** ‎+۱۲٬۰۰۰ تومان or ‎-۱۲٬۰۰۰ تومان: what is left shows its sign, not only its color. */
+    private fun signed(rials: BigDecimal, money: MoneyFormat): String =
+        if (rials.signum() < 0) money.full(rials) else "\u200E+" + money.full(rials)
+
+    private fun basisOf(method: PricingMethod): CostBasis = when (method) {
+        is PricingMethod.TargetFoodCost -> CostBasis.FOOD_COST
+        is PricingMethod.TargetMargin -> method.basis
+        is PricingMethod.Markup -> method.basis
     }
 
     /** Saved ingredients whose names match what is typed in [row], with today's price. */
@@ -287,6 +423,7 @@ object QuickCalculator {
             menuPrice = menu,
             recipeId = recipeId,
             miscPercent = version.miscPercent,
+            extras = version.extras.map { QuickExtra(it.name, money.editable(it.rialsPerPortion), it.takeawayOnly) },
         )
     }
 
@@ -321,10 +458,17 @@ object QuickCalculator {
             }
         }
         if (rows.isEmpty() && !p.has(Field.ROW)) p.add(Field.ROW, "دست‌کم یک ماده با قیمت و مقدار لازم است.")
+        val extras = ArrayList<ExtraCost>()
+        input.extras.forEach { extra ->
+            if (extra.isBlank) return@forEach
+            val extraName = extra.name.trim().ifEmpty { "هزینه" }
+            val rials = money.parse(extra.amount)?.takeIf { it >= 0 }
+            if (rials == null) p.add(Field.EXTRA, "مبلغ «$extraName» را بنویسید.") else extras += ExtraCost(extraName, rials, extra.takeawayOnly)
+        }
         val portions = p.decimal(input.portions.ifBlank { "1" }, Field.PORTIONS, "تعداد پرس باید بیشتر از صفر باشد.") { it.signum() > 0 }
         val menu = if (input.menuPrice.isBlank()) null else money.parse(input.menuPrice)
         if (input.menuPrice.isNotBlank() && (menu == null || menu <= 0)) p.add(Field.AMOUNT, "قیمت منو درست نیست.")
-        return p.result { QuickPlan(name, rows, portions!!, menu, input.recipeId ?: namesake, input.miscPercent) }
+        return p.result { QuickPlan(name, rows, portions!!, menu, input.recipeId ?: namesake, input.miscPercent, extras) }
     }
 
     /**
@@ -352,7 +496,7 @@ object QuickCalculator {
         val base = RecipeEdits.base(ledger.state.catalog.recipe(recipeId), today)
         ledger.saveRecipeVersion(
             recipeId,
-            base.copy(portions = plan.portions, batchLines = lines, portionLines = emptyList(), miscPercent = plan.miscPercent),
+            base.copy(portions = plan.portions, batchLines = lines, portionLines = emptyList(), miscPercent = plan.miscPercent, extras = plan.extras),
         ).orRefuse()
         plan.menuPriceRials?.let { rials ->
             if (ledger.state.catalog.menuPriceAt(recipeId, today)?.rials != rials) ledger.setMenuPrice(recipeId, today, rials).orRefuse()

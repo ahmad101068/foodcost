@@ -5,6 +5,7 @@ import ir.foodcost.core.money.DisplayCurrency
 import ir.foodcost.core.money.PriceRounding
 import ir.foodcost.core.model.QtyBasis
 import ir.foodcost.core.model.RecipeKind
+import ir.foodcost.core.model.SalesChannel
 import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.core.pricing.PricingMethod
 import ir.foodcost.core.units.Conversions
@@ -49,6 +50,12 @@ object Labels {
         Dimension.VOLUME -> "لیتر"
         Dimension.COUNT -> "عدد"
         Dimension.PORTION -> "پرس"
+    }
+
+    fun channel(channel: SalesChannel): String = when (channel) {
+        SalesChannel.DINE_IN -> "حضوری"
+        SalesChannel.TAKEAWAY -> "بیرون‌بر"
+        SalesChannel.ONLINE -> "آنلاین"
     }
 
     fun kind(kind: RecipeKind): String = when (kind) {

@@ -30,7 +30,8 @@ class FoodCostCalculator(
     costSource: IngredientCostSource = LatestPurchasePrice(catalog),
 ) {
     private val engine = CostEngine(catalog, costing, costSource)
-    private val pricer = Pricer(pricing)
+    /** Suggested prices, sales by channel and pricing backwards, on [pricing]. */
+    val pricer = Pricer(pricing)
 
     /** A calculation fixed at [date]; reuse it for many lookups on the same day. */
     fun sheet(date: LocalDate): CostEngine.CostSheet = engine.at(date)

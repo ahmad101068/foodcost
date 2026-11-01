@@ -9,6 +9,7 @@ import ir.foodcost.core.model.Recipe
 import ir.foodcost.core.model.RecipeId
 import ir.foodcost.core.model.RecipeLine
 import ir.foodcost.core.model.RecipeVersion
+import ir.foodcost.core.model.SalesChannel
 import ir.foodcost.core.over
 import ir.foodcost.core.units.UnitConverter
 import java.math.BigDecimal
@@ -139,6 +140,13 @@ data class RecipeCost(
     val isComplete: Boolean get() = issues.isEmpty()
 
     val hasLines: Boolean get() = lines.isNotEmpty()
+
+    /**
+     * This recipe's own costs that are not food, for a portion sold through [channel]. A sub-recipe's
+     * extras are never added again: a box belongs to the plate that is sold, not to the rice in it.
+     */
+    fun extrasPerPortion(channel: SalesChannel): BigDecimal =
+        version?.extras.orEmpty().filter { it.appliesTo(channel) }.fold(BigDecimal.ZERO) { sum, e -> sum + BigDecimal(e.rialsPerPortion) }
 
     /** The cost of one g, ml or piece of the batch output, when the version states its output. */
     val costPerOutputUnit: BigDecimal?

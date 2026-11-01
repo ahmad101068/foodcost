@@ -10,6 +10,8 @@ import ir.foodcost.core.model.YieldStage
 import ir.foodcost.core.money.DisplayCurrency
 import ir.foodcost.core.money.PriceRounding
 import ir.foodcost.core.pricing.CostBasis
+import ir.foodcost.core.pricing.OnlineTerms
+import ir.foodcost.core.pricing.Overhead
 import ir.foodcost.core.pricing.PricingMethod
 import ir.foodcost.core.pricing.PricingSettings
 import ir.foodcost.core.units.Conversions
@@ -102,21 +104,21 @@ class FormsTest {
 
     @Test
     fun `settings are shown as they are saved and checked before saving`() {
-        val input = SettingsInput.of(PricingSettings(), CostingRules())
+        val input = SettingsInput.of(PricingSettings(), CostingRules(), toman)
         assertEquals(
             SettingsInput(MethodChoice.FOOD_COST, "35", "10", true, 100_000, PriceRounding.Direction.UP, "3"),
             input,
         )
-        val draft = valid(input.copy(method = MethodChoice.MARGIN, percent = "۳۰", miscPercent = "2", roundingStepRials = 50_000).check(PricingSettings(), CostingRules()))
+        val draft = valid(input.copy(method = MethodChoice.MARGIN, percent = "۳۰", miscPercent = "2", roundingStepRials = 50_000).check(PricingSettings(), CostingRules(), toman))
         assertEquals(PricingMethod.TargetMargin(BigDecimal("30"), CostBasis.FOOD_COST), draft.pricing.defaultMethod)
         assertEquals(PriceRounding(50_000, PriceRounding.Direction.UP), draft.pricing.rounding)
         assertEquals(BigDecimal("2"), draft.costing.defaultMiscPercent)
-        assertEquals(setOf(Field.PERCENT, Field.VAT), errors(input.copy(percent = "100", vatPercent = "-1").check(PricingSettings(), CostingRules())))
+        assertEquals(setOf(Field.PERCENT, Field.VAT), errors(input.copy(percent = "100", vatPercent = "-1").check(PricingSettings(), CostingRules(), toman)))
     }
 
     @Test
     fun `switching the pricing method turns the number into its equivalent, so the price stays`() {
-        val foodCost = SettingsInput.of(PricingSettings(), CostingRules())
+        val foodCost = SettingsInput.of(PricingSettings(), CostingRules(), toman)
         assertEquals("یعنی حاشیهٔ سود ۶۵٪ و مارک‌آپ ۱۸۵٫۷٪", foodCost.equivalents())
 
         val margin = foodCost.withMethod(MethodChoice.MARGIN)
@@ -129,5 +131,28 @@ class FormsTest {
         // What cannot be read is left as typed.
         assertEquals("abc", foodCost.copy(percent = "abc").withMethod(MethodChoice.MARKUP).percent)
         assertNull(foodCost.copy(percent = "").equivalents())
+    }
+
+    @Test
+    fun `the month's fixed costs, online terms and the margin basis are read, checked and shown back`() {
+        val input = SettingsInput.of(PricingSettings(), CostingRules(), toman).copy(
+            monthlyFixed = "450000000", monthlyPortions = "6000",
+            onlineCommission = "20", onlineDiscount = "10", onlineUplift = "15",
+        )
+        assertEquals("۷۵٬۰۰۰ تومان", input.overheadShare(toman))
+        val pricing = valid(input.check(PricingSettings(), CostingRules(), toman)).pricing
+        assertEquals(Overhead(4_500_000_000, BigDecimal(6000)), pricing.overhead)
+        assertEquals(OnlineTerms(BigDecimal(20), BigDecimal(10), BigDecimal(15)), pricing.online)
+        assertEquals(input, SettingsInput.of(pricing, CostingRules(), toman))
+
+        assertEquals(setOf(Field.MONTHLY_PORTIONS), errors(input.copy(monthlyPortions = "").check(PricingSettings(), CostingRules(), toman)))
+        assertNull(valid(input.copy(monthlyFixed = "", monthlyPortions = "").check(PricingSettings(), CostingRules(), toman)).pricing.overhead)
+        assertEquals(setOf(Field.COMMISSION), errors(input.copy(onlineCommission = "100").check(PricingSettings(), CostingRules(), toman)))
+
+        // On every cost entered, a margin is no food cost share: switching keeps the number.
+        val full = input.copy(method = MethodChoice.MARGIN, percent = "30", basis = CostBasis.FULL_COST)
+        assertEquals(PricingMethod.TargetMargin(BigDecimal(30), CostBasis.FULL_COST), valid(full.check(PricingSettings(), CostingRules(), toman)).pricing.defaultMethod)
+        assertEquals("30", full.withMethod(MethodChoice.MARKUP).percent)
+        assertNull(full.equivalents())
     }
 }

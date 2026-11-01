@@ -3,6 +3,7 @@ package ir.foodcost.data
 import ir.foodcost.core.bd
 import ir.foodcost.core.costing.CostingRules
 import ir.foodcost.core.model.ComponentRef
+import ir.foodcost.core.model.ExtraCost
 import ir.foodcost.core.model.IngredientId
 import ir.foodcost.core.model.PurchasePrice
 import ir.foodcost.core.model.QtyBasis
@@ -12,6 +13,7 @@ import ir.foodcost.core.model.RecipeLine
 import ir.foodcost.core.model.RecipeVersion
 import ir.foodcost.core.model.YieldStage
 import ir.foodcost.core.pricing.CostBasis
+import ir.foodcost.core.pricing.OnlineTerms
 import ir.foodcost.core.pricing.Overhead
 import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.core.pricing.PricingMethod
@@ -72,6 +74,7 @@ class OperationCodecTest {
                     ),
                     listOf(RecipeLine(ComponentRef.RecipeRef(RecipeId("chelow")), "300".bd, Uom.GRAM)),
                     "4".bd, Uom.KILOGRAM, "2.5".bd, "یادداشت\nدو خط",
+                    listOf(ExtraCost("ظرف و کیسه", 150_000, takeawayOnly = true), ExtraCost("دستمزد", 200_000)),
                 ),
             ),
             Change.RecipeVersionRemoved(dish, D1),
@@ -83,6 +86,7 @@ class OperationCodecTest {
                     methodByCategory = mapOf("drinks" to PricingMethod.Markup("150".bd)),
                     overhead = Overhead(600_000_000, "4000".bd),
                     minimumGrossProfitRials = 500_000,
+                    online = OnlineTerms("20".bd, "10".bd, "15".bd),
                 ),
             ),
             Change.SettingsSaved(pricing = PricingSettings()),
@@ -127,5 +131,16 @@ class OperationCodecTest {
         assertTrue(text != written)
         val error = assertFailsWith<JsonException> { Backup.read(text) }
         assertTrue("y" in error.message.orEmpty())
+    }
+
+    @Test
+    fun `versions and settings saved before other costs and online terms still read`() {
+        val version = OperationCodec.decode(
+            Json.parse(
+                """{"id":"o1","at":{"wall":1,"counter":0,"device":"d"},"actor":{"id":"u","role":"OWNER"},"type":"RecipeVersionSaved",""" +
+                    """"data":{"recipeId":"dish","version":{"validFrom":"2026-10-01","portions":1,"batchLines":[],"portionLines":[],"note":""}}}""",
+            ) as JsonObject,
+        )
+        assertEquals(emptyList(), (version.change as Change.RecipeVersionSaved).version.extras)
     }
 }

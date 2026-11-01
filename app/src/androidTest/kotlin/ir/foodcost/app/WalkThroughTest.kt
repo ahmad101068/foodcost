@@ -74,30 +74,45 @@ class WalkThroughTest {
         waitForFigure("suggested", "۱٬۱۵۰٬۰۰۰")
         shot("02-calculator")
 
-        // Sold at 630,000 toman (VAT included) the food cost is 63.6%: under-priced.
+        // Sold at 630,000 toman (VAT included): 572,727 net, a 63.6% food cost, 208,622 left. Under-priced.
+        // The keyboard's tick closes it, and the display shows the line under its figures again.
         typeTag("menu-price", "630000")
+        rule.onNodeWithTag("menu-price").performImeAction()
+        waitForFigure("net-sales", "۵۷۲٬۷۲۷")
+        waitForFigure("food-cost", "۶۳٫۶٪")
+        waitForFigure("remaining", "۲۰۸٬۶۲۲")
         waitFor("زیر قیمت")
-        waitForPart("فودکاست ۶۳٫۶٪")
         shot("03-under-priced")
+
+        // A takeaway box of 15,000 toman: one tap adds it, and takeaway shows beside the restaurant.
+        click("ظرف و بسته‌بندی")
+        waitForFocus("extra-0-amount")
+        typeTag("extra-0-amount", "15000")
+        rule.onNodeWithTag("extra-0-amount").performImeAction()
+        waitFor("بیرون‌بر")
+        waitForPart("۱۹۳٬۶۲۲")
+        waitForFigure("remaining", "۲۰۸٬۶۲۲") // the box is not used at the table
+        show("channel-remaining")
+        shot("04-takeaway")
 
         typeTag("dish-name", "چلوکباب کوبیده")
         click("ذخیره")
         waitForPart("در غذاها ذخیره شد")
-        shot("04-saved")
+        shot("05-saved")
 
         // The dishes tab shows the plate and that its price no longer covers it.
         click("غذاها")
         waitFor("چلوکباب کوبیده")
         waitFor("زیر قیمت")
         waitFor("۱ غذا باید گران‌تر شود")
-        shot("05-dishes")
+        shot("06-dishes")
 
         // The saved dish opens in the calculator; dearer meat shows at once.
         click("چلوکباب کوبیده")
         waitForTag("row-0-price")
         replaceTag("row-0-price", "1600000")
         waitForFigure("cost", "۳۹۰٬۳۷۰")
-        shot("06-dish")
+        shot("07-dish")
         click("ذخیره")
         waitForPart("در غذاها ذخیره شد")
         back()
@@ -105,12 +120,12 @@ class WalkThroughTest {
         // A new onion price from the list, in one field.
         click("مواد")
         waitFor("هر کیلو ۱٬۶۰۰٬۰۰۰ تومان")
-        shot("07-ingredients")
+        shot("08-ingredients")
         rule.onNodeWithContentDescription("قیمت تازهٔ پیاز").performClick()
         replaceTag("quick-price", "90000")
         click("ذخیره")
         waitFor("هر کیلو ۹۰٬۰۰۰ تومان")
-        shot("08-quick-price")
+        shot("09-quick-price")
 
         // The detailed screens are still there: a purchase by the bag, and plain rice as a preparation.
         click("برنج")
@@ -119,7 +134,7 @@ class WalkThroughTest {
         type("مبلغ کل", "3600000")
         click("ثبت قیمت")
         waitFor("قیمت امروز")
-        shot("09-ingredient")
+        shot("10-ingredient")
         back()
 
         click("غذاها")
@@ -132,7 +147,7 @@ class WalkThroughTest {
         type("مقدار", "150")
         click("ذخیره")
         waitFor("۱۵۰ گرم")
-        shot("10-recipe")
+        shot("11-recipe")
         back()
 
         // The three pricing methods put the same price: a 35% food cost is a 185.71% markup.
@@ -141,7 +156,17 @@ class WalkThroughTest {
         click("مارک‌آپ")
         waitFor("185.71")
         waitForPart("یعنی فودکاست ۳۵٪ و حاشیهٔ سود ۶۵٪")
-        shot("11-settings")
+        shot("12-settings")
+        click("فودکاست هدف")
+
+        // Online sales with a 20% commission: the online column joins the restaurant and takeaway.
+        type("کمیسیون سامانه", "20")
+        click("ذخیرهٔ قیمت‌گذاری")
+        waitForPart("تنظیمات ذخیره شد")
+        click("ماشین‌حساب")
+        waitFor("آنلاین")
+        show("channel-remaining")
+        shot("13-online")
 
         darkTheme()
     }
@@ -152,9 +177,9 @@ class WalkThroughTest {
             shell("cmd uimode night yes")
             Thread.sleep(1500)
             click("ماشین‌حساب")
-            shot("12-dark-calculator")
+            shot("14-dark-calculator")
             click("غذاها")
-            shot("13-dark-dishes")
+            shot("15-dark-dishes")
         } catch (e: Throwable) {
             // The walk itself is done.
         } finally {
@@ -199,6 +224,13 @@ class WalkThroughTest {
         rule.waitUntil(timeoutMillis = 15_000) {
             rule.onAllNodes(hasTestTag(tag) and hasText(number, substring = true)).fetchSemanticsNodes().isNotEmpty()
         }
+    }
+
+    /** Scrolls the node tagged [tag] into sight, for a picture. */
+    private fun show(tag: String) {
+        waitForTag(tag)
+        scrolled(rule.onNodeWithTag(tag))
+        rule.waitForIdle()
     }
 
     private fun waitForTag(tag: String) {

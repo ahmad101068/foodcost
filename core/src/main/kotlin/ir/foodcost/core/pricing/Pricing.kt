@@ -5,6 +5,7 @@ import ir.foodcost.core.asFraction
 import ir.foodcost.core.costing.RecipeCost
 import ir.foodcost.core.model.Recipe
 import ir.foodcost.core.model.RecipeKind
+import ir.foodcost.core.model.SalesChannel
 import ir.foodcost.core.money.PriceRounding
 import ir.foodcost.core.over
 import java.math.BigDecimal
@@ -54,6 +55,25 @@ data class Overhead(val monthlyFixedRials: Long, val monthlyPortions: BigDecimal
     val perPortion: BigDecimal get() = BigDecimal(monthlyFixedRials).over(monthlyPortions)
 }
 
+/**
+ * Selling through a delivery platform: its commission on the net sales after the discount, the
+ * discount it runs, and how much dearer the online menu is than the one in the restaurant.
+ */
+data class OnlineTerms(
+    val commissionPercent: BigDecimal = BigDecimal.ZERO,
+    val discountPercent: BigDecimal = BigDecimal.ZERO,
+    val priceUpliftPercent: BigDecimal = BigDecimal.ZERO,
+) {
+    init {
+        require(commissionPercent.signum() >= 0 && commissionPercent < Decimals.HUNDRED) { "The commission must be in [0, 100)" }
+        require(discountPercent.signum() >= 0 && discountPercent < Decimals.HUNDRED) { "The discount must be in [0, 100)" }
+        require(priceUpliftPercent.signum() >= 0) { "The online uplift cannot be negative" }
+    }
+
+    /** True when selling online differs from selling at the counter at all. */
+    val isSet: Boolean get() = commissionPercent.signum() > 0 || discountPercent.signum() > 0 || priceUpliftPercent.signum() > 0
+}
+
 data class PricingSettings(
     val defaultMethod: PricingMethod = PricingMethod.TargetFoodCost(BigDecimal(35)),
     val methodByCategory: Map<String, PricingMethod> = emptyMap(),
@@ -69,6 +89,7 @@ data class PricingSettings(
     val okRatio: BigDecimal = BigDecimal("0.99"),
     /** At or above this share (and below [okRatio]) the price is near the line; below it, under-priced. */
     val nearRatio: BigDecimal = BigDecimal("0.93"),
+    val online: OnlineTerms = OnlineTerms(),
 ) {
     init {
         require(vatPercent.signum() >= 0 && vatPercent < Decimals.HUNDRED) { "VAT must be in [0, 100)" }
@@ -106,6 +127,7 @@ object Metrics {
 data class PriceSuggestion(
     val method: PricingMethod,
     val foodCost: BigDecimal,
+    /** The portion's share of the month's fixed costs. */
     val overhead: BigDecimal,
     /** The net price the method asks for, before VAT and rounding. */
     val netPrice: BigDecimal,
@@ -114,8 +136,11 @@ data class PriceSuggestion(
     /** The rounded price to print on the menu. */
     val menuPrice: Long,
     val vatFactor: BigDecimal,
+    /** The recipe's own costs that are not food, for a portion eaten in. */
+    val extras: BigDecimal = BigDecimal.ZERO,
 ) {
-    val fullCost: BigDecimal get() = foodCost + overhead
+    /** Food, the recipe's other costs and the overhead share: the base of prices on the full cost. */
+    val fullCost: BigDecimal get() = foodCost + extras + overhead
     val menuPriceNet: BigDecimal get() = BigDecimal(menuPrice).over(vatFactor)
     val vat: BigDecimal get() = BigDecimal(menuPrice) - menuPriceNet
     val foodCostPercent: BigDecimal? get() = Metrics.foodCostPercent(foodCost, menuPriceNet)
@@ -168,8 +193,9 @@ class Pricer(private val settings: PricingSettings) {
         val recipe = cost.recipe
         val method = settings.methodFor(recipe)
         val food = cost.foodCostPerPortion
-        val overhead = if (recipe.kind == RecipeKind.PREP) BigDecimal.ZERO else settings.overhead?.perPortion ?: BigDecimal.ZERO
-        fun base(basis: CostBasis) = if (basis == CostBasis.FULL_COST) food + overhead else food
+        val overhead = overheadFor(recipe)
+        val extras = cost.extrasPerPortion(SalesChannel.DINE_IN)
+        fun base(basis: CostBasis) = if (basis == CostBasis.FULL_COST) food + extras + overhead else food
 
         var net = when (method) {
             is PricingMethod.TargetFoodCost -> food.over(method.percent.asFraction())
@@ -179,7 +205,58 @@ class Pricer(private val settings: PricingSettings) {
         settings.minimumGrossProfitRials?.let { net = net.max(food + BigDecimal(it)) }
         val vatFactor = settings.vatFactor
         val gross = net.multiply(vatFactor)
-        return PriceSuggestion(method, food, overhead, net, gross, settings.rounding.apply(gross), vatFactor)
+        return PriceSuggestion(method, food, overhead, net, gross, settings.rounding.apply(gross), vatFactor, extras)
+    }
+
+    private fun overheadFor(recipe: Recipe): BigDecimal =
+        if (recipe.kind == RecipeKind.PREP) BigDecimal.ZERO else settings.overhead?.perPortion ?: BigDecimal.ZERO
+
+    /** The recipe's own other costs for [channel] and its share of the overhead: everything but food and commission. */
+    fun otherCosts(cost: RecipeCost, channel: SalesChannel): BigDecimal = cost.extrasPerPortion(channel) + overheadFor(cost.recipe)
+
+    /** The price of [channel] when the menu in the restaurant says [menuPrice]: online prices carry the uplift. */
+    fun channelPrice(menuPrice: Long, channel: SalesChannel): Long {
+        val uplift = settings.online.priceUpliftPercent
+        if (channel != SalesChannel.ONLINE || uplift.signum() == 0) return menuPrice
+        return settings.rounding.apply(BigDecimal(menuPrice).multiply(BigDecimal.ONE + uplift.asFraction()))
+    }
+
+    /** One portion of [cost] sold through [channel] at [price], the price the customer sees on that menu. */
+    fun sale(cost: RecipeCost, channel: SalesChannel, price: Long): Sale {
+        val online = channel == SalesChannel.ONLINE
+        val gross = BigDecimal(price)
+        val discount = if (online) gross.multiply(settings.online.discountPercent.asFraction()) else BigDecimal.ZERO
+        val net = (gross - discount).over(settings.vatFactor)
+        val commission = if (online) net.multiply(settings.online.commissionPercent.asFraction()) else BigDecimal.ZERO
+        return Sale(channel, price, discount, net, commission, cost.foodCostPerPortion, otherCosts(cost, channel))
+    }
+
+    /**
+     * The menu price at which [channel] leaves [remaining] per portion, rounded up like menu prices:
+     * what to charge online so that, after the discount and commission, a portion leaves as much as
+     * it does in the restaurant. Null when nothing can.
+     */
+    fun priceLeaving(remaining: BigDecimal, cost: RecipeCost, channel: SalesChannel): Long? {
+        val online = channel == SalesChannel.ONLINE
+        val kept = BigDecimal.ONE - if (online) settings.online.commissionPercent.asFraction() else BigDecimal.ZERO
+        val paid = BigDecimal.ONE - if (online) settings.online.discountPercent.asFraction() else BigDecimal.ZERO
+        val net = (remaining + cost.foodCostPerPortion + otherCosts(cost, channel)).over(kept)
+        if (net.signum() <= 0) return null
+        return settings.rounding.apply(net.multiply(settings.vatFactor).over(paid))
+    }
+
+    /**
+     * Pricing backwards: the most a portion may cost for [menuPrice] to still meet the item's rule,
+     * on the rule's own basis: the food alone for a food cost target, or food and other costs for a
+     * margin or markup on the full cost.
+     */
+    fun maxCost(recipe: Recipe, menuPrice: Long): MaxCost {
+        val net = BigDecimal(menuPrice).over(settings.vatFactor)
+        return when (val m = settings.methodFor(recipe)) {
+            is PricingMethod.TargetFoodCost -> MaxCost(net.multiply(m.percent.asFraction()), CostBasis.FOOD_COST)
+            is PricingMethod.TargetMargin -> MaxCost(net.multiply(BigDecimal.ONE - m.percent.asFraction()), m.basis)
+            is PricingMethod.Markup -> MaxCost(net.over(BigDecimal.ONE + m.percent.asFraction()), m.basis)
+        }
     }
 
     fun evaluate(cost: RecipeCost, currentPrice: Long?): PriceEvaluation {
@@ -200,4 +277,40 @@ class Pricer(private val settings: PricingSettings) {
         }
         return PriceEvaluation(cost, suggestion, currentPrice, status)
     }
+}
+
+/** The most a portion may cost for its menu price to meet the pricing rule, and what that cost covers. */
+data class MaxCost(val amount: BigDecimal, val basis: CostBasis)
+
+/**
+ * One portion sold through [channel] at [price], as printed on that menu: what reaches the
+ * restaurant after the discount, VAT and the platform's commission, what the portion costs, and
+ * what is left. What is left is not profit: only the costs that were entered are taken off.
+ */
+data class Sale(
+    val channel: SalesChannel,
+    val price: Long,
+    /** Taken off the price before the customer pays. */
+    val discount: BigDecimal,
+    /** What the customer pays, without VAT. */
+    val netSales: BigDecimal,
+    /** The platform's share of [netSales]. */
+    val commission: BigDecimal,
+    val foodCost: BigDecimal,
+    /** The recipe's other costs for this channel and its overhead share. */
+    val otherCosts: BigDecimal,
+) {
+    /** Every cost entered: food, other costs and commission. */
+    val registeredCost: BigDecimal get() = foodCost + otherCosts + commission
+
+    val remaining: BigDecimal get() = netSales - registeredCost
+
+    /** Food alone as a share of the net sales. */
+    val foodCostPercent: BigDecimal? get() = Metrics.foodCostPercent(foodCost, netSales)
+
+    /** On every cost entered. */
+    val marginPercent: BigDecimal? get() = Metrics.grossMarginPercent(netSales, registeredCost)
+
+    /** On every cost entered. */
+    val markupPercent: BigDecimal? get() = Metrics.markupPercent(netSales, registeredCost)
 }

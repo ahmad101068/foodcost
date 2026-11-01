@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import ir.foodcost.app.AppContainer
 import ir.foodcost.core.money.DisplayCurrency
 import ir.foodcost.core.money.PriceRounding
+import ir.foodcost.core.pricing.CostBasis
 import ir.foodcost.data.json.JsonException
 import ir.foodcost.data.ledger.LedgerState
 import ir.foodcost.presentation.Checked
@@ -56,7 +57,7 @@ fun SettingsScreen(
     actions: AppActions,
 ) {
     val currency by container.currency.collectAsState()
-    var input by remember(state.pricing, state.costing) { mutableStateOf(SettingsInput.of(state.pricing, state.costing)) }
+    var input by remember(state.pricing, state.costing, money) { mutableStateOf(SettingsInput.of(state.pricing, state.costing, money)) }
     var errors by remember { mutableStateOf(emptyMap<Field, String>()) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -120,6 +121,19 @@ fun SettingsScreen(
                     number = true,
                     suffix = "٪",
                 )
+                if (input.method != MethodChoice.FOOD_COST) {
+                    Text("روی چه هزینه‌ای؟", style = MaterialTheme.typography.labelLarge)
+                    Segmented(CostBasis.entries, input.basis, { basisName(it) }) { input = input.copy(basis = it) }
+                    Text(
+                        if (input.basis == CostBasis.FOOD_COST) {
+                            "فقط بهای مواد؛ هزینه‌های دیگر از مانده کم می‌شوند."
+                        } else {
+                            "مواد، هزینه‌های دیگر هر غذا و سهم سربار ماهانه."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 TextInput(
                     value = input.vatPercent,
                     onValueChange = { input = input.copy(vatPercent = it) },
@@ -147,21 +161,87 @@ fun SettingsScreen(
                     number = true,
                     suffix = "٪",
                 )
-                Button(
-                    onClick = {
-                        when (val checked = input.check(state.pricing, state.costing)) {
-                            is Checked.Invalid -> errors = checked.errors
-                            is Checked.Valid -> {
-                                errors = emptyMap()
-                                actions.run({ it.saveSettings(checked.value.costing, checked.value.pricing) }) {
-                                    actions.say("تنظیمات ذخیره شد.")
-                                }
+            }
+
+            SettingsCard("هزینه‌های ثابت ماهانه") {
+                Text(
+                    "حقوق، اجاره، گاز و برق و بقیهٔ هزینه‌های ثابت یک ماه، تقسیم بر پرس‌هایی که در ماه فروخته می‌شود، سهم هر پرس از سربار است. اختیاری است.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                TextInput(
+                    value = input.monthlyFixed,
+                    onValueChange = { input = input.copy(monthlyFixed = it) },
+                    label = "جمع هزینه‌های ثابت ماه",
+                    error = errors[Field.FIXED_COSTS],
+                    number = true,
+                    suffix = money.unit,
+                )
+                TextInput(
+                    value = input.monthlyPortions,
+                    onValueChange = { input = input.copy(monthlyPortions = it) },
+                    label = "پرس‌های فروخته‌شده در ماه",
+                    error = errors[Field.MONTHLY_PORTIONS],
+                    supporting = input.overheadShare(money)?.let { "سهم هر پرس: $it" },
+                    number = true,
+                )
+                Text(
+                    "این سهم در «مانده» هر غذا کم می‌شود. قیمت پیشنهادی فقط وقتی آن را حساب می‌کند که حاشیه یا مارک‌آپ روی همهٔ هزینه‌ها باشد.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            SettingsCard("فروش آنلاین") {
+                Text(
+                    "اگر غذا از راه سامانه‌های سفارش آنلاین هم فروخته می‌شود، ماشین‌حساب کنار فروش حضوری، مانده‌اش را هم نشان می‌دهد.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                TextInput(
+                    value = input.onlineCommission,
+                    onValueChange = { input = input.copy(onlineCommission = it) },
+                    label = "کمیسیون سامانه",
+                    error = errors[Field.COMMISSION],
+                    supporting = "درصدی از فروش خالص پس از تخفیف",
+                    number = true,
+                    suffix = "٪",
+                )
+                TextInput(
+                    value = input.onlineDiscount,
+                    onValueChange = { input = input.copy(onlineDiscount = it) },
+                    label = "تخفیف معمول آنلاین",
+                    error = errors[Field.DISCOUNT],
+                    number = true,
+                    suffix = "٪",
+                )
+                TextInput(
+                    value = input.onlineUplift,
+                    onValueChange = { input = input.copy(onlineUplift = it) },
+                    label = "قیمت آنلاین چند درصد بیشتر از منو",
+                    error = errors[Field.UPLIFT],
+                    number = true,
+                    suffix = "٪",
+                )
+            }
+
+            // One button for the three cards above: pricing, fixed costs and online sales.
+            Button(
+                onClick = {
+                    when (val checked = input.check(state.pricing, state.costing, money)) {
+                        is Checked.Invalid -> {
+                            errors = checked.errors
+                            // The field may be scrolled out of sight above the button.
+                            actions.say(checked.errors.values.first())
+                        }
+                        is Checked.Valid -> {
+                            errors = emptyMap()
+                            actions.run({ it.saveSettings(checked.value.costing, checked.value.pricing) }) {
+                                actions.say("تنظیمات ذخیره شد.")
                             }
                         }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("ذخیرهٔ قیمت‌گذاری") }
-            }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("ذخیرهٔ قیمت‌گذاری") }
 
             SettingsCard("پشتیبان") {
                 Text(
@@ -202,6 +282,11 @@ private fun methodName(method: MethodChoice): String = when (method) {
     MethodChoice.FOOD_COST -> "فودکاست هدف"
     MethodChoice.MARGIN -> "حاشیهٔ سود"
     MethodChoice.MARKUP -> "مارک‌آپ"
+}
+
+private fun basisName(basis: CostBasis): String = when (basis) {
+    CostBasis.FOOD_COST -> "فقط مواد"
+    CostBasis.FULL_COST -> "همهٔ هزینه‌ها"
 }
 
 private fun methodHint(method: MethodChoice): String = when (method) {
