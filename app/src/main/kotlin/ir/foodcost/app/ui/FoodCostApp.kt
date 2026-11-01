@@ -45,7 +45,7 @@ fun FoodCostApp(container: AppContainer) {
 
 @Composable
 private fun AppContent(container: AppContainer, state: LedgerState, currency: DisplayCurrency) {
-    val stack = rememberSaveable(saver = Navigator.Saver) { mutableStateListOf<Screen>(Screen.Menu) }
+    val stack = rememberSaveable(saver = Navigator.Saver) { mutableStateListOf<Screen>(Screen.Calculator) }
     val nav = remember(stack) { Navigator(stack) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -53,13 +53,14 @@ private fun AppContent(container: AppContainer, state: LedgerState, currency: Di
     val money = remember(currency) { MoneyFormat(currency) }
     val today = remember { LocalDate.now() }
 
-    // Back goes up one screen; on a tab other than the menu it goes to the menu first.
-    BackHandler(enabled = nav.canGoBack || nav.tab != Tab.MENU) {
-        if (nav.canGoBack) nav.back() else nav.tab(Tab.MENU)
+    // Back goes up one screen; on another tab it goes to the calculator before leaving the app.
+    BackHandler(enabled = nav.canGoBack || nav.tab != Tab.CALC) {
+        if (nav.canGoBack) nav.back() else nav.tab(Tab.CALC)
     }
 
     when (val screen = nav.current) {
-        Screen.Menu -> MenuScreen(state, money, today, nav, actions)
+        Screen.Calculator -> CalculatorScreen(container, null, state, money, today, nav, actions)
+        is Screen.Dish -> CalculatorScreen(container, RecipeId(screen.id), state, money, today, nav, actions)
         Screen.Recipes -> RecipesScreen(state, money, today, nav, actions)
         Screen.Ingredients -> IngredientsScreen(state, money, today, nav, actions)
         Screen.Settings -> SettingsScreen(container, state, money, today, nav, actions)

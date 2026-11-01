@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -21,6 +22,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardColors
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -42,12 +45,19 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import ir.foodcost.app.ui.theme.displayColors
 import ir.foodcost.app.ui.theme.statusColors
 import ir.foodcost.core.pricing.PriceStatus
+import ir.foodcost.presentation.DigitGroups
 
 /** A tab's screen: a title on top and the tabs at the bottom. */
 @Composable
@@ -62,7 +72,7 @@ fun TabScaffold(
     Scaffold(
         topBar = { TopAppBar(title = { Text(title) }, actions = topActions) },
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest) {
                 Tab.entries.forEach { tab ->
                     NavigationBarItem(
                         selected = nav.tab == tab,
@@ -120,6 +130,42 @@ fun AddButton(text: String, onClick: () -> Unit) {
     }
 }
 
+/** White cards on the paper background: calculator rows, dishes, prices and settings. */
+@Composable
+fun whiteCardColors(): CardColors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
+
+/**
+ * The lapis window that shows a cost: the calculator's display and the top of a recipe. Inside
+ * it, text is light, the result color is saffron (as `primary`) and dividers and buttons follow.
+ */
+@Composable
+fun DisplayPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    val display = displayColors()
+    val scheme = MaterialTheme.colorScheme.copy(
+        primary = display.result,
+        onPrimary = display.container,
+        onSurface = display.value,
+        onSurfaceVariant = display.label,
+        surfaceVariant = display.divider,
+        outline = display.label,
+        outlineVariant = display.divider,
+    )
+    MaterialTheme(colorScheme = scheme) {
+        Surface(
+            modifier = modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = display.container,
+            contentColor = display.value,
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                content = content,
+            )
+        }
+    }
+}
+
 @Composable
 fun StatusChip(status: PriceStatus, label: String, modifier: Modifier = Modifier) {
     val colors = statusColors(status)
@@ -173,7 +219,11 @@ fun LabeledValue(label: String, value: String, modifier: Modifier = Modifier, em
     }
 }
 
-/** A one-line text field. A number field opens the number keyboard. */
+/**
+ * A one-line text field. A number field opens the number keyboard and shows long numbers in groups
+ * of three. [imeAction] sets the keyboard's action key: Next moves to the following field unless
+ * [onImeAction] says otherwise.
+ */
 @Composable
 fun TextInput(
     value: String,
@@ -184,6 +234,8 @@ fun TextInput(
     supporting: String? = null,
     number: Boolean = false,
     suffix: String? = null,
+    imeAction: ImeAction = ImeAction.Default,
+    onImeAction: (() -> Unit)? = null,
 ) {
     val message = error ?: supporting
     OutlinedTextField(
@@ -203,8 +255,28 @@ fun TextInput(
         } else {
             null
         },
-        keyboardOptions = if (number) KeyboardOptions(keyboardType = KeyboardType.Decimal) else KeyboardOptions.Default,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = if (number) KeyboardType.Decimal else KeyboardType.Text,
+            imeAction = imeAction,
+        ),
+        keyboardActions = if (onImeAction != null) KeyboardActions(onAny = { onImeAction() }) else KeyboardActions.Default,
+        visualTransformation = if (number) GroupDigits else VisualTransformation.None,
     )
+}
+
+/** Shows 1450000 as 1٬450٬000 while it is typed; the typed text itself is left alone. */
+private object GroupDigits : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val groups = DigitGroups.of(text.text) ?: return TransformedText(text, OffsetMapping.Identity)
+        return TransformedText(
+            AnnotatedString(groups.shown),
+            object : OffsetMapping {
+                override fun originalToTransformed(offset: Int): Int = groups.shownOffset(offset)
+
+                override fun transformedToOriginal(offset: Int): Int = groups.typedOffset(offset)
+            },
+        )
+    }
 }
 
 @Composable
@@ -279,7 +351,7 @@ fun SwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Uni
 
 @Composable
 fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
+    Card(Modifier.fillMaxWidth(), colors = whiteCardColors()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             content()

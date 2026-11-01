@@ -114,6 +114,50 @@ object Numbers {
     fun editable(value: BigDecimal): String = value.stripTrailingZeros().toPlainString()
 }
 
+/**
+ * A number being typed, shown with ٬ between thousands (1450000 as 1٬450٬000) so its zeros can be
+ * counted at a glance. Only what is shown changes: the typed text stays as it is, and the offsets
+ * carry the cursor between the two.
+ */
+class DigitGroups private constructor(
+    val shown: String,
+    private val shownOffsets: IntArray,
+    private val typedOffsets: IntArray,
+) {
+    /** Where the cursor at [typed] in the typed text is in the shown text. */
+    fun shownOffset(typed: Int): Int = shownOffsets[typed.coerceIn(0, shownOffsets.lastIndex)]
+
+    /** Where the cursor at [shown] in the shown text is in the typed text. */
+    fun typedOffset(shown: Int): Int = typedOffsets[shown.coerceIn(0, typedOffsets.lastIndex)]
+
+    companion object {
+        private val DECIMAL_MARKS = setOf('.', '/', Numbers.DECIMAL_SEPARATOR)
+
+        /** Null when there is nothing to group: fewer than four digits before the point, or not a plain number. */
+        fun of(typed: String): DigitGroups? {
+            val point = typed.indexOfFirst { it in DECIMAL_MARKS }
+            val end = if (point < 0) typed.length else point
+            if (end < 4 || (0 until end).any { !typed[it].isDigit() }) return null
+            if (point >= 0 && (point + 1 until typed.length).any { !typed[it].isDigit() }) return null
+            val shown = StringBuilder()
+            val shownOffsets = IntArray(typed.length + 1)
+            val typedOffsets = IntArray(typed.length + (end - 1) / 3 + 1)
+            for (i in typed.indices) {
+                if (i in 1 until end && (end - i) % 3 == 0) {
+                    typedOffsets[shown.length] = i
+                    shown.append(Numbers.GROUP_SEPARATOR)
+                }
+                shownOffsets[i] = shown.length
+                typedOffsets[shown.length] = i
+                shown.append(typed[i])
+            }
+            shownOffsets[typed.length] = shown.length
+            typedOffsets[shown.length] = typed.length
+            return DigitGroups(shown.toString(), shownOffsets, typedOffsets)
+        }
+    }
+}
+
 /** Shows and reads money in the currency the user chose. Amounts are always stored in rials. */
 class MoneyFormat(val currency: DisplayCurrency) {
     val unit: String = Labels.currency(currency)

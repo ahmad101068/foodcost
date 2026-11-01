@@ -26,7 +26,7 @@ import java.math.BigDecimal
 import java.time.LocalDate
 
 /** The fields a form can report a problem on. */
-enum class Field { NAME, DATE, QUANTITY, AMOUNT, DISCOUNT, TAX, DELIVERY, YIELD, PIECE_WEIGHT, DENSITY, PORTIONS, MISC, OUTPUT, PERCENT, VAT }
+enum class Field { NAME, DATE, QUANTITY, AMOUNT, DISCOUNT, TAX, DELIVERY, YIELD, PIECE_WEIGHT, DENSITY, PORTIONS, MISC, OUTPUT, PERCENT, VAT, ROW }
 
 /** A checked form: either a value ready to save or, field by field, what to fix. */
 sealed interface Checked<out T> {
@@ -36,7 +36,7 @@ sealed interface Checked<out T> {
 }
 
 /** Collects the problems found while a form is read. */
-private class Problems {
+internal class Problems {
     private val errors = LinkedHashMap<Field, String>()
 
     fun add(field: Field, message: String) {

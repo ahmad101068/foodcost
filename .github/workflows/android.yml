@@ -35,8 +35,13 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v5
-      # Without a private key the APK is signed with the debug key. Keeping that key between
-      # builds lets each new APK install over the last one on the phone.
+      # Without a private key the APK is signed with the debug key, which the build makes in
+      # ANDROID_USER_HOME. Keeping that key between builds lets each new APK install over the last
+      # one on the phone. Unless ANDROID_USER_HOME is set, the key was made somewhere else and
+      # never kept, so every APK had a key of its own.
+      - name: Make the debug key in the folder that is kept
+        shell: bash
+        run: echo "ANDROID_USER_HOME=$HOME/.android" >> "$GITHUB_ENV"
       - name: Keep the debug key
         uses: actions/cache@v5
         with:
@@ -57,7 +62,16 @@ jobs:
           FOODCOST_KEYSTORE_PASSWORD: ${{ secrets.FOODCOST_KEYSTORE_PASSWORD }}
         run: |
           set -o pipefail
+          # These older names for the same folder would clash with ANDROID_USER_HOME.
+          unset ANDROID_SDK_HOME ANDROID_PREFS_ROOT
           ./gradlew :presentation:test :app:assembleRelease --no-daemon 2>&1 | tee build.log
+          if [ -z "${FOODCOST_KEYSTORE_FILE:-}" ]; then
+            if [ -f "$ANDROID_USER_HOME/debug.keystore" ]; then
+              echo "::notice title=Signing::Signed with the kept debug key"
+            else
+              echo "::warning title=Signing::The debug key is not in $ANDROID_USER_HOME, so it will not be kept"
+            fi
+          fi
       # Annotations can be read through the API without downloading the logs.
       - name: Report failures
         if: failure()
@@ -75,13 +89,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
+        # One draft per branch, so a feature branch never replaces the APK built from main.
         run: |
           cp app/build/outputs/apk/release/app-release.apk foodcost.apk
-          for id in $(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.draft and .name == "APK for testing") | .id'); do
+          if [ "$GITHUB_REF_NAME" = "main" ]; then
+            name="APK for testing"; tag="apk-for-testing"
+          else
+            name="APK for testing ($GITHUB_REF_NAME)"; tag="apk-for-testing-${GITHUB_REF_NAME//\//-}"
+          fi
+          for id in $(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq ".[] | select(.draft and .name == \"$name\") | .id"); do
             gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"
           done
-          gh release create apk-for-testing foodcost.apk --draft --target "$GITHUB_SHA" \
-            --title "APK for testing" --notes-file .github/preview-notes.md
+          gh release create "$tag" foodcost.apk --draft --target "$GITHUB_SHA" \
+            --title "$name" --notes-file .github/preview-notes.md
 
   # Walks through the app on an Android emulator and keeps a screenshot of each step,
   # published as a draft release (visible only to the repository's owners).
@@ -131,8 +151,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          for id in $(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.draft and .name == "Walk-through screenshots") | .id'); do
+          if [ "$GITHUB_REF_NAME" = "main" ]; then
+            name="Walk-through screenshots"; tag="walkthrough"
+          else
+            name="Walk-through screenshots ($GITHUB_REF_NAME)"; tag="walkthrough-${GITHUB_REF_NAME//\//-}"
+          fi
+          for id in $(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq ".[] | select(.draft and .name == \"$name\") | .id"); do
             gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"
           done
-          gh release create walkthrough screenshots/*.png --draft --target "$GITHUB_SHA" \
-            --title "Walk-through screenshots" --notes "Screenshots of the automated walk-through at ${GITHUB_SHA::7}."
+          gh release create "$tag" screenshots/*.png --draft --target "$GITHUB_SHA" \
+            --title "$name" --notes "Screenshots of the automated walk-through at ${GITHUB_SHA::7}."

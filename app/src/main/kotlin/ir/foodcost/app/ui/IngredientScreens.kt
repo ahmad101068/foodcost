@@ -44,7 +44,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import ir.foodcost.core.model.IngredientId
@@ -63,6 +69,7 @@ import ir.foodcost.presentation.Labels
 import ir.foodcost.presentation.MoneyFormat
 import ir.foodcost.presentation.PriceInput
 import ir.foodcost.presentation.PriceRow
+import ir.foodcost.presentation.QuickCalculator
 import ir.foodcost.presentation.UnitOptions
 import java.time.LocalDate
 
@@ -70,6 +77,7 @@ import java.time.LocalDate
 @Composable
 fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav: Navigator, actions: AppActions) {
     var query by rememberSaveable { mutableStateOf("") }
+    var repricing by remember { mutableStateOf<IngredientRow?>(null) }
     val rows = remember(state, money, today, query) { IngredientScreens.rows(state, today, money, query) }
     TabScaffold(
         title = "مواد اولیه",
@@ -97,14 +105,63 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
                 }
             }
             items(rows, key = { it.id.value }) { row ->
-                IngredientListItem(row) { nav.open(Screen.Ingredient(row.id.value)) }
+                IngredientListItem(
+                    row = row,
+                    onClick = { nav.open(Screen.Ingredient(row.id.value)) },
+                    onReprice = { repricing = row },
+                )
             }
         }
     }
+    repricing?.let { row ->
+        QuickPriceDialog(
+            row = row,
+            money = money,
+            onDismiss = { repricing = null },
+            onSave = { text ->
+                val ingredient = state.catalog.ingredient(row.id)
+                when (val checked = ingredient?.let { QuickCalculator.quickPrice(it, text, money, today) }) {
+                    null -> repricing = null
+                    is Checked.Invalid -> actions.say(checked.errors.values.first())
+                    is Checked.Valid -> actions.run({ it.recordPrice(checked.value) }) {
+                        repricing = null
+                        actions.say("قیمت «${row.name}» به‌روز شد.")
+                    }
+                }
+            },
+        )
+    }
+}
+
+/** One field, ready for typing: the new price per kilo (liter, piece), from today. */
+@Composable
+private fun QuickPriceDialog(row: IngredientRow, money: MoneyFormat, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var text by remember(row.id) { mutableStateOf("") }
+    val field = remember { FocusRequester() }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(row.name) },
+        text = {
+            TextInput(
+                value = text,
+                onValueChange = { text = it },
+                label = "${row.priceLabel} از امروز",
+                supporting = money.parse(text)?.let { money.full(it) } ?: row.unitPrice?.let { "قیمت فعلی: $it" },
+                number = true,
+                suffix = money.unit,
+                modifier = Modifier.focusRequester(field).testTag("quick-price"),
+                imeAction = ImeAction.Done,
+                onImeAction = { onSave(text) },
+            )
+            LaunchedEffect(Unit) { runCatching { field.requestFocus() } }
+        },
+        confirmButton = { TextButton(onClick = { onSave(text) }) { Text("ذخیره") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } },
+    )
 }
 
 @Composable
-private fun IngredientListItem(row: IngredientRow, onClick: () -> Unit) {
+private fun IngredientListItem(row: IngredientRow, onClick: () -> Unit, onReprice: () -> Unit) {
     val yieldLabel = row.yieldLabel
     val price = row.unitPrice
     ListItem(
@@ -115,10 +172,14 @@ private fun IngredientListItem(row: IngredientRow, onClick: () -> Unit) {
                 color = if (price == null) MaterialTheme.colorScheme.error else Color.Unspecified,
             )
         },
-        trailingContent = if (yieldLabel != null) {
-            { Text(yieldLabel, style = MaterialTheme.typography.labelMedium) }
-        } else {
-            null
+        trailingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (yieldLabel != null) Text(yieldLabel, style = MaterialTheme.typography.labelMedium)
+                TextButton(
+                    onClick = onReprice,
+                    modifier = Modifier.semantics { contentDescription = "قیمت تازهٔ ${row.name}" },
+                ) { Text("قیمت تازه") }
+            }
         },
         modifier = Modifier.clickable(onClick = onClick),
     )
@@ -183,10 +244,16 @@ fun IngredientScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
 
 @Composable
 private fun IngredientCard(detail: IngredientDetail) {
-    Card(Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        ),
+    ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                listOfNotNull(detail.dimensionLabel, detail.category).joinToString(" · "),
+                listOfNotNull(detail.dimensionLabel, detail.category).joinToString("، "),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -207,10 +274,7 @@ private fun IngredientCard(detail: IngredientDetail) {
 @Composable
 private fun PriceItem(price: PriceRow, onVoid: () -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = whiteCardColors()) {
         Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
