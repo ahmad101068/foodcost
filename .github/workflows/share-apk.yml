@@ -1,0 +1,32 @@
+name: Share APK as private build artifact
+on:
+  push:
+    branches:
+      - feature/instant-foodcost-calculator
+    paths:
+      - .github/workflows/share-apk.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  share:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Retrieve verified APK from owner-only draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          asset_id=$(gh api "repos/$GITHUB_REPOSITORY/releases/430158926/assets" --jq '.[] | select(.name == "foodcost.apk") | .id')
+          test -n "$asset_id"
+          gh api -H "Accept: application/octet-stream" "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id" > FoodCost_Instant_Calculator.apk
+          test "$(head -c 2 FoodCost_Instant_Calculator.apk)" = "PK"
+          unzip -t FoodCost_Instant_Calculator.apk >/dev/null
+          sha256sum FoodCost_Instant_Calculator.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FoodCost_Instant_Calculator_APK
+          path: FoodCost_Instant_Calculator.apk
+          if-no-files-found: error
+          retention-days: 30
