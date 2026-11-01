@@ -754,8 +754,18 @@ object QuickCalculator {
     /** For a new price typed in the ingredient list: a warning when it looks like a slip, else null. */
     fun quickPriceWarning(state: LedgerState, ingredient: Ingredient, text: String, money: MoneyFormat, today: LocalDate): String? {
         val typed = money.parse(text)?.takeIf { it > 0 } ?: return null
+        return priceWarning(state, ingredient, typed, money, today)
+    }
+
+    /** For a purchase being entered: a warning when its price per kilo (liter, piece) looks like a slip. */
+    fun purchaseWarning(state: LedgerState, ingredient: Ingredient, input: PriceInput, money: MoneyFormat, today: LocalDate): String? {
+        val typed = input.unitRials(ingredient, money)?.takeIf { it > 0 } ?: return null
+        return priceWarning(state, ingredient, typed, money, today)
+    }
+
+    private fun priceWarning(state: LedgerState, ingredient: Ingredient, typedRials: Long, money: MoneyFormat, today: LocalDate): String? {
         val last = currentPriceRials(state, ingredient, today) ?: return null
-        return priceSlip(ingredient.name, typed, last, money)
+        return priceSlip(ingredient.name, typedRials, last, money)
     }
 
     /** Today's price of [ingredient] per kilo (liter, piece), ready to edit. */

@@ -503,6 +503,10 @@ fun PriceEntryScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
     var errors by remember { mutableStateOf(emptyMap<Field, String>()) }
     var showMore by rememberSaveable { mutableStateOf(false) }
     val preview = input.unitPrice(ingredient, money)
+    // A price about ten times the last one is recorded only on a second press, once it has been seen.
+    val warning = QuickCalculator.purchaseWarning(state, ingredient, input, money, today)
+    var confirmed by remember(id) { mutableStateOf<PriceInput?>(null) }
+    val asks = warning != null && confirmed == input
     DetailScaffold(title = "قیمت خرید ${ingredient.name}", nav = nav, actions = actions) { padding ->
         Column(
             Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).imePadding().padding(16.dp),
@@ -545,6 +549,9 @@ fun PriceEntryScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
                     Text(text, modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
                 }
             }
+            warning?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            }
             TextButton(onClick = { showMore = !showMore }) {
                 Text(if (showMore) "بستن جزئیات" else "تخفیف، مالیات، حمل و فروشنده")
             }
@@ -586,11 +593,16 @@ fun PriceEntryScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
                 onClick = {
                     when (val checked = input.check(id, money)) {
                         is Checked.Invalid -> errors = checked.errors
-                        is Checked.Valid -> actions.run({ it.recordPrice(checked.value) }) { nav.back() }
+                        is Checked.Valid -> if (warning != null && confirmed != input) {
+                            errors = emptyMap()
+                            confirmed = input
+                        } else {
+                            actions.run({ it.recordPrice(checked.value) }) { nav.back() }
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("ثبت قیمت") }
+            ) { Text(if (asks) "ثبت با همین قیمت" else "ثبت قیمت") }
         }
     }
 }

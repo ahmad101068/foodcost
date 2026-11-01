@@ -344,6 +344,11 @@ class QuickCalculatorTest {
         val meat = assertNotNull(ledger.state.catalog.ingredient(opened.rows[0].ingredientId!!))
         assertEquals(warning("14500000"), QuickCalculator.quickPriceWarning(ledger.state, meat, "14500000", toman, today))
         assertNull(QuickCalculator.quickPriceWarning(ledger.state, meat, "1500000", toman, today))
+
+        // A purchase of 10 kilos for 145,000,000 toman is 14,500,000 a kilo: the same slip.
+        val bag = PriceInput.new(today, Dimension.MASS).copy(packageQty = "10", amount = "145000000")
+        assertEquals(warning("14500000"), QuickCalculator.purchaseWarning(ledger.state, meat, bag, toman, today))
+        assertNull(QuickCalculator.purchaseWarning(ledger.state, meat, bag.copy(amount = "15000000"), toman, today))
     }
 
     @Test

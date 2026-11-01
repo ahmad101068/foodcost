@@ -116,8 +116,8 @@ class WalkThroughTest {
         click("چلوکباب کوبیده")
         waitForTag("row-0-price")
         replaceTag("row-0-price", "16000000")
-        waitForTag("row-0-warning")
         waitForPart("۱۰ برابر قیمت قبلی")
+        show("row-0-warning")
         shot("07-price-slip")
 
         // Dearer meat, typed right: the cost shows at once.

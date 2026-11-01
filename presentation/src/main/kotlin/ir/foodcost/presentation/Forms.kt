@@ -170,7 +170,14 @@ data class PriceInput(
     }
 
     /** What one kilo, liter or piece costs at what has been typed so far; null until it can be worked out. */
-    fun unitPrice(ingredient: Ingredient, money: MoneyFormat): String? {
+    fun unitPrice(ingredient: Ingredient, money: MoneyFormat): String? =
+        perBaseUnit(ingredient, money)?.let { Prices.perUnit(it, ingredient.baseDimension, money) }
+
+    /** The same in rials per kilo, liter or piece, for comparing with the last price. */
+    fun unitRials(ingredient: Ingredient, money: MoneyFormat): Long? =
+        perBaseUnit(ingredient, money)?.multiply(Prices.shownUnitSize(ingredient.baseDimension))?.setScale(0, RoundingMode.HALF_UP)?.toLong()
+
+    private fun perBaseUnit(ingredient: Ingredient, money: MoneyFormat): BigDecimal? {
         val qty = Numbers.parse(packageQty)?.takeIf { it.signum() > 0 } ?: return null
         val gross = money.parse(amount) ?: return null
         fun extra(text: String): Long? = if (text.isBlank()) 0L else money.parse(text)
@@ -180,7 +187,7 @@ data class PriceInput(
         val net = gross - off + (if (taxRecoverable) 0L else taxRials) + deliveryRials
         if (net < 0) return null
         val base = UnitConverter.toBase(qty, packageUom, ingredient.baseDimension, ingredient.conversions) ?: return null
-        return Prices.perUnit(BigDecimal.valueOf(net).over(base), ingredient.baseDimension, money)
+        return BigDecimal.valueOf(net).over(base)
     }
 
     companion object {
