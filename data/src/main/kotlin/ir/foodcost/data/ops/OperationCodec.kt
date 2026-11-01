@@ -2,6 +2,7 @@ package ir.foodcost.data.ops
 
 import ir.foodcost.core.costing.CostingRules
 import ir.foodcost.core.model.ComponentRef
+import ir.foodcost.core.model.ExtraCost
 import ir.foodcost.core.model.IngredientId
 import ir.foodcost.core.model.PurchasePrice
 import ir.foodcost.core.model.QtyBasis
@@ -12,6 +13,7 @@ import ir.foodcost.core.model.RecipeVersion
 import ir.foodcost.core.model.YieldStage
 import ir.foodcost.core.money.PriceRounding
 import ir.foodcost.core.pricing.CostBasis
+import ir.foodcost.core.pricing.OnlineTerms
 import ir.foodcost.core.pricing.Overhead
 import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.core.pricing.PricingMethod
@@ -226,6 +228,9 @@ object OperationCodec {
         "outputUom" to v.outputUom?.name?.json,
         "miscPercent" to v.miscPercent?.json,
         "note" to v.note.json,
+        "extras" to jsonArray(
+            v.extras.map { jsonObject("name" to it.name.json, "rials" to it.rialsPerPortion.json, "takeawayOnly" to it.takeawayOnly.json) },
+        ),
     )
 
     private fun decodeVersion(o: JsonObject) = RecipeVersion(
@@ -237,6 +242,15 @@ object OperationCodec {
         outputUom = o.stringOrNull("outputUom")?.let { enumOf<Uom>(it) },
         miscPercent = o.decimalOrNull("miscPercent"),
         note = o.string("note"),
+        // Versions saved before other costs existed have none.
+        extras = if (o.has("extras")) {
+            o.array("extras").map { item ->
+                val e = item.asObject("extra")
+                ExtraCost(e.string("name"), e.long("rials"), e.bool("takeawayOnly"))
+            }
+        } else {
+            emptyList()
+        },
     )
 
     private fun encodeMethod(m: PricingMethod): JsonObject = when (m) {
@@ -276,6 +290,11 @@ object OperationCodec {
         "minimumGrossProfitRials" to p.minimumGrossProfitRials?.json,
         "okRatio" to p.okRatio.json,
         "nearRatio" to p.nearRatio.json,
+        "online" to jsonObject(
+            "commissionPercent" to p.online.commissionPercent.json,
+            "discountPercent" to p.online.discountPercent.json,
+            "priceUpliftPercent" to p.online.priceUpliftPercent.json,
+        ),
     )
 
     private fun decodePricing(o: JsonObject): PricingSettings {
@@ -295,6 +314,12 @@ object OperationCodec {
             minimumGrossProfitRials = o.longOrNull("minimumGrossProfitRials"),
             okRatio = o.decimal("okRatio"),
             nearRatio = o.decimal("nearRatio"),
+            online = if (o.has("online")) {
+                val on = o.obj("online")
+                OnlineTerms(on.decimal("commissionPercent"), on.decimal("discountPercent"), on.decimal("priceUpliftPercent"))
+            } else {
+                OnlineTerms()
+            },
         )
     }
 

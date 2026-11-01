@@ -21,6 +21,22 @@ enum class RecipeKind {
     EVENT_PACKAGE,
 }
 
+/** Where a portion is sold. Takeaway and online portions carry their packaging; online ones a commission too. */
+enum class SalesChannel { DINE_IN, TAKEAWAY, ONLINE }
+
+/**
+ * A cost of a portion that is not food, such as its takeaway box, a cup and lid, or a share of the
+ * cook's wage. Entered per portion; [takeawayOnly] costs are left out of portions eaten in.
+ */
+data class ExtraCost(val name: String, val rialsPerPortion: Long, val takeawayOnly: Boolean = false) {
+    init {
+        require(name.isNotBlank()) { "An extra cost needs a name" }
+        require(rialsPerPortion >= 0) { "An extra cost cannot be negative" }
+    }
+
+    fun appliesTo(channel: SalesChannel): Boolean = !takeawayOnly || channel != SalesChannel.DINE_IN
+}
+
 /** Whether a line's quantity is what goes into the food or what is bought. */
 enum class QtyBasis {
     /** After cleaning and trimming; the ingredient's yield is applied to find what is bought. */
@@ -66,6 +82,8 @@ data class RecipeVersion(
     /** Share added for unweighed items such as salt and spices; null takes the default. */
     val miscPercent: BigDecimal? = null,
     val note: String = "",
+    /** Costs of a portion that are not food, counted once, outside the food cost and its misc share. */
+    val extras: List<ExtraCost> = emptyList(),
 ) {
     init {
         require(portions.signum() > 0) { "Portions must be positive" }

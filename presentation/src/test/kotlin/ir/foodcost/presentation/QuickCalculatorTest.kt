@@ -1,12 +1,14 @@
 package ir.foodcost.presentation
 
 import ir.foodcost.core.model.ComponentRef
+import ir.foodcost.core.model.ExtraCost
 import ir.foodcost.core.model.PurchasePrice
 import ir.foodcost.core.model.RecipeKind
 import ir.foodcost.core.model.RecipeLine
 import ir.foodcost.core.model.RecipeVersion
 import ir.foodcost.core.model.YieldStage
 import ir.foodcost.core.money.DisplayCurrency
+import ir.foodcost.core.pricing.OnlineTerms
 import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.core.units.Dimension
 import ir.foodcost.core.units.Uom
@@ -69,8 +71,62 @@ class QuickCalculatorTest {
         val result = QuickCalculator.compute(koobideh(menuPrice = "630000"), ledger().state, toman, today)
         assertEquals(PriceStatus.UNDER, result.status)
         assertEquals("۶۳٫۶٪", result.foodCostPercent) // 630,000 includes 10% VAT, so the net sale is 572,727
-        assertEquals("۲۰۸٬۶۲۲ تومان", result.profit)
+        assertEquals("۵۷۲٬۷۲۷ تومان", result.netSales)
+        assertEquals("\u200E+۲۰۸٬۶۲۲ تومان", result.remaining) // nothing but food entered, so it is the gross profit
+        assertFalse(result.remainingNegative)
         assertEquals("۸۳٪", result.raise)
+        // Backwards: for 630,000 to meet a 35% food cost, the food may cost at most 200,455.
+        assertEquals("۲۰۰٬۴۵۵ تومان", result.maxCost)
+        assertEquals("حداکثر بهای مواد برای این قیمت", result.maxCostLabel)
+        assertEquals(emptyList(), result.channels)
+    }
+
+    @Test
+    fun `other costs lower what is left without raising a food cost price, and takeaway shows beside the restaurant`() {
+        val input = koobideh(menuPrice = "630000")
+            .plusExtra(QuickExtra("ظرف و بسته‌بندی", "15000", takeawayOnly = true))
+            .plusExtra(QuickExtra("دستمزد", "20000"))
+        val result = QuickCalculator.compute(input, ledger().state, toman, today)
+        assertEquals("۳۶۴٬۱۰۵ تومان", result.costPerPortion)
+        assertEquals("۳۸۴٬۱۰۵ تومان", result.totalCost) // the box is not used at the table
+        assertEquals("۲۰٬۰۰۰ تومان", result.otherCosts)
+        assertEquals("۱٬۱۵۰٬۰۰۰ تومان", result.suggested) // a food cost target prices the food alone
+        assertTrue(result.pricesFoodOnly)
+        assertEquals("\u200E+۱۸۸٬۶۲۲ تومان", result.remaining)
+        assertEquals("۶۳٫۶٪", result.foodCostPercent)
+
+        assertEquals(listOf("حضوری", "بیرون‌بر"), result.channels.map { it.label })
+        val takeaway = result.channels[1]
+        assertEquals("\u200E+۱۷۳٬۶۲۲ تومان", takeaway.remaining)
+        assertEquals("۶۵۰٬۰۰۰ تومان", takeaway.priceForSameRemaining) // 646,500 rounded up to 10,000
+
+        val blank = QuickCalculator.compute(input.plusExtra(QuickExtra("سایر")), ledger().state, toman, today)
+        assertEquals(QuickExtraResult("مبلغ را بنویسید.", waiting = true), blank.extras[2])
+    }
+
+    @Test
+    fun `selling online takes the platform's discount and commission, and says what to charge there`() {
+        val ledger = ledger()
+        ledger.saveSettings(ledger.state.costing, ledger.state.pricing.copy(online = OnlineTerms(BigDecimal(20), BigDecimal(10), BigDecimal(15))))
+        val result = QuickCalculator.compute(koobideh(menuPrice = "630000"), ledger.state, toman, today)
+        assertEquals(listOf("حضوری", "آنلاین"), result.channels.map { it.label })
+        val online = result.channels[1]
+        assertEquals("۷۳۰٬۰۰۰ تومان", online.price) // 15% dearer, rounded up
+        assertEquals("\u200E+۱۱۳٬۷۱۳ تومان", online.remaining)
+        assertEquals("۸۸۰٬۰۰۰ تومان", online.priceForSameRemaining) // 875,000 rounded up
+    }
+
+    @Test
+    fun `a dish saves its other costs and opens with them`() {
+        val ledger = ledger()
+        val input = koobideh().plusExtra(QuickExtra("ظرف و بسته‌بندی", "15000", takeawayOnly = true))
+        val id = QuickCalculator.save(ledger, valid(QuickCalculator.check(input, ledger.state, toman, today)), today)
+        assertEquals(listOf(ExtraCost("ظرف و بسته‌بندی", 150_000, takeawayOnly = true)), ledger.state.catalog.recipe(id)!!.versionAt(today)!!.extras)
+        val opened = assertNotNull(QuickCalculator.open(ledger.state, id, today, toman))
+        assertEquals(listOf(QuickExtra("ظرف و بسته‌بندی", "15000", takeawayOnly = true)), opened.extras)
+
+        val unpriced = input.plusExtra(QuickExtra("دستمزد", ""))
+        assertEquals("مبلغ «دستمزد» را بنویسید.", assertIs<Checked.Invalid>(QuickCalculator.check(unpriced, ledger.state, toman, today)).errors[Field.EXTRA])
     }
 
     @Test
@@ -233,8 +289,8 @@ class QuickCalculatorTest {
     fun `the koobideh's suggested price is the same whichever pricing method puts it`() {
         val suggested = MethodChoice.entries.map { choice ->
             val ledger = ledger()
-            val form = SettingsInput.of(ledger.state.pricing, ledger.state.costing).withMethod(choice)
-            val draft = valid(form.check(ledger.state.pricing, ledger.state.costing))
+            val form = SettingsInput.of(ledger.state.pricing, ledger.state.costing, toman).withMethod(choice)
+            val draft = valid(form.check(ledger.state.pricing, ledger.state.costing, toman))
             ledger.saveSettings(draft.costing, draft.pricing)
             QuickCalculator.compute(koobideh(), ledger.state, toman, today).suggested
         }

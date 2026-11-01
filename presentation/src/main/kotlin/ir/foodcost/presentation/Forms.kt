@@ -15,6 +15,8 @@ import ir.foodcost.core.model.YieldStage
 import ir.foodcost.core.money.PriceRounding
 import ir.foodcost.core.over
 import ir.foodcost.core.pricing.CostBasis
+import ir.foodcost.core.pricing.OnlineTerms
+import ir.foodcost.core.pricing.Overhead
 import ir.foodcost.core.pricing.PricingMethod
 import ir.foodcost.core.pricing.PricingSettings
 import ir.foodcost.core.units.Conversions
@@ -27,7 +29,10 @@ import java.math.RoundingMode
 import java.time.LocalDate
 
 /** The fields a form can report a problem on. */
-enum class Field { NAME, DATE, QUANTITY, AMOUNT, DISCOUNT, TAX, DELIVERY, YIELD, PIECE_WEIGHT, DENSITY, PORTIONS, MISC, OUTPUT, PERCENT, VAT, ROW }
+enum class Field {
+    NAME, DATE, QUANTITY, AMOUNT, DISCOUNT, TAX, DELIVERY, YIELD, PIECE_WEIGHT, DENSITY, PORTIONS, MISC, OUTPUT, PERCENT, VAT, ROW,
+    EXTRA, FIXED_COSTS, MONTHLY_PORTIONS, COMMISSION, UPLIFT,
+}
 
 /** A checked form: either a value ready to save or, field by field, what to fix. */
 sealed interface Checked<out T> {
@@ -261,7 +266,7 @@ enum class MethodChoice { FOOD_COST, MARGIN, MARKUP }
 /** The pricing rules and misc share, ready to save. */
 data class SettingsDraft(val costing: CostingRules, val pricing: PricingSettings)
 
-/** The settings form, as typed. */
+/** The settings form, as typed. Amounts are in [MoneyFormat]'s currency. */
 data class SettingsInput(
     val method: MethodChoice,
     val percent: String,
@@ -270,8 +275,23 @@ data class SettingsInput(
     val roundingStepRials: Long,
     val roundingDirection: PriceRounding.Direction,
     val miscPercent: String,
+    /** What a margin or markup is taken on: the food alone, or every cost entered. */
+    val basis: CostBasis = CostBasis.FOOD_COST,
+    /** The month's fixed costs (wages, rent, energy), spread over [monthlyPortions]; both blank for none. */
+    val monthlyFixed: String = "",
+    val monthlyPortions: String = "",
+    val onlineCommission: String = "",
+    val onlineDiscount: String = "",
+    val onlineUplift: String = "",
 ) {
-    fun check(currentPricing: PricingSettings, currentCosting: CostingRules): Checked<SettingsDraft> {
+    /** The portion's share of the month's fixed costs, as typed so far; null until both are readable. */
+    fun overheadShare(money: MoneyFormat): String? {
+        val fixed = money.parse(monthlyFixed)?.takeIf { it >= 0 } ?: return null
+        val portions = Numbers.parse(monthlyPortions)?.takeIf { it.signum() > 0 } ?: return null
+        return money.full(Overhead(fixed, portions).perPortion)
+    }
+
+    fun check(currentPricing: PricingSettings, currentCosting: CostingRules, money: MoneyFormat): Checked<SettingsDraft> {
         val p = Problems()
         val value = p.decimal(percent, Field.PERCENT, percentMessage()) {
             when (method) {
@@ -286,12 +306,24 @@ data class SettingsInput(
         val misc = p.decimal(miscPercent.ifBlank { "0" }, Field.MISC, "درصد هزینه‌های جزئی باید از ۰ تا کمتر از ۱۰۰ باشد.") {
             it.signum() >= 0 && it < HUNDRED
         }
+        var overhead: Overhead? = null
+        if (monthlyFixed.isNotBlank() || monthlyPortions.isNotBlank()) {
+            val fixed = money.parse(monthlyFixed)?.takeIf { it >= 0 }
+            val portions = Numbers.parse(monthlyPortions)?.takeIf { it.signum() > 0 }
+            if (fixed == null) p.add(Field.FIXED_COSTS, "هزینهٔ ثابت ماهانه را بنویسید، یا هر دو خانه را خالی بگذارید.")
+            if (portions == null) p.add(Field.MONTHLY_PORTIONS, "تعداد پرس‌های ماه باید بیشتر از صفر باشد.")
+            if (fixed != null && portions != null) overhead = Overhead(fixed, portions)
+        }
+        val commission = p.decimal(onlineCommission.ifBlank { "0" }, Field.COMMISSION, "کمیسیون باید از ۰ تا کمتر از ۱۰۰ باشد.") {
+            it.signum() >= 0 && it < HUNDRED
+        }
+        val discount = p.decimal(onlineDiscount.ifBlank { "0" }, Field.DISCOUNT, "تخفیف باید از ۰ تا کمتر از ۱۰۰ باشد.") {
+            it.signum() >= 0 && it < HUNDRED
+        }
+        val uplift = p.decimal(onlineUplift.ifBlank { "0" }, Field.UPLIFT, "درصد گران‌تر بودن آنلاین نمی‌تواند منفی باشد.") {
+            it.signum() >= 0
+        }
         return p.result {
-            val basis = when (val m = currentPricing.defaultMethod) {
-                is PricingMethod.TargetMargin -> m.basis
-                is PricingMethod.Markup -> m.basis
-                is PricingMethod.TargetFoodCost -> CostBasis.FOOD_COST
-            }
             val newMethod = when (method) {
                 MethodChoice.FOOD_COST -> PricingMethod.TargetFoodCost(value!!)
                 MethodChoice.MARGIN -> PricingMethod.TargetMargin(value!!, basis)
@@ -304,6 +336,8 @@ data class SettingsInput(
                     vatPercent = vat!!,
                     menuPriceIncludesVat = menuPriceIncludesVat,
                     rounding = PriceRounding(roundingStepRials, roundingDirection),
+                    overhead = overhead,
+                    online = OnlineTerms(commission!!, discount!!, uplift!!),
                 ),
             )
         }
@@ -316,12 +350,15 @@ data class SettingsInput(
      */
     fun withMethod(choice: MethodChoice): SettingsInput {
         if (choice == method) return this
+        // On every cost entered, a margin is no longer the other side of a food cost share.
+        if (basis == CostBasis.FULL_COST) return copy(method = choice)
         val converted = Numbers.parse(percent)?.let { equivalent(it, method, choice) }
         return copy(method = choice, percent = converted?.let { Numbers.editable(it) } ?: percent)
     }
 
     /** The number in the other two methods: «یعنی حاشیهٔ سود ۶۵٪ و مارک‌آپ ۱۸۵٫۷٪». */
     fun equivalents(): String? {
+        if (basis == CostBasis.FULL_COST && method != MethodChoice.FOOD_COST) return null
         val value = Numbers.parse(percent) ?: return null
         val others = MethodChoice.entries.filter { it != method }.map { other ->
             val converted = equivalent(value, method, other) ?: return null
@@ -368,12 +405,14 @@ data class SettingsInput(
         /** Rounding steps offered, in rials: 1,000 to 100,000 toman. */
         val ROUNDING_STEPS: List<Long> = listOf(10_000L, 50_000L, 100_000L, 500_000L, 1_000_000L)
 
-        fun of(pricing: PricingSettings, costing: CostingRules): SettingsInput {
-            val (choice, value) = when (val m = pricing.defaultMethod) {
+        fun of(pricing: PricingSettings, costing: CostingRules, money: MoneyFormat): SettingsInput {
+            val m = pricing.defaultMethod
+            val (choice, value) = when (m) {
                 is PricingMethod.TargetFoodCost -> MethodChoice.FOOD_COST to m.percent
                 is PricingMethod.TargetMargin -> MethodChoice.MARGIN to m.percent
                 is PricingMethod.Markup -> MethodChoice.MARKUP to m.percent
             }
+            fun percentOrBlank(v: BigDecimal) = if (v.signum() == 0) "" else Numbers.editable(v)
             return SettingsInput(
                 method = choice,
                 percent = Numbers.editable(value),
@@ -382,6 +421,16 @@ data class SettingsInput(
                 roundingStepRials = pricing.rounding.stepRials,
                 roundingDirection = pricing.rounding.direction,
                 miscPercent = Numbers.editable(costing.defaultMiscPercent),
+                basis = when (m) {
+                    is PricingMethod.TargetMargin -> m.basis
+                    is PricingMethod.Markup -> m.basis
+                    is PricingMethod.TargetFoodCost -> CostBasis.FOOD_COST
+                },
+                monthlyFixed = pricing.overhead?.monthlyFixedRials?.let { money.editable(it) }.orEmpty(),
+                monthlyPortions = pricing.overhead?.monthlyPortions?.let { Numbers.editable(it) }.orEmpty(),
+                onlineCommission = percentOrBlank(pricing.online.commissionPercent),
+                onlineDiscount = percentOrBlank(pricing.online.discountPercent),
+                onlineUplift = percentOrBlank(pricing.online.priceUpliftPercent),
             )
         }
     }

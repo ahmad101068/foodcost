@@ -3,10 +3,13 @@ package ir.foodcost.core
 import ir.foodcost.core.F.D1
 import ir.foodcost.core.F.rid
 import ir.foodcost.core.model.Catalog
+import ir.foodcost.core.model.ExtraCost
+import ir.foodcost.core.model.SalesChannel
 import ir.foodcost.core.money.PriceRounding
 import ir.foodcost.core.money.PriceRounding.Direction
 import ir.foodcost.core.pricing.CostBasis
 import ir.foodcost.core.pricing.Metrics
+import ir.foodcost.core.pricing.OnlineTerms
 import ir.foodcost.core.pricing.Overhead
 import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.core.pricing.PricingMethod
@@ -122,5 +125,86 @@ class PricingTest {
         assertNull(Metrics.foodCostPercent(1_000.bd, 0.bd))
         assertNull(Metrics.grossMarginPercent((-5).bd, 1_000.bd))
         assertNull(Metrics.markupPercent(1_000.bd, 0.bd))
+    }
+
+    /** A plate of 300,000 toman of food with a 15,000 box for takeaway and 20,000 of wages, all in rials. */
+    private val plate = Catalog(
+        listOf(F.ingredient("food")),
+        listOf(F.price("food", "1", Uom.KILOGRAM, 3_000_000)),
+        listOf(
+            F.recipe(
+                "plate",
+                F.version(listOf(F.item("food", "1000"))).copy(
+                    extras = listOf(ExtraCost("ظرف و کیسه", 150_000, takeawayOnly = true), ExtraCost("دستمزد", 200_000)),
+                ),
+            ),
+        ),
+    )
+
+    private val withVat = PricingSettings(rounding = PriceRounding(100_000, Direction.UP))
+
+    @Test
+    fun `other costs are counted once, the takeaway box only off the premises, and not in the food cost`() {
+        val calc = FoodCostCalculator(plate, pricing = withVat)
+        val cost = calc.cost(rid("plate"), D1)
+        assertAmount("3000000", cost.foodCostPerPortion)
+        assertAmount("200000", cost.extrasPerPortion(SalesChannel.DINE_IN))
+        assertAmount("350000", cost.extrasPerPortion(SalesChannel.TAKEAWAY))
+        assertAmount("350000", cost.extrasPerPortion(SalesChannel.ONLINE))
+
+        // A food cost target prices the food alone; the other costs come off what is left.
+        val target = calc.evaluate(rid("plate"), D1).suggestion
+        assertAmount(FoodCostCalculator(dish(3_000_000), pricing = withVat).evaluate(rid("dish"), D1).suggestion.netPrice.toPlainString(), target.netPrice)
+
+        // A margin on the full cost includes them, the box only where it is used.
+        val full = withVat.copy(defaultMethod = PricingMethod.TargetMargin(30.bd, CostBasis.FULL_COST))
+        val margin = FoodCostCalculator(plate, pricing = full).evaluate(rid("plate"), D1).suggestion
+        assertAmount("3200000", margin.fullCost)
+        assertAmount("4571428.5714", margin.netPrice)
+    }
+
+    @Test
+    fun `a sale in each channel takes off its discount, VAT, commission and other costs`() {
+        val online = OnlineTerms(commissionPercent = 20.bd, discountPercent = 10.bd, priceUpliftPercent = 15.bd)
+        val calc = FoodCostCalculator(plate, pricing = withVat.copy(online = online))
+        val cost = calc.cost(rid("plate"), D1)
+        val pricer = calc.pricer
+
+        val dineIn = pricer.sale(cost, SalesChannel.DINE_IN, 6_300_000)
+        assertAmount("5727272.7273", dineIn.netSales)
+        assertAmount("2527272.7273", dineIn.remaining)
+        assertAmount("52.381", dineIn.foodCostPercent)
+
+        assertAmount("2377272.7273", pricer.sale(cost, SalesChannel.TAKEAWAY, 6_300_000).remaining)
+
+        // Online: 630,000 plus 15% is 724,500, rounded up to 730,000; 10% off, VAT out, then 20% commission.
+        assertEquals(7_300_000L, pricer.channelPrice(6_300_000, SalesChannel.ONLINE))
+        assertEquals(6_300_000L, pricer.channelPrice(6_300_000, SalesChannel.TAKEAWAY))
+        val sale = pricer.sale(cost, SalesChannel.ONLINE, 7_300_000)
+        assertAmount("730000", sale.discount)
+        assertAmount("5972727.2727", sale.netSales)
+        assertAmount("1194545.4545", sale.commission)
+        assertAmount("4544545.4545", sale.registeredCost)
+        assertAmount("1428181.8182", sale.remaining)
+
+        // To leave online what a portion leaves in the restaurant, it should sell for 897,917, so 900,000.
+        assertEquals(9_000_000L, pricer.priceLeaving(dineIn.remaining, cost, SalesChannel.ONLINE))
+        val there = pricer.sale(cost, SalesChannel.ONLINE, 9_000_000).remaining
+        val below = pricer.sale(cost, SalesChannel.ONLINE, 8_900_000).remaining
+        assert(there >= dineIn.remaining && below < dineIn.remaining)
+    }
+
+    @Test
+    fun `pricing backwards gives the most a portion may cost for its menu price`() {
+        val fc = FoodCostCalculator(plate, pricing = withVat)
+        val recipe = fc.catalog.recipe(rid("plate"))!!
+        val max = fc.pricer.maxCost(recipe, 6_300_000)
+        assertAmount("2004545.4545", max.amount) // 572,727 net at a 35% food cost
+        assertEquals(CostBasis.FOOD_COST, max.basis)
+
+        val margin = withVat.copy(defaultMethod = PricingMethod.TargetMargin(30.bd, CostBasis.FULL_COST))
+        val full = FoodCostCalculator(plate, pricing = margin).pricer.maxCost(recipe, 6_300_000)
+        assertAmount("4009090.9091", full.amount)
+        assertEquals(CostBasis.FULL_COST, full.basis)
     }
 }
