@@ -21,6 +21,7 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import ir.foodcost.core.model.RecipeKind
@@ -342,7 +343,11 @@ class WalkThroughTest {
         val device = UiDevice.getInstance(instrumentation)
         repeat(3) {
             val wait = device.findObject(By.res("android", "aerr_wait")) ?: device.findObject(By.text("Wait")) ?: return
-            wait.click()
+            try {
+                wait.click()
+            } catch (e: StaleObjectException) {
+                // The dialog went away by itself between being found and the click.
+            }
             device.waitForIdle()
         }
     }
