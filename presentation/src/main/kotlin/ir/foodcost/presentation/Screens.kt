@@ -104,8 +104,6 @@ data class IngredientRow(
     val category: String?,
     /** قیمت هر کیلو, هر لیتر or هر عدد: what a quick price update asks for. */
     val priceLabel: String,
-    /** Today's price per kilo (liter, piece), ready to edit; empty when there is none. */
-    val currentPrice: String,
     /** هر کیلو ۴۶۰٬۰۰۰ تومان, as bought. */
     val unitPrice: String?,
     /** Why there is no price, when there is none. */
@@ -160,7 +158,6 @@ object IngredientScreens {
                     name = ingredient.name,
                     category = ingredient.category,
                     priceLabel = "قیمت هر ${Labels.priceUnit(ingredient.baseDimension)}",
-                    currentPrice = QuickCalculator.currentPrice(state, ingredient, date, money).orEmpty(),
                     unitPrice = (unit as? UnitCostResult.Found)?.let { Prices.perUnit(it.rialsPerBaseUnit, ingredient.baseDimension, money) },
                     priceProblem = priceProblem(unit),
                     yieldLabel = yieldPercent(ingredient)?.let { "بازدهی ${Numbers.percent(it)}" },

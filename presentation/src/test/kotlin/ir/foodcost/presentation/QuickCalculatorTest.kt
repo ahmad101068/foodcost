@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test
 import java.math.BigDecimal
 import java.time.LocalDate
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -89,10 +90,23 @@ class QuickCalculatorTest {
             .withRow(1, QuickRow("زعفران", "", "0.5"))
         val result = QuickCalculator.compute(input, ledger().state, toman, today)
         assertEquals("قیمت را بنویسید.", result.rows[1].problem)
+        assertTrue(result.rows[1].waiting)
+        assertFalse(result.rows[0].waiting)
         assertNull(result.rows[1].cost)
         assertEquals("۲۵۳٬۸۹۵ تومان", result.costPerPortion) // 246,500 plus 3%
         assertEquals(PriceStatus.INCOMPLETE, result.status)
         assertEquals(1, result.incompleteRows)
+    }
+
+    @Test
+    fun `a unit that does not fit a saved ingredient is an error, not a row still being typed`() {
+        val ledger = ledger()
+        val id = QuickCalculator.save(ledger, valid(QuickCalculator.check(koobideh(), ledger.state, toman)), today)
+        val opened = assertNotNull(QuickCalculator.open(ledger.state, id, today, toman))
+        val pieces = opened.withRow(0, opened.rows[0].copy(uom = Uom.PIECE))
+        val row = QuickCalculator.compute(pieces, ledger.state, toman, today).rows[0]
+        assertEquals("این واحد به این ماده نمی‌خورد.", row.problem)
+        assertFalse(row.waiting)
     }
 
     @Test

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -42,12 +43,18 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ir.foodcost.app.ui.theme.statusColors
 import ir.foodcost.core.pricing.PriceStatus
+import ir.foodcost.presentation.DigitGroups
 
 /** A tab's screen: a title on top and the tabs at the bottom. */
 @Composable
@@ -173,7 +180,11 @@ fun LabeledValue(label: String, value: String, modifier: Modifier = Modifier, em
     }
 }
 
-/** A one-line text field. A number field opens the number keyboard. */
+/**
+ * A one-line text field. A number field opens the number keyboard and shows long numbers in groups
+ * of three. [imeAction] sets the keyboard's action key: Next moves to the following field unless
+ * [onImeAction] says otherwise.
+ */
 @Composable
 fun TextInput(
     value: String,
@@ -184,6 +195,8 @@ fun TextInput(
     supporting: String? = null,
     number: Boolean = false,
     suffix: String? = null,
+    imeAction: ImeAction = ImeAction.Default,
+    onImeAction: (() -> Unit)? = null,
 ) {
     val message = error ?: supporting
     OutlinedTextField(
@@ -203,8 +216,28 @@ fun TextInput(
         } else {
             null
         },
-        keyboardOptions = if (number) KeyboardOptions(keyboardType = KeyboardType.Decimal) else KeyboardOptions.Default,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = if (number) KeyboardType.Decimal else KeyboardType.Text,
+            imeAction = imeAction,
+        ),
+        keyboardActions = if (onImeAction != null) KeyboardActions(onAny = { onImeAction() }) else KeyboardActions.Default,
+        visualTransformation = if (number) GroupDigits else VisualTransformation.None,
     )
+}
+
+/** Shows 1450000 as 1٬450٬000 while it is typed; the typed text itself is left alone. */
+private object GroupDigits : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val groups = DigitGroups.of(text.text) ?: return TransformedText(text, OffsetMapping.Identity)
+        return TransformedText(
+            AnnotatedString(groups.shown),
+            object : OffsetMapping {
+                override fun originalToTransformed(offset: Int): Int = groups.shownOffset(offset)
+
+                override fun transformedToOriginal(offset: Int): Int = groups.typedOffset(offset)
+            },
+        )
+    }
 }
 
 @Composable

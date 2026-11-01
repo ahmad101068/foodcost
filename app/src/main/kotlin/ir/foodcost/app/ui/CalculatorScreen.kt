@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -32,6 +33,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,12 +41,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import ir.foodcost.app.AppContainer
 import ir.foodcost.core.model.RecipeId
@@ -103,6 +110,10 @@ val CalculatorIcon: ImageVector = ImageVector.Builder(
  * The calculator: type each ingredient's price per kilo and how many grams go in, and the cost, the
  * suggested price and the food cost update with every key. With [recipeId] it edits a saved dish;
  * without it, it is the first tab, whose calculation survives switching tabs.
+ *
+ * Made for speed: an empty calculator opens with the keyboard on the first field, the keyboard's
+ * Next key walks name, price and quantity row after row, and picking a saved ingredient fills its
+ * price and jumps to the quantity.
  */
 @Composable
 fun CalculatorScreen(
@@ -122,6 +133,10 @@ fun CalculatorScreen(
     val update: (QuickInput) -> Unit = { if (recipeId == null) container.quickDraft.value = it else dish = it }
     val result = remember(input, state, money, today) { QuickCalculator.compute(input, state, money, today) }
     var askName by remember { mutableStateOf(false) }
+    val firstName = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+    val quantities = remember { HashMap<Int, FocusRequester>() }
+    fun quantity(index: Int): FocusRequester = quantities.getOrPut(index) { FocusRequester() }
 
     fun save(current: QuickInput) {
         when (val checked = QuickCalculator.check(current, state, money)) {
@@ -139,20 +154,31 @@ fun CalculatorScreen(
 
     val topActions: @Composable RowScope.() -> Unit = {
         if (recipeId == null && input != QuickInput()) {
-            IconButton(onClick = { update(QuickInput()) }) {
+            IconButton(
+                onClick = {
+                    update(QuickInput())
+                    runCatching { firstName.requestFocus() }
+                },
+            ) {
                 Icon(Icons.Filled.Refresh, contentDescription = "محاسبهٔ تازه")
             }
         }
-        TextButton(onClick = { save(input) }) { Text("ذخیره") }
+        TextButton(
+            onClick = {
+                // The keyboard goes away, so the word that the dish was saved is not hidden behind it.
+                focusManager.clearFocus()
+                save(input)
+            },
+        ) { Text("ذخیره") }
     }
     val body: @Composable (PaddingValues) -> Unit = { padding ->
-        Column(Modifier.padding(padding).fillMaxSize()) {
+        // The keyboard shortens the list instead of covering it, so the field being typed in stays in sight.
+        Column(Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()) {
             Summary(result, input.menuPrice, money) { update(input.copy(menuPrice = it)) }
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
-                    .imePadding()
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -161,6 +187,7 @@ fun CalculatorScreen(
                     onValueChange = { update(input.copy(dishName = it)) },
                     label = "نام غذا (برای ذخیره)",
                     modifier = Modifier.padding(top = 8.dp).testTag("dish-name"),
+                    imeAction = ImeAction.Next,
                 )
                 input.rows.forEachIndexed { i, row ->
                     RowCard(
@@ -169,9 +196,14 @@ fun CalculatorScreen(
                         result = result.rows[i],
                         suggestions = QuickCalculator.suggestions(state, row, today, money),
                         money = money,
+                        nameFocus = if (i == 0) firstName else null,
+                        quantityFocus = quantity(i),
                         onChange = { update(input.withRow(i, it)) },
                         onRemove = { update(input.withoutRow(i)) },
-                        onPick = { update(input.withRow(i, QuickCalculator.pick(state, row, it.id, today, money))) },
+                        onPick = {
+                            update(input.withRow(i, QuickCalculator.pick(state, row, it.id, today, money)))
+                            runCatching { quantity(i).requestFocus() }
+                        },
                     )
                 }
                 input.recipeId?.let { id ->
@@ -181,6 +213,10 @@ fun CalculatorScreen(
                 }
                 Spacer(Modifier.height(24.dp))
             }
+        }
+        // Here, next to the fields, so the first one is in place when it is asked to take the keyboard.
+        LaunchedEffect(recipeId) {
+            if (recipeId == null && input == QuickInput()) runCatching { firstName.requestFocus() }
         }
     }
     val title = if (recipeId == null) "ماشین‌حساب" else input.dishName.ifBlank { "غذا" }
@@ -220,6 +256,7 @@ private fun Summary(result: QuickResult, menuPrice: String, money: MoneyFormat, 
                     modifier = Modifier.weight(1f).testTag("menu-price"),
                     number = true,
                     suffix = money.unit,
+                    imeAction = ImeAction.Done,
                 )
                 if (result.hasLines) StatusChip(result.status, result.statusLabel)
             }
@@ -234,10 +271,11 @@ private fun Summary(result: QuickResult, menuPrice: String, money: MoneyFormat, 
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (result.incompleteRows > 0) {
+                val wrong = result.rows.any { it.problem != null && !it.waiting }
                 Text(
                     "${Persian.digits(result.incompleteRows)} ردیف کامل نیست و در جمع نیامده است.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
+                    color = if (wrong) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -251,6 +289,8 @@ private fun RowCard(
     result: QuickRowResult,
     suggestions: List<QuickSuggestion>,
     money: MoneyFormat,
+    nameFocus: FocusRequester?,
+    quantityFocus: FocusRequester,
     onChange: (QuickRow) -> Unit,
     onRemove: () -> Unit,
     onPick: (QuickSuggestion) -> Unit,
@@ -265,16 +305,26 @@ private fun RowCard(
                     value = row.name,
                     onValueChange = { onChange(row.copy(name = it, ingredientId = null)) },
                     label = if (row.isBlank) "مادهٔ تازه" else "ماده",
-                    modifier = Modifier.weight(1f).testTag("row-$index-name"),
+                    modifier = Modifier
+                        .weight(1f)
+                        .then(if (nameFocus != null) Modifier.focusRequester(nameFocus) else Modifier)
+                        .testTag("row-$index-name"),
+                    imeAction = ImeAction.Next,
                 )
                 if (!row.isBlank) {
-                    IconButton(onClick = onRemove) { Icon(Icons.Filled.Close, contentDescription = "حذف ردیف") }
+                    IconButton(onClick = onRemove, modifier = Modifier.focusProperties { canFocus = false }) {
+                        Icon(Icons.Filled.Close, contentDescription = "حذف ردیف")
+                    }
                 }
             }
             if (suggestions.isNotEmpty()) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     suggestions.forEach { s ->
-                        AssistChip(onClick = { onPick(s) }, label = { Text("${s.name} · ${s.detail}") })
+                        AssistChip(
+                            onClick = { onPick(s) },
+                            label = { Text("${s.name} · ${s.detail}") },
+                            modifier = Modifier.focusProperties { canFocus = false },
+                        )
                     }
                 }
             }
@@ -286,13 +336,15 @@ private fun RowCard(
                     modifier = Modifier.weight(1.3f).testTag("row-$index-price"),
                     number = true,
                     suffix = money.unit,
+                    imeAction = ImeAction.Next,
                 )
                 TextInput(
                     value = row.qty,
                     onValueChange = { onChange(row.copy(qty = it)) },
                     label = "مقدار",
-                    modifier = Modifier.weight(0.8f).testTag("row-$index-qty"),
+                    modifier = Modifier.weight(0.8f).focusRequester(quantityFocus).testTag("row-$index-qty"),
                     number = true,
+                    imeAction = ImeAction.Next,
                 )
                 UnitMenu(row.uom, result.units) { onChange(row.copy(uom = it)) }
             }
@@ -302,7 +354,11 @@ private fun RowCard(
                 Text(
                     info,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (problem != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (problem != null && !result.waiting) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 )
             }
         }
@@ -313,7 +369,8 @@ private fun RowCard(
 private fun UnitMenu(selected: Uom, options: List<Uom>, onSelect: (Uom) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { open = true }) {
+        // Left out of the keyboard's Next walk, which goes from the quantity straight to the next row.
+        TextButton(onClick = { open = true }, modifier = Modifier.focusProperties { canFocus = false }) {
             Text(Labels.uom(selected))
             Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
         }
@@ -334,10 +391,21 @@ private fun UnitMenu(selected: Uom, options: List<Uom>, onSelect: (Uom) -> Unit)
 @Composable
 private fun NameDialog(onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var name by remember { mutableStateOf("") }
+    val field = remember { FocusRequester() }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("نام این غذا چیست؟") },
-        text = { TextInput(name, { name = it }, "نام غذا", modifier = Modifier.testTag("name-dialog")) },
+        text = {
+            TextInput(
+                value = name,
+                onValueChange = { name = it },
+                label = "نام غذا",
+                modifier = Modifier.focusRequester(field).testTag("name-dialog"),
+                imeAction = ImeAction.Done,
+                onImeAction = { if (name.isNotBlank()) onSave(name.trim()) },
+            )
+            LaunchedEffect(Unit) { runCatching { field.requestFocus() } }
+        },
         confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onSave(name.trim()) }) { Text("ذخیره") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } },
     )

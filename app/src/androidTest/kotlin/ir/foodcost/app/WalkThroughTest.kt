@@ -1,6 +1,8 @@
 package ir.foodcost.app
 
 import android.graphics.Bitmap
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -9,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
@@ -50,11 +53,18 @@ class WalkThroughTest {
     }
 
     private fun walk() {
-        waitForTag("row-0-name")
+        // The empty calculator opens with the keyboard on the first field.
+        waitForFocus("row-0-name")
         shot("01-calculator-empty")
 
         // Prices per kilo in toman, grams per portion: 364,105 toman a portion with 3% for spices.
-        typeRow(0, "گوشت", "1450000", "170")
+        // The keyboard's Next key walks the row, name, price and quantity, then on to the next row.
+        typeTag("row-0-name", "گوشت")
+        next("row-0-name", "row-0-price")
+        typeTag("row-0-price", "1450000")
+        next("row-0-price", "row-0-qty")
+        typeTag("row-0-qty", "170")
+        next("row-0-qty", "row-1-name")
         typeRow(1, "دمبه", "1100000", "30")
         typeRow(2, "پیاز", "80000", "50")
         typeRow(3, "برنج", "350000", "200")
@@ -142,6 +152,18 @@ class WalkThroughTest {
         }
     }
 
+    private fun waitForFocus(tag: String) {
+        rule.waitUntil(timeoutMillis = 15_000) {
+            rule.onAllNodes(hasTestTag(tag) and isFocused()).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    /** Presses the keyboard's action key in [from] and checks that [to] takes the typing. */
+    private fun next(from: String, to: String) {
+        rule.onNodeWithTag(from).performImeAction()
+        waitForFocus(to)
+    }
+
     private fun waitForTag(tag: String) {
         rule.waitUntil(timeoutMillis = 15_000) { rule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
     }
@@ -188,7 +210,8 @@ class WalkThroughTest {
 
     private fun shot(name: String) {
         rule.waitForIdle()
-        Thread.sleep(400)
+        // The emulator draws slowly; without the pause a picture can still show the screen before.
+        Thread.sleep(1200)
         val bitmap = instrumentation.uiAutomation.takeScreenshot() ?: return
         File(shots, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }

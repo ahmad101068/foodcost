@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test
 import java.math.BigDecimal
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -69,5 +70,27 @@ class TextTest {
         assertEquals(13_505_000L, newRial.parse("1350.5"))
 
         assertEquals("۵ ریال", MoneyFormat(DisplayCurrency.RIAL).full(5))
+    }
+
+    @Test
+    fun `long numbers are shown in groups of three while typed, and the cursor stays in place`() {
+        val price = assertNotNull(DigitGroups.of("1450000"))
+        assertEquals("1٬450٬000", price.shown)
+        assertEquals(listOf(0, 2, 3, 4, 6, 7, 8, 9), (0..7).map { price.shownOffset(it) })
+        assertEquals(listOf(0, 1, 1, 2, 3, 4, 4, 5, 6, 7), (0..9).map { price.typedOffset(it) })
+        assertEquals(9, price.shownOffset(42))
+
+        assertEquals("1٬234.5", DigitGroups.of("1234.5")?.shown)
+        assertEquals("12٬000/25", DigitGroups.of("12000/25")?.shown)
+        assertEquals("۱۲٬۳۴۵", DigitGroups.of("۱۲۳۴۵")?.shown)
+        assertEquals("1٬000.", DigitGroups.of("1000.")?.shown)
+
+        assertNull(DigitGroups.of("170"))
+        assertNull(DigitGroups.of("0.5"))
+        assertNull(DigitGroups.of(""))
+        assertNull(DigitGroups.of("-1000"))
+        assertNull(DigitGroups.of("1,450,000"))
+        assertNull(DigitGroups.of("12a45"))
+        assertNull(DigitGroups.of("1000.5x"))
     }
 }

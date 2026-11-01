@@ -74,6 +74,8 @@ data class QuickRowResult(
     /** The yield of a saved ingredient, so the waste in the cost is no surprise. */
     val note: String?,
     val problem: String?,
+    /** The row only lacks a price or a quantity: it is still being typed, so it is not an error yet. */
+    val waiting: Boolean,
     val units: List<Uom>,
 )
 
@@ -137,6 +139,7 @@ object QuickCalculator {
         val lines = ArrayList<RecipeLine>()
         val lineOfRow = HashMap<Int, Int>()
         val problems = HashMap<Int, String>()
+        val waiting = HashSet<Int>()
         input.rows.forEachIndexed { i, row ->
             if (row.isBlank) return@forEachIndexed
             val saved = row.ingredientId?.let { catalog.ingredient(it) }
@@ -151,6 +154,7 @@ object QuickCalculator {
             }
             if (problem != null) {
                 problems[i] = problem
+                if (rials == null || qty == null) waiting += i
                 return@forEachIndexed
             }
             val id = IngredientId("quick-$i")
@@ -190,6 +194,7 @@ object QuickCalculator {
                 note = saved?.usableFraction?.takeIf { it < BigDecimal.ONE }
                     ?.let { "بازدهی ${Numbers.percent(it.multiply(BigDecimal(100)))}" },
                 problem = problems[i],
+                waiting = i in waiting,
                 units = lineUnits(dimension, saved?.conversions ?: Conversions(), saved != null),
             )
         }

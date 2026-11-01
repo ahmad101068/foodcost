@@ -44,8 +44,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import ir.foodcost.core.model.IngredientId
@@ -128,10 +133,11 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
     }
 }
 
-/** One field: the new price per kilo (liter, piece), from today. */
+/** One field, ready for typing: the new price per kilo (liter, piece), from today. */
 @Composable
 private fun QuickPriceDialog(row: IngredientRow, money: MoneyFormat, onDismiss: () -> Unit, onSave: (String) -> Unit) {
-    var text by remember(row.id) { mutableStateOf(row.currentPrice) }
+    var text by remember(row.id) { mutableStateOf("") }
+    val field = remember { FocusRequester() }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(row.name) },
@@ -140,11 +146,14 @@ private fun QuickPriceDialog(row: IngredientRow, money: MoneyFormat, onDismiss: 
                 value = text,
                 onValueChange = { text = it },
                 label = "${row.priceLabel} از امروز",
-                supporting = money.parse(text)?.let { money.full(it) },
+                supporting = money.parse(text)?.let { money.full(it) } ?: row.unitPrice?.let { "قیمت فعلی: $it" },
                 number = true,
                 suffix = money.unit,
-                modifier = Modifier.testTag("quick-price"),
+                modifier = Modifier.focusRequester(field).testTag("quick-price"),
+                imeAction = ImeAction.Done,
+                onImeAction = { onSave(text) },
             )
+            LaunchedEffect(Unit) { runCatching { field.requestFocus() } }
         },
         confirmButton = { TextButton(onClick = { onSave(text) }) { Text("ذخیره") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } },
@@ -166,9 +175,10 @@ private fun IngredientListItem(row: IngredientRow, onClick: () -> Unit, onRepric
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (yieldLabel != null) Text(yieldLabel, style = MaterialTheme.typography.labelMedium)
-                IconButton(onClick = onReprice) {
-                    Icon(Icons.Filled.Edit, contentDescription = "قیمت تازهٔ ${row.name}")
-                }
+                TextButton(
+                    onClick = onReprice,
+                    modifier = Modifier.semantics { contentDescription = "قیمت تازهٔ ${row.name}" },
+                ) { Text("قیمت تازه") }
             }
         },
         modifier = Modifier.clickable(onClick = onClick),
