@@ -135,8 +135,12 @@ class WalkThroughTest {
         shot("10-recipe")
         back()
 
+        // The three pricing methods put the same price: a 35% food cost is a 185.71% markup.
         click("تنظیمات")
         waitFor("ذخیرهٔ قیمت‌گذاری")
+        click("مارک‌آپ")
+        waitFor("185.71")
+        waitForPart("یعنی فودکاست ۳۵٪ و حاشیهٔ سود ۶۵٪")
         shot("11-settings")
 
         darkTheme()

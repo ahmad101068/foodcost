@@ -230,6 +230,18 @@ class QuickCalculatorTest {
     }
 
     @Test
+    fun `the koobideh's suggested price is the same whichever pricing method puts it`() {
+        val suggested = MethodChoice.entries.map { choice ->
+            val ledger = ledger()
+            val form = SettingsInput.of(ledger.state.pricing, ledger.state.costing).withMethod(choice)
+            val draft = valid(form.check(ledger.state.pricing, ledger.state.costing))
+            ledger.saveSettings(draft.costing, draft.pricing)
+            QuickCalculator.compute(koobideh(), ledger.state, toman, today).suggested
+        }
+        assertEquals(List(3) { "۱٬۱۵۰٬۰۰۰ تومان" }, suggested)
+    }
+
+    @Test
     fun `a quick price update is a price per kilo from today`() {
         val ledger = ledger()
         val meat = ledger.createIngredient("گوشت", Dimension.MASS)

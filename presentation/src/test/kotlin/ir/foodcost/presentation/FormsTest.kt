@@ -113,4 +113,21 @@ class FormsTest {
         assertEquals(BigDecimal("2"), draft.costing.defaultMiscPercent)
         assertEquals(setOf(Field.PERCENT, Field.VAT), errors(input.copy(percent = "100", vatPercent = "-1").check(PricingSettings(), CostingRules())))
     }
+
+    @Test
+    fun `switching the pricing method turns the number into its equivalent, so the price stays`() {
+        val foodCost = SettingsInput.of(PricingSettings(), CostingRules())
+        assertEquals("یعنی حاشیهٔ سود ۶۵٪ و مارک‌آپ ۱۸۵٫۷٪", foodCost.equivalents())
+
+        val margin = foodCost.withMethod(MethodChoice.MARGIN)
+        assertEquals(MethodChoice.MARGIN to "65", margin.method to margin.percent)
+        val markup = margin.withMethod(MethodChoice.MARKUP)
+        assertEquals("185.71", markup.percent)
+        assertEquals("یعنی فودکاست ۳۵٪ و حاشیهٔ سود ۶۵٪", markup.equivalents())
+        assertEquals("35", markup.withMethod(MethodChoice.FOOD_COST).percent)
+
+        // What cannot be read is left as typed.
+        assertEquals("abc", foodCost.copy(percent = "abc").withMethod(MethodChoice.MARKUP).percent)
+        assertNull(foodCost.copy(percent = "").equivalents())
+    }
 }
