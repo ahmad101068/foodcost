@@ -7,7 +7,7 @@ on:
       - .github/workflows/share-apk.yml
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   share:
     runs-on: ubuntu-latest
