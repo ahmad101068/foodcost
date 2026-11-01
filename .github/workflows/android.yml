@@ -35,8 +35,13 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v5
-      # Without a private key the APK is signed with the debug key. Keeping that key between
-      # builds lets each new APK install over the last one on the phone.
+      # Without a private key the APK is signed with the debug key, which the build makes in
+      # ANDROID_USER_HOME. Keeping that key between builds lets each new APK install over the last
+      # one on the phone. Unless ANDROID_USER_HOME is set, the key was made somewhere else and
+      # never kept, so every APK had a key of its own.
+      - name: Make the debug key in the folder that is kept
+        shell: bash
+        run: echo "ANDROID_USER_HOME=$HOME/.android" >> "$GITHUB_ENV"
       - name: Keep the debug key
         uses: actions/cache@v5
         with:
@@ -57,7 +62,16 @@ jobs:
           FOODCOST_KEYSTORE_PASSWORD: ${{ secrets.FOODCOST_KEYSTORE_PASSWORD }}
         run: |
           set -o pipefail
+          # These older names for the same folder would clash with ANDROID_USER_HOME.
+          unset ANDROID_SDK_HOME ANDROID_PREFS_ROOT
           ./gradlew :presentation:test :app:assembleRelease --no-daemon 2>&1 | tee build.log
+          if [ -z "${FOODCOST_KEYSTORE_FILE:-}" ]; then
+            if [ -f "$ANDROID_USER_HOME/debug.keystore" ]; then
+              echo "::notice title=Signing::Signed with the kept debug key"
+            else
+              echo "::warning title=Signing::The debug key is not in $ANDROID_USER_HOME, so it will not be kept"
+            fi
+          fi
       # Annotations can be read through the API without downloading the logs.
       - name: Report failures
         if: failure()
