@@ -23,6 +23,7 @@ import ir.foodcost.core.units.UnitConverter
 import ir.foodcost.core.units.Uom
 import ir.foodcost.data.ledger.IngredientRecord
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.LocalDate
 
 /** The fields a form can report a problem on. */
@@ -308,6 +309,27 @@ data class SettingsInput(
         }
     }
 
+    /**
+     * The form with [choice] as its method and the number turned into that method's equivalent,
+     * so switching the method leaves the suggested price as it was: a 35% food cost is a 65% margin
+     * and a 185.71% markup. A number that cannot be read is left as typed.
+     */
+    fun withMethod(choice: MethodChoice): SettingsInput {
+        if (choice == method) return this
+        val converted = Numbers.parse(percent)?.let { equivalent(it, method, choice) }
+        return copy(method = choice, percent = converted?.let { Numbers.editable(it) } ?: percent)
+    }
+
+    /** The number in the other two methods: «یعنی حاشیهٔ سود ۶۵٪ و مارک‌آپ ۱۸۵٫۷٪». */
+    fun equivalents(): String? {
+        val value = Numbers.parse(percent) ?: return null
+        val others = MethodChoice.entries.filter { it != method }.map { other ->
+            val converted = equivalent(value, method, other) ?: return null
+            "${shortName(other)} ${Numbers.percent(converted)}"
+        }
+        return "یعنی ${others.joinToString(" و ")}"
+    }
+
     private fun percentMessage(): String = when (method) {
         MethodChoice.FOOD_COST -> "فودکاست هدف باید بیشتر از ۰ و کمتر از ۱۰۰ باشد."
         MethodChoice.MARGIN -> "حاشیهٔ سود باید از ۰ تا کمتر از ۱۰۰ باشد."
@@ -315,6 +337,34 @@ data class SettingsInput(
     }
 
     companion object {
+        private fun shortName(choice: MethodChoice): String = when (choice) {
+            MethodChoice.FOOD_COST -> "فودکاست"
+            MethodChoice.MARGIN -> "حاشیهٔ سود"
+            MethodChoice.MARKUP -> "مارک‌آپ"
+        }
+
+        /**
+         * [value] of method [from] as method [to], on the food cost: the food cost is the cost's share
+         * of the net price, the margin what is left of it, and the markup what is added to the cost.
+         * Null when [value] is out of range for [from].
+         */
+        internal fun equivalent(value: BigDecimal, from: MethodChoice, to: MethodChoice): BigDecimal? {
+            val foodCost = when (from) {
+                MethodChoice.FOOD_COST -> value
+                MethodChoice.MARGIN -> HUNDRED - value
+                MethodChoice.MARKUP -> if (value.signum() < 0) return null else HUNDRED_SQUARED.divide(HUNDRED + value, 10, RoundingMode.HALF_UP)
+            }
+            if (foodCost.signum() <= 0 || foodCost > HUNDRED) return null
+            val result = when (to) {
+                MethodChoice.FOOD_COST -> foodCost
+                MethodChoice.MARGIN -> HUNDRED - foodCost
+                MethodChoice.MARKUP -> HUNDRED_SQUARED.divide(foodCost, 10, RoundingMode.HALF_UP) - HUNDRED
+            }
+            return result.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros()
+        }
+
+        private val HUNDRED_SQUARED = BigDecimal(10_000)
+
         /** Rounding steps offered, in rials: 1,000 to 100,000 toman. */
         val ROUNDING_STEPS: List<Long> = listOf(10_000L, 50_000L, 100_000L, 500_000L, 1_000_000L)
 

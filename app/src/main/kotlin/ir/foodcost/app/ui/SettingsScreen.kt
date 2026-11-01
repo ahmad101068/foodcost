@@ -109,13 +109,14 @@ fun SettingsScreen(
             }
 
             SettingsCard("قیمت‌گذاری") {
-                Segmented(MethodChoice.entries, input.method, { methodName(it) }) { input = input.copy(method = it) }
+                // The three are ways to put the same price: switching turns the number into its equivalent.
+                Segmented(MethodChoice.entries, input.method, { methodName(it) }) { input = input.withMethod(it) }
                 TextInput(
                     value = input.percent,
                     onValueChange = { input = input.copy(percent = it) },
                     label = methodName(input.method),
                     error = errors[Field.PERCENT],
-                    supporting = methodHint(input.method),
+                    supporting = listOfNotNull(methodHint(input.method), input.equivalents()).joinToString("\n"),
                     number = true,
                     suffix = "٪",
                 )
