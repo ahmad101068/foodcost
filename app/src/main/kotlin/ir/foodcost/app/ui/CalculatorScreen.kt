@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
@@ -71,6 +72,7 @@ import ir.foodcost.core.units.Uom
 import ir.foodcost.data.ledger.LedgerState
 import ir.foodcost.presentation.Checked
 import ir.foodcost.presentation.Field
+import ir.foodcost.presentation.Glossary
 import ir.foodcost.presentation.Labels
 import ir.foodcost.presentation.MoneyFormat
 import ir.foodcost.presentation.Persian
@@ -116,6 +118,8 @@ fun CalculatorScreen(
     var askName by remember { mutableStateOf(false) }
     // A save that changes a dish on the menu or recorded prices waits for a look at what it changes.
     var reviewing by remember { mutableStateOf<Pair<QuickPlan, QuickReview>?>(null) }
+    // A word on the screen being explained: its meaning and the calculation behind its number.
+    var explaining by remember { mutableStateOf<List<String>?>(null) }
     val context = LocalContext.current
     val firstName = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
@@ -178,7 +182,13 @@ fun CalculatorScreen(
         // The keyboard shortens the list instead of covering it, so the field being typed in stays in sight.
         Column(Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()) {
             // While the keyboard is up, the display keeps its figures and drops the line under them.
-            Display(result, money, compact = WindowInsets.isImeVisible, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+            Display(
+                result,
+                money,
+                compact = WindowInsets.isImeVisible,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                onExplain = { explaining = listOf(it) },
+            )
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -235,6 +245,16 @@ fun CalculatorScreen(
                         },
                     )
                 }
+                if (recipeId == null && input == QuickInput()) {
+                    TextButton(
+                        onClick = { nav.open(Screen.Help(Screen.Help.GUIDE)) },
+                        modifier = Modifier.focusProperties { canFocus = false },
+                    ) {
+                        Icon(Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.size(8.dp))
+                        Text("اولین بار است؟ راهنما و یک نمونه")
+                    }
+                }
                 ExtrasCard(
                     input = input,
                     result = result,
@@ -255,7 +275,7 @@ fun CalculatorScreen(
                         focusExtra = null
                     }
                 }
-                if (result.netSales != null) PriceDetails(result, money)
+                if (result.netSales != null) PriceDetails(result, money) { explaining = it }
                 input.recipeId?.let { id ->
                     TextButton(onClick = { nav.open(Screen.Recipe(id.value)) }) {
                         Text("تعداد پرس، درصد جزئی و جزئیات بیشتر")
@@ -274,6 +294,18 @@ fun CalculatorScreen(
         TabScaffold(title = title, nav = nav, actions = actions, topActions = topActions, content = body)
     } else {
         DetailScaffold(title = title, nav = nav, actions = actions, topActions = topActions, content = body)
+    }
+
+    explaining?.let { ids ->
+        TermDialog(
+            ids = ids,
+            live = result.explanations,
+            onDismiss = { explaining = null },
+            more = {
+                explaining = null
+                nav.open(Screen.Help(Screen.Help.TERMS, ids.first()))
+            },
+        )
     }
 
     reviewing?.let { (plan, review) ->
@@ -307,27 +339,30 @@ fun CalculatorScreen(
  * price: the cost, the net sale, the food cost and what is left.
  */
 @Composable
-private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, modifier: Modifier = Modifier) {
+private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, modifier: Modifier = Modifier, onExplain: (String) -> Unit) {
+    // A figure explains itself once there is a calculation behind it.
+    fun explain(id: String): (() -> Unit)? = if (id in result.explanations) ({ onExplain(id) }) else null
     DisplayPanel(modifier) {
         val netSales = result.netSales
         val remaining = result.remaining
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Figure("هزینهٔ هر پرس", result.totalCost, money, Modifier.weight(1.1f).testTag("cost"), isResult = true)
+            Figure("هزینهٔ هر پرس", result.totalCost, money, Modifier.weight(1.1f).testTag("cost"), isResult = true, onExplain = explain(Glossary.COST))
             if (netSales != null) {
-                Figure("فروش خالص", netSales, money, Modifier.weight(1f).testTag("net-sales"))
+                Figure("فروش خالص", netSales, money, Modifier.weight(1f).testTag("net-sales"), onExplain = explain(Glossary.NET_SALES))
             } else {
-                Figure("قیمت پیشنهادی", result.suggested ?: "—", money, Modifier.weight(1f).testTag("suggested"))
+                Figure("قیمت پیشنهادی", result.suggested ?: "—", money, Modifier.weight(1f).testTag("suggested"), onExplain = explain(Glossary.SUGGESTED))
             }
         }
         if (netSales != null && remaining != null) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Figure("فودکاست", result.foodCostPercent ?: "—", money, Modifier.weight(1.1f).testTag("food-cost"))
+                Figure("فودکاست", result.foodCostPercent ?: "—", money, Modifier.weight(1.1f).testTag("food-cost"), onExplain = explain(Glossary.FOOD_COST))
                 // Not profit: only the costs entered are taken off. The label and sign say which way it went.
                 Figure(
                     if (result.remainingNegative) "کسری هر پرس" else "مانده هر پرس",
                     remaining,
                     money,
                     Modifier.weight(1f).testTag("remaining"),
+                    onExplain = explain(Glossary.REMAINING),
                 )
             }
         }
@@ -354,12 +389,38 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, m
     }
 }
 
-/** A figure on the display, with its unit set smaller than the number. Read out as one item. */
+/**
+ * A figure on the display, with its unit set smaller than the number. Read out as one item; with
+ * [onExplain], a tap on it explains the word and the calculation behind the number.
+ */
 @Composable
-private fun Figure(label: String, text: String, money: MoneyFormat, modifier: Modifier, isResult: Boolean = false) {
+private fun Figure(
+    label: String,
+    text: String,
+    money: MoneyFormat,
+    modifier: Modifier,
+    isResult: Boolean = false,
+    onExplain: (() -> Unit)? = null,
+) {
     val number = text.removeSuffix(" ${money.unit}")
-    Column(modifier.semantics(mergeDescendants = true) {}) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val tappable = if (onExplain != null) {
+        // Out of the keyboard's Next walk; focusProperties must come before the clickable it governs.
+        Modifier.focusProperties { canFocus = false }.clickable(onClickLabel = "معنی $label", onClick = onExplain)
+    } else {
+        Modifier
+    }
+    Column(modifier.then(tappable).semantics(mergeDescendants = true) {}) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (onExplain != null) {
+                Icon(
+                    Icons.Outlined.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp).size(13.dp),
+                )
+            }
+        }
         Row {
             Text(
                 number,
@@ -474,31 +535,50 @@ private fun ExtrasCard(
 
 /** At the menu price typed: margin and markup, pricing backwards, and the other channels beside the restaurant. */
 @Composable
-private fun PriceDetails(result: QuickResult, money: MoneyFormat) {
+private fun PriceDetails(result: QuickResult, money: MoneyFormat, onExplain: (List<String>) -> Unit) {
     Card(colors = whiteCardColors(), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("جزئیات قیمت منو", style = MaterialTheme.typography.titleSmall)
             val margin = result.margin
             val markup = result.markup
             if (margin != null && markup != null) {
-                Text("مارجین $margin و مارک‌آپ $markup، روی همهٔ هزینه‌های ثبت‌شده", style = MaterialTheme.typography.bodyMedium)
+                Explained("مارجین $margin و مارک‌آپ $markup، روی همهٔ هزینه‌های ثبت‌شده") {
+                    onExplain(listOf(Glossary.MARGIN, Glossary.MARKUP))
+                }
             }
             val maxCost = result.maxCost
             val maxCostLabel = result.maxCostLabel
             if (maxCost != null && maxCostLabel != null) {
-                Text("$maxCostLabel: $maxCost", style = MaterialTheme.typography.bodyMedium)
+                Explained("$maxCostLabel: $maxCost") { onExplain(listOf(Glossary.MAX_COST)) }
             }
             if (result.channels.isNotEmpty()) {
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
-                ChannelTable(result.channels, money)
+                ChannelTable(result.channels, money) { onExplain(listOf(Glossary.CHANNELS)) }
             }
         }
     }
 }
 
+/** A line whose words a tap explains, marked so. */
+@Composable
+private fun Explained(text: String, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().focusProperties { canFocus = false }.clickable(onClickLabel = "معنی", onClick = onClick),
+    ) {
+        Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        Icon(
+            Icons.Outlined.Info,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 6.dp).size(16.dp),
+        )
+    }
+}
+
 /** The channels side by side, amounts without their unit so the columns fit. */
 @Composable
-private fun ChannelTable(channels: List<QuickChannel>, money: MoneyFormat) {
+private fun ChannelTable(channels: List<QuickChannel>, money: MoneyFormat, onExplain: () -> Unit) {
     fun bare(text: String?) = text?.removeSuffix(" ${money.unit}") ?: "—"
     @Composable
     fun line(label: String, values: List<String>, tag: String? = null, strong: Boolean = false) {
@@ -522,11 +602,7 @@ private fun ChannelTable(channels: List<QuickChannel>, money: MoneyFormat) {
         line("فودکاست", channels.map { it.foodCostPercent ?: "—" })
         line("برای همان مانده", channels.map { bare(it.priceForSameRemaining) })
     }
-    Text(
-        "«برای همان مانده» یعنی قیمتی که در آن کانال همان مانده‌ای را می‌دهد که فروش حضوری.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    Explained("«برای همان مانده» یعنی قیمتی که در آن کانال همان مانده‌ای را می‌دهد که فروش حضوری.", onExplain)
 }
 
 /** The row's number, which the messages about unfinished rows refer to. */

@@ -89,6 +89,16 @@ class WalkThroughTest {
         waitFor("زیر قیمت")
         shot("03-under-priced")
 
+        // A tap on a figure explains the word with the dish's own numbers; the glossary is a tap away.
+        rule.onNodeWithTag("food-cost").performClick()
+        waitForPart("۳۶۴٬۱۰۵ ÷ ۵۷۲٬۷۲۷ × ۱۰۰")
+        shot("04-term")
+        click("همهٔ واژه‌ها")
+        waitForTag("term-food-cost")
+        waitForPart("مثال: چلوکباب کوبیده")
+        shot("05-help-terms")
+        back()
+
         // A takeaway box of 15,000 toman: one tap adds it, and takeaway shows beside the restaurant.
         click("ظرف و بسته‌بندی")
         waitForFocus("extra-0-amount")
@@ -98,20 +108,20 @@ class WalkThroughTest {
         waitForPart("۱۹۳٬۶۲۲")
         waitForFigure("remaining", "۲۰۸٬۶۲۲") // the box is not used at the table
         show("channel-remaining")
-        shot("04-takeaway")
+        shot("06-takeaway")
 
         // A new dish of new ingredients changes nothing saved, so it is saved at once.
         typeTag("dish-name", "چلوکباب کوبیده")
         click("ذخیره")
         waitForPart("در غذاها ذخیره شد")
-        shot("05-saved")
+        shot("07-saved")
 
         // The dishes tab shows the plate and that its price no longer covers it.
         click("غذاها")
         waitFor("چلوکباب کوبیده")
         waitFor("زیر قیمت")
         waitFor("۱ غذا باید گران‌تر شود")
-        shot("06-dishes")
+        shot("08-dishes")
 
         // The saved dish opens in the calculator. A meat price with a zero too many is flagged at once.
         click("چلوکباب کوبیده")
@@ -119,18 +129,18 @@ class WalkThroughTest {
         replaceTag("row-0-price", "16000000")
         waitForPart("۱۰ برابر قیمت قبلی")
         show("row-0-warning")
-        shot("07-price-slip")
+        shot("09-price-slip")
 
         // Dearer meat, typed right: the cost shows at once.
         replaceTag("row-0-price", "1600000")
         waitForFigure("cost", "۳۹۰٬۳۷۰")
-        shot("08-dish")
+        shot("10-dish")
 
         // Before the save, what it changes: the plate's figures and the meat price for every dish.
         click("ذخیره")
         waitForTag("review-save")
         waitForPart("از ۱٬۴۵۰٬۰۰۰ به ۱٬۶۰۰٬۰۰۰")
-        shot("09-review")
+        shot("11-review")
         rule.onNodeWithTag("review-save").performClick()
         waitForPart("در غذاها ذخیره شد")
         back()
@@ -138,12 +148,12 @@ class WalkThroughTest {
         // A new onion price from the list, in one field.
         click("مواد")
         waitFor("هر کیلو ۱٬۶۰۰٬۰۰۰ تومان")
-        shot("10-ingredients")
+        shot("12-ingredients")
         rule.onNodeWithContentDescription("قیمت تازهٔ پیاز").performClick()
         replaceTag("quick-price", "90000")
         click("ذخیره")
         waitFor("هر کیلو ۹۰٬۰۰۰ تومان")
-        shot("11-quick-price")
+        shot("13-quick-price")
 
         // The detailed screens are still there: a purchase by the bag, and plain rice as a preparation.
         click("برنج")
@@ -152,7 +162,7 @@ class WalkThroughTest {
         type("مبلغ کل", "3600000")
         click("ثبت قیمت")
         waitFor("قیمت امروز")
-        shot("12-ingredient")
+        shot("14-ingredient")
         back()
 
         click("غذاها")
@@ -165,7 +175,7 @@ class WalkThroughTest {
         type("مقدار", "150")
         click("ذخیره")
         waitFor("۱۵۰ گرم")
-        shot("13-recipe")
+        shot("15-recipe")
         back()
 
         // The three pricing methods put the same price: a 35% food cost is a 185.71% markup.
@@ -175,15 +185,21 @@ class WalkThroughTest {
         waitFor("185.71")
         waitForPart("یعنی فودکاست ۳۵٪ و حاشیهٔ سود ۶۵٪")
         quiet()
-        shot("14-settings")
+        shot("16-settings")
         click("فودکاست هدف")
+
+        // The guide to using the app, from the settings.
+        click("کار با برنامه")
+        waitFor("حساب یک غذا")
+        shot("17-help-guide")
+        back()
 
         // Main dishes aim at a 30% food cost; a tap on the section puts the keyboard on its target.
         click("غذای اصلی")
         waitForFocus("category-0-percent")
         typeTag("category-0-percent", "30")
         show("category-0-name")
-        shot("15-sections")
+        shot("18-sections")
 
         // Online sales with a 20% commission: the online column joins the restaurant and takeaway.
         type("کمیسیون سامانه", "20")
@@ -193,13 +209,13 @@ class WalkThroughTest {
         waitFor("آنلاین")
         quiet()
         show("channel-remaining")
-        shot("16-online")
+        shot("19-online")
 
         // The koobideh put among the main dishes is priced at their 30%: 1,340,000 toman.
         click("غذای اصلی")
         waitForPart("۱٬۳۴۰٬۰۰۰")
         show("dish-name")
-        shot("17-section-price")
+        shot("20-section-price")
 
         share()
         darkTheme()
@@ -213,7 +229,7 @@ class WalkThroughTest {
             rule.onNodeWithContentDescription("فرستادن نتیجه").performClick()
             device.wait(Until.gone(By.pkg(app).depth(0)), 5_000)
             Thread.sleep(1500)
-            shot("18-share")
+            shot("21-share")
         } catch (e: Throwable) {
             // The walk itself is done.
         } finally {
@@ -229,9 +245,9 @@ class WalkThroughTest {
             shell("cmd uimode night yes")
             Thread.sleep(1500)
             click("ماشین‌حساب")
-            shot("19-dark-calculator")
+            shot("22-dark-calculator")
             click("غذاها")
-            shot("20-dark-dishes")
+            shot("23-dark-dishes")
         } catch (e: Throwable) {
             // The walk itself is done.
         } finally {

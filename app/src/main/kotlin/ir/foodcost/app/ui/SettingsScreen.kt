@@ -119,6 +119,17 @@ fun SettingsScreen(
             Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            SettingsCard("راهنما") {
+                Text(
+                    "معنی واژه‌هایی مثل فودکاست، مارجین، مارک‌آپ و بهای تمام‌شده، و راهنمای کار با برنامه.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { nav.open(Screen.Help(Screen.Help.TERMS)) }) { Text("واژه‌ها") }
+                    OutlinedButton(onClick = { nav.open(Screen.Help(Screen.Help.GUIDE)) }) { Text("کار با برنامه") }
+                }
+            }
+
             SettingsCard("واحد پول") {
                 Segmented(DisplayCurrency.entries, currency, { Labels.currency(it) }) { container.setCurrency(it) }
                 Text(

@@ -21,7 +21,9 @@ import ir.foodcost.core.model.RecipeVersion
 import ir.foodcost.core.model.SalesChannel
 import ir.foodcost.core.money.DisplayCurrency
 import ir.foodcost.core.pricing.CostBasis
+import ir.foodcost.core.pricing.MaxCost
 import ir.foodcost.core.pricing.PriceStatus
+import ir.foodcost.core.pricing.PriceSuggestion
 import ir.foodcost.core.pricing.Pricer
 import ir.foodcost.core.pricing.PricingMethod
 import ir.foodcost.core.pricing.Sale
@@ -164,6 +166,11 @@ data class QuickResult(
     val menuRials: Long? = null,
     val foodCostValue: BigDecimal? = null,
     val remainingRials: BigDecimal? = null,
+    /**
+     * The calculation behind each figure, with this dish's own numbers, by glossary term:
+     * «۳۶۴٬۱۰۵ ÷ ۵۷۲٬۷۲۷ × ۱۰۰ = ۶۳٫۶٪» for the food cost.
+     */
+    val explanations: Map<String, String> = emptyMap(),
 )
 
 data class QuickSuggestion(val id: IngredientId, val name: String, val detail: String)
@@ -363,7 +370,64 @@ object QuickCalculator {
             menuRials = menuRials,
             foodCostValue = sale?.foodCostPercent,
             remainingRials = sale?.remaining,
+            explanations = if (hasLines) explanations(cost.foodCostPerPortion, other, sale, s, maxCost, menuRials, state.pricing.vatFactor, money) else emptyMap(),
         )
+    }
+
+    /** «در این حساب»: each figure's calculation with the dish's own numbers, amounts without their unit until the result. */
+    private fun explanations(
+        food: BigDecimal,
+        other: BigDecimal,
+        sale: Sale?,
+        s: PriceSuggestion,
+        maxCost: MaxCost?,
+        menuRials: Long?,
+        vatFactor: BigDecimal,
+        money: MoneyFormat,
+    ): Map<String, String> {
+        fun a(value: BigDecimal) = money.amount(value)
+        val lines = LinkedHashMap<String, String>()
+        lines[Glossary.COST] = if (other.signum() == 0) {
+            "بهای مواد این پرس ${money.full(food)} است و هزینهٔ دیگری برایش ثبت نشده."
+        } else {
+            "${a(food)} بهای مواد + ${a(other)} هزینه‌های دیگر = ${money.full(food + other)}"
+        }
+        lines[Glossary.SUGGESTED] = suggestionLine(s, money)
+        if (sale != null && menuRials != null) {
+            val net = sale.netSales
+            val registered = sale.registeredCost
+            lines[Glossary.NET_SALES] = if (vatFactor.compareTo(BigDecimal.ONE) == 0) {
+                "قیمت منو بدون مالیات است، پس فروش خالص همان ${money.full(net)} است."
+            } else {
+                "${a(BigDecimal(menuRials))} ÷ ${Numbers.format(vatFactor, 4)} = ${money.full(net)}"
+            }
+            sale.foodCostPercent?.let { lines[Glossary.FOOD_COST] = "${a(food)} ÷ ${a(net)} × ۱۰۰ = ${Numbers.percent(it)}" }
+            lines[Glossary.REMAINING] = "${a(net)} − ${a(registered)} = ${signed(sale.remaining, money)}"
+            sale.marginPercent?.let { lines[Glossary.MARGIN] = "(${a(net)} − ${a(registered)}) ÷ ${a(net)} × ۱۰۰ = ${Numbers.percent(it)}" }
+            sale.markupPercent?.let { lines[Glossary.MARKUP] = "(${a(net)} − ${a(registered)}) ÷ ${a(registered)} × ۱۰۰ = ${Numbers.percent(it)}" }
+            if (maxCost != null) {
+                val result = money.full(maxCost.amount)
+                lines[Glossary.MAX_COST] = when (val m = s.method) {
+                    is PricingMethod.TargetFoodCost -> "${a(net)} × ${Numbers.percent(m.percent)} = $result"
+                    is PricingMethod.TargetMargin -> "${a(net)} × (۱۰۰٪ − ${Numbers.percent(m.percent)}) = $result"
+                    is PricingMethod.Markup -> "${a(net)} ÷ (۱۰۰٪ + ${Numbers.percent(m.percent)}) = $result"
+                }
+            }
+        }
+        return lines
+    }
+
+    /** «۳۶۴٬۱۰۵ ÷ ۳۵٪ = ۱٬۰۴۰٬۳۰۰، با مالیات ۱٬۱۴۴٬۳۳۰، گرد شده ۱٬۱۵۰٬۰۰۰ تومان» */
+    private fun suggestionLine(s: PriceSuggestion, money: MoneyFormat): String {
+        fun a(value: BigDecimal) = money.amount(value)
+        fun base(basis: CostBasis) = if (basis == CostBasis.FULL_COST) s.fullCost else s.foodCost
+        val start = when (val m = s.method) {
+            is PricingMethod.TargetFoodCost -> "${a(s.foodCost)} ÷ ${Numbers.percent(m.percent)}"
+            is PricingMethod.TargetMargin -> "${a(base(m.basis))} ÷ (۱۰۰٪ − ${Numbers.percent(m.percent)})"
+            is PricingMethod.Markup -> "${a(base(m.basis))} × (۱۰۰٪ + ${Numbers.percent(m.percent)})"
+        }
+        val vat = if (s.vatFactor.compareTo(BigDecimal.ONE) == 0) "" else "، با مالیات ${a(s.grossPrice)}"
+        return "$start = ${a(s.netPrice)}$vat، گرد شده ${money.full(s.menuPrice)}"
     }
 
     /** The sections dishes can be put in: those with a target in the settings, and the dish's own. */
