@@ -20,6 +20,7 @@ import ir.foodcost.data.T.D15
 import ir.foodcost.data.T.D31
 import ir.foodcost.data.T.N2
 import ir.foodcost.data.clock.Hlc
+import ir.foodcost.data.ledger.Ledger
 import ir.foodcost.data.ledger.LedgerState
 import ir.foodcost.data.ledger.RejectReason
 import ir.foodcost.data.ops.Actor
@@ -28,11 +29,13 @@ import ir.foodcost.data.ops.OpId
 import ir.foodcost.data.ops.Operation
 import ir.foodcost.data.ops.Opt
 import ir.foodcost.data.ops.Role
+import ir.foodcost.data.ops.Seen
 import ir.foodcost.data.store.InMemoryOperationStore
 import org.junit.jupiter.api.Test
 import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -356,6 +359,81 @@ class LedgerTest {
         assertEquals(a.state, c.state)
         b.receive(a.operations())
         assertEquals(a.state, b.state)
+    }
+
+    @Test
+    fun `a close knows which changes of each phone it had, so one left out of a file that passed on later ones stays out`() {
+        // The audit of 0.7.1 (FCA-017): A had B's later price but not its earlier one when it closed.
+        val wallA = FakeWall(1_000)
+        val a = T.ledger("A", wall = wallA)
+        val k = Kitchen(a)
+        val wallB = FakeWall(2_000)
+        val b = T.ledger("B", wall = wallB)
+        b.receive(a.operations())
+        val earlier = b.recordPrice(T.price(k.meat, D15, 24_000_000), priceId = "earlier").applied()
+        wallB.now = 2_500
+        val later = b.recordPrice(T.price(k.meat, D15.plusDays(10), 32_000_000), priceId = "later").applied()
+        a.receive(listOf(later)) // a file with B's later change but not its earlier one
+        wallA.now = 3_000
+        a.closePeriod(D31).applied()
+        val closed = a.calculator().cost(k.kebab, D15).foodCostPerPortion
+        assertEquals(Seen(later.at, seq = 2, missing = listOf(1)), a.state.closedPeriods.single().seen?.get("B"))
+
+        assertEquals(1, a.preview(listOf(earlier)).refused)
+        a.receive(listOf(earlier))
+        assertEquals(RejectReason.PERIOD_CLOSED, a.state.rejections.single { it.operation.id == earlier.id }.reason)
+        assertEquals(0, closed.compareTo(a.calculator().cost(k.kebab, D15).foodCostPerPortion))
+        assertEquals(a.state.closedPeriods.single().snapshot, MenuSnapshot.of(a.calculator().menu(D31)))
+        // B, which had both, comes to the same once it has A's close.
+        b.receive(a.operations())
+        assertEquals(a.state, b.state)
+    }
+
+    @Test
+    fun `a close that did not keep what it had seen is trusted only for its own phone's changes`() {
+        // The audit of 0.7.1 (FCA-018): a close as 0.7.0 made it, then a dearer price from another phone stamped before it.
+        val wall = FakeWall(1_000)
+        val author = T.ledger("A", wall = wall)
+        val k = Kitchen(author)
+        wall.now = 3_000
+        author.closePeriod(D31).applied()
+        val legacy = author.operations().map { op -> (op.change as? Change.PeriodClosed)?.let { op.copy(change = it.copy(seen = null)) } ?: op }
+        val a = T.ledger("A", wall = FakeWall(4_000), store = InMemoryOperationStore(legacy))
+        assertFalse(a.state.closedPeriods.single().verified)
+        val closed = a.calculator().cost(k.kebab, D15).foodCostPerPortion
+        assertEquals(a.state.closedPeriods.single().snapshot, MenuSnapshot.of(a.calculator().menu(D31))) // its own changes all count
+
+        val late = Operation(OpId("late"), Hlc(2_000, 0, "B"), Actor("B-user", Role.OWNER), Change.PriceRecorded("late", T.price(k.meat, D1, 32_000_000)))
+        assertEquals(1, a.preview(listOf(late)).refused)
+        a.receive(listOf(late))
+        assertEquals(RejectReason.PERIOD_CLOSED, a.state.rejections.single().reason)
+        assertEquals(0, closed.compareTo(a.calculator().cost(k.kebab, D15).foodCostPerPortion))
+    }
+
+    @Test
+    fun `each phone numbers its changes from 1 with none left out, and changes refused or undone take no number`() {
+        val store = InMemoryOperationStore()
+        val a = T.ledger("A", store = store)
+        val k = Kitchen(a)
+        a.closePeriod(D31).applied()
+        assertTrue(a.recordPrice(T.price(k.meat, D15, 1)) is Ledger.Outcome.Rejected)
+        assertFailsWith<IllegalStateException> {
+            a.atomically { l ->
+                l.createIngredient("نمک", Dimension.MASS)
+                error("undone")
+            }
+        }
+        a.recordPrice(T.price(k.meat, N2, 17_000_000)).applied()
+        val numbers = a.operations().map { it.seq }
+        assertEquals((1L..numbers.size).toList(), numbers)
+
+        // Opened again, the phone goes on from its last number, and its own changes coming back
+        // from a backup are not numbered again.
+        val again = T.ledger("A", store = store)
+        assertEquals(numbers.size + 1L, again.recordPrice(T.price(k.rice, N2, 47_000_000)).applied().seq)
+        val restored = T.ledger("A")
+        restored.receive(store.all())
+        assertEquals(numbers.size + 2L, restored.recordPrice(T.price(k.meat, N2.plusDays(1), 17_500_000)).applied().seq)
     }
 
     @Test

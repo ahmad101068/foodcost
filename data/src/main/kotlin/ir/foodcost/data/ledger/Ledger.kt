@@ -24,6 +24,7 @@ import ir.foodcost.data.ops.OpId
 import ir.foodcost.data.ops.Operation
 import ir.foodcost.data.ops.Opt
 import ir.foodcost.data.ops.Role
+import ir.foodcost.data.ops.Seen
 import ir.foodcost.data.store.OperationStore
 import java.time.Instant
 import java.time.LocalDate
@@ -66,6 +67,10 @@ class Ledger(
     var state: LedgerState = LedgerState.fold(store.all())
         private set
 
+    // The number of this device's latest change; the next one takes the number after it, so the
+    // device's changes are numbered from 1 with none left out.
+    private var lastSeq: Long = store.all().filter { it.at.device == clock.device }.maxOfOrNull { it.seq ?: 0L } ?: 0L
+
     init {
         // New local operations must sort after everything already stored.
         state.lastAt?.let(clock::receive)
@@ -89,11 +94,13 @@ class Ledger(
      */
     @Synchronized
     fun execute(change: Change, reason: String? = null): Outcome {
-        val op = Operation(OpId.random(), clock.now(), actor, change, reason?.takeIf { it.isNotBlank() })
+        val seq = lastSeq + 1 // a change refused takes no number
+        val op = Operation(OpId.random(), clock.now(), actor, change, reason?.takeIf { it.isNotBlank() }, seq)
         val builder = StateBuilder(state)
         builder.add(op)?.let { return Outcome.Rejected(op, it) }
         val batch = pending
         if (batch != null) batch += op else store.append(op)
+        lastSeq = seq
         // A reopened period takes in the changes its close had not seen, wherever they sit in the
         // order, so everything is applied again.
         state = if (change is Change.PeriodReopened) LedgerState.fold(store.all() + batch.orEmpty()) else builder.build()
@@ -110,6 +117,7 @@ class Ledger(
     fun <T> atomically(block: (Ledger) -> T): T {
         if (pending != null) return block(this) // already one change
         val before = state
+        val seqBefore = lastSeq
         val batch = ArrayList<Operation>()
         pending = batch
         try {
@@ -118,6 +126,7 @@ class Ledger(
             return result
         } catch (e: Throwable) {
             state = before
+            lastSeq = seqBefore // the numbers of changes not kept are given again
             throw e
         } finally {
             pending = null
@@ -135,6 +144,8 @@ class Ledger(
         if (fresh.isEmpty()) return 0
         store.appendAll(fresh)
         clock.receive(fresh.maxOf { it.at })
+        // This device's own changes coming back, from a backup of it, are not numbered again.
+        fresh.filter { it.at.device == clock.device }.mapNotNull { it.seq }.maxOrNull()?.let { if (it > lastSeq) lastSeq = it }
         val last = state.lastAt
         state = if ((last == null || fresh.all { it.at > last }) && fresh.none { it.change.isPeriodChange }) {
             StateBuilder(state).also { b -> fresh.sortedWith(Operation.ORDER).forEach { b.add(it) } }.build()
@@ -307,8 +318,19 @@ class Ledger(
      */
     @Synchronized
     fun closePeriod(through: LocalDate): Outcome {
-        val seen = (store.all() + pending.orEmpty()).groupBy { it.at.device }.mapValues { (_, ops) -> ops.maxOf { it.at } }
+        val seen = (store.all() + pending.orEmpty()).groupBy { it.at.device }.mapValues { (_, ops) -> seenOf(ops) }
         return execute(Change.PeriodClosed(through, MenuSnapshot.of(calculator().menu(through)), seen))
+    }
+
+    /**
+     * What a close made now has of one device's [ops]: the numbers it has, as the highest and those
+     * missing below it, which a change left out of a file that passed on later ones is, and for
+     * changes made before they were numbered, the latest clock.
+     */
+    private fun seenOf(ops: List<Operation>): Seen {
+        val numbers = ops.mapNotNullTo(HashSet()) { it.seq }
+        val top = numbers.maxOrNull() ?: 0L
+        return Seen(ops.maxOf { it.at }, top, (1..top).filter { it !in numbers })
     }
 
     /** Reopens closed periods from [from] on. Managers only, and the reason is kept in the history. */
