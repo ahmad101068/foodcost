@@ -17,6 +17,7 @@ import ir.foodcost.core.units.Dimension
 import ir.foodcost.core.units.Uom
 import ir.foodcost.data.clock.HybridClock
 import ir.foodcost.data.ledger.Ledger
+import ir.foodcost.data.ledger.RejectReason
 import ir.foodcost.data.ops.Actor
 import ir.foodcost.data.ops.Opt
 import ir.foodcost.data.ops.Role
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.Test
 import java.math.BigDecimal
 import java.time.LocalDate
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
@@ -477,6 +479,55 @@ class QuickCalculatorTest {
         val older = QuickDrafts.encode(draft, DisplayCurrency.TOMAN).replace("\"currency\":\"TOMAN\",", "")
         assertTrue("currency" !in older)
         assertEquals(draft, QuickDrafts.decode(older, DisplayCurrency.RIAL))
+    }
+
+    @Test
+    fun `a calculation with a row not complete says its suggested price is not final`() {
+        // The independent audit's B05: one row without a price, and the suggestion looked final.
+        val partial = koobideh().withRow(1, QuickRow("دمبه", "", "30"))
+        val result = QuickCalculator.compute(partial, ledger().state, toman, today)
+        assertEquals(PriceStatus.INCOMPLETE, result.status)
+        assertTrue(result.provisional)
+        assertEquals("قیمت پیشنهادی (ناقص)", result.suggestedLabel)
+        val text = QuickCalculator.shareText(partial, result, toman)
+        assertEquals("این حساب ناقص است؛ عددهای آن قطعی نیستند.", text.lines()[1])
+        assertTrue("قیمت پیشنهادی (ناقص): " in text)
+        // Saving it is refused until the price is written.
+        assertIs<Checked.Invalid>(QuickCalculator.check(partial.copy(dishName = "کوبیده"), ledger().state, toman, today))
+
+        val complete = QuickCalculator.compute(koobideh(), ledger().state, toman, today)
+        assertFalse(complete.provisional)
+        assertEquals("قیمت پیشنهادی", complete.suggestedLabel)
+    }
+
+    @Test
+    fun `an amount past any real price is said to be too large, and the largest ones still work out`() {
+        val slip = koobideh().withRow(0, QuickRow("گوشت", "922337203685477580", "170"))
+        val result = QuickCalculator.compute(slip, ledger().state, toman, today)
+        assertEquals("این مبلغ بیش از حد بزرگ است.", result.rows[0].problem)
+        assertFalse(result.rows[0].waiting)
+        assertEquals(PriceStatus.INCOMPLETE, result.status)
+        val refused = assertIs<Checked.Invalid>(QuickCalculator.check(slip, ledger().state, toman, today))
+        assertTrue(refused.errors.values.any { "«گوشت» بیش از حد بزرگ است" in it })
+
+        // The largest amount taken, for ten tonnes: the suggestion is past whole rials and shows as the largest there is.
+        val largest = QuickInput(dishName = "مجلس").withRow(0, QuickRow("زعفران", "100000000000000", "10000000"))
+        val big = QuickCalculator.compute(largest, ledger().state, toman, today)
+        assertEquals(Long.MAX_VALUE, big.suggestedRials)
+    }
+
+    @Test
+    fun `a save refused part way, as on a closed day, leaves nothing of it behind`() {
+        // The independent audit's B04: before, the new ingredient stayed although the save failed.
+        val ledger = ledger()
+        ledger.closePeriod(today)
+        val stored = ledger.operations().size
+        val plan = valid(QuickCalculator.check(koobideh("630000"), ledger.state, toman, today))
+        val refused = assertFailsWith<QuickSaveRefused> { QuickCalculator.save(ledger, plan, today) }
+        assertEquals(RejectReason.PERIOD_CLOSED, refused.reason)
+        assertTrue(ledger.state.ingredients.isEmpty())
+        assertTrue(ledger.state.recipes.isEmpty())
+        assertEquals(stored, ledger.operations().size)
     }
 
     @Test

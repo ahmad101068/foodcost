@@ -23,9 +23,33 @@ import ir.foodcost.data.ops.Change
 import ir.foodcost.data.ops.OpId
 import ir.foodcost.data.ops.Operation
 import ir.foodcost.data.ops.Opt
+import ir.foodcost.data.ops.Role
 import ir.foodcost.data.store.OperationStore
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.util.UUID
+
+/** What a backup would add, for a look before importing it. */
+data class BackupPreview(
+    /** Changes not here yet; the rest are here already and change nothing. */
+    val fresh: Int,
+    val ingredients: Int,
+    val prices: Int,
+    val recipes: Int,
+    val menuPrices: Int,
+    val settings: Int,
+    val periods: Int,
+    /** The first and last day the new changes were made on. */
+    val firstDay: LocalDate?,
+    val lastDay: LocalDate?,
+    /** Phones other than this one that made them. */
+    val otherDevices: Int,
+    /** New changes made by someone other than an owner. */
+    val byOthers: Int,
+    /** New changes the rules refuse, such as a price on a closed day; they are kept but change nothing. */
+    val refused: Int,
+)
 
 /**
  * The app's way to read and change data. Every change becomes an [Operation] that is checked,
@@ -56,15 +80,46 @@ class Ledger(
         data class Rejected(override val operation: Operation, val reason: RejectReason) : Outcome
     }
 
-    /** Checks [change] against the current state, then stores and applies it, or rejects it without storing. */
+    /** Operations made inside [atomically] and not stored yet. */
+    private var pending: MutableList<Operation>? = null
+
+    /**
+     * Checks [change] against the current state, then stores and applies it, or rejects it without
+     * storing. Inside [atomically] it is stored with the others when the block ends.
+     */
     @Synchronized
     fun execute(change: Change, reason: String? = null): Outcome {
         val op = Operation(OpId.random(), clock.now(), actor, change, reason?.takeIf { it.isNotBlank() })
         val builder = StateBuilder(state)
         builder.add(op)?.let { return Outcome.Rejected(op, it) }
-        store.append(op)
+        val batch = pending
+        if (batch != null) batch += op else store.append(op)
         state = builder.build()
         return Outcome.Applied(op)
+    }
+
+    /**
+     * Runs [block] as one change of several steps, such as a dish saved with its new ingredients and
+     * prices: what it makes is stored in one write when it returns, and nothing of it is stored if it
+     * throws, so a step refused half way leaves no part behind. While it runs, [state] shows each step.
+     * A step that comes back [Outcome.Rejected] throws nothing by itself; throw to undo the rest.
+     */
+    @Synchronized
+    fun <T> atomically(block: (Ledger) -> T): T {
+        if (pending != null) return block(this) // already one change
+        val before = state
+        val batch = ArrayList<Operation>()
+        pending = batch
+        try {
+            val result = block(this)
+            if (batch.isNotEmpty()) store.appendAll(batch)
+            return result
+        } catch (e: Throwable) {
+            state = before
+            throw e
+        } finally {
+            pending = null
+        }
     }
 
     /**
@@ -73,6 +128,7 @@ class Ledger(
      */
     @Synchronized
     fun receive(operations: Collection<Operation>): Int {
+        check(pending == null) { "Operations received are stored at once, not as part of another change" }
         val fresh = operations.distinctBy { it.id }.filter { !store.contains(it.id) }
         if (fresh.isEmpty()) return 0
         store.appendAll(fresh)
@@ -89,6 +145,32 @@ class Ledger(
 
     /** Every stored operation, for syncing or backup. */
     fun operations(): List<Operation> = store.all()
+
+    /**
+     * What receiving [operations] would add, without adding anything: a backup is a file someone
+     * chose, and its changes, their days, phones and people are worth a look before they join the data.
+     */
+    @Synchronized
+    fun preview(operations: Collection<Operation>, zone: ZoneId = ZoneId.systemDefault()): BackupPreview {
+        val fresh = operations.distinctBy { it.id }.filter { !store.contains(it.id) }
+        val after = if (fresh.isEmpty()) state else LedgerState.fold(store.all() + fresh)
+        val days = fresh.map { Instant.ofEpochMilli(it.at.wallMillis).atZone(zone).toLocalDate() }
+        fun count(kind: (Change) -> Boolean) = fresh.count { kind(it.change) }
+        return BackupPreview(
+            fresh = fresh.size,
+            ingredients = count { it is Change.IngredientSaved },
+            prices = count { it is Change.PriceRecorded || it is Change.PriceVoided },
+            recipes = count { it is Change.RecipeSaved || it is Change.RecipeVersionSaved || it is Change.RecipeVersionRemoved },
+            menuPrices = count { it is Change.MenuPriceSet || it is Change.MenuPriceRemoved },
+            settings = count { it is Change.SettingsSaved },
+            periods = count { it is Change.PeriodClosed || it is Change.PeriodReopened },
+            firstDay = days.minOrNull(),
+            lastDay = days.maxOrNull(),
+            otherDevices = fresh.map { it.at.device }.distinct().count { it != clock.device },
+            byOthers = fresh.count { it.actor.role != Role.OWNER },
+            refused = (after.rejections.size - state.rejections.size).coerceAtLeast(0),
+        )
+    }
 
     fun calculator(): FoodCostCalculator = state.calculator()
 
@@ -141,6 +223,10 @@ class Ledger(
         return id
     }
 
+    /**
+     * Changes an ingredient. A new yield or conversions count from [effectiveFrom] on, and the days
+     * before keep the old ones; without a day they count on every day, which a closed period refuses.
+     */
     fun updateIngredient(
         id: IngredientId,
         name: Opt<String> = Opt.Keep,
@@ -148,10 +234,11 @@ class Ledger(
         yields: Opt<List<YieldStage>> = Opt.Keep,
         conversions: Opt<Conversions> = Opt.Keep,
         archived: Opt<Boolean> = Opt.Keep,
+        effectiveFrom: LocalDate? = null,
     ): Outcome {
         require(state.ingredients.containsKey(id)) { "Unknown ingredient $id" }
         require(name !is Opt.Value || name.value.isNotBlank()) { "An ingredient needs a name" }
-        return execute(Change.IngredientSaved(id, name, Opt.Keep, category, yields, conversions, archived))
+        return execute(Change.IngredientSaved(id, name, Opt.Keep, category, yields, conversions, archived, effectiveFrom))
     }
 
     /** Adds a purchase price. Pass your own [priceId] to refer to it later, for example to void it. */
@@ -171,6 +258,7 @@ class Ledger(
         return id
     }
 
+    /** Changes a recipe. A new section or pricing method counts from [effectiveFrom] on, as for [updateIngredient]. */
     fun updateRecipe(
         id: RecipeId,
         name: Opt<String> = Opt.Keep,
@@ -178,10 +266,11 @@ class Ledger(
         category: Opt<String?> = Opt.Keep,
         pricing: Opt<PricingMethod?> = Opt.Keep,
         archived: Opt<Boolean> = Opt.Keep,
+        effectiveFrom: LocalDate? = null,
     ): Outcome {
         require(state.recipes.containsKey(id)) { "Unknown recipe $id" }
         require(name !is Opt.Value || name.value.isNotBlank()) { "A recipe needs a name" }
-        return execute(Change.RecipeSaved(id, name, kind, category, pricing, archived))
+        return execute(Change.RecipeSaved(id, name, kind, category, pricing, archived, effectiveFrom))
     }
 
     fun saveRecipeVersion(id: RecipeId, version: RecipeVersion): Outcome {
@@ -205,8 +294,9 @@ class Ledger(
 
     fun removeMenuPrice(id: RecipeId, effectiveFrom: LocalDate): Outcome = execute(Change.MenuPriceRemoved(id, effectiveFrom))
 
-    fun saveSettings(costing: CostingRules? = null, pricing: PricingSettings? = null): Outcome =
-        execute(Change.SettingsSaved(costing, pricing))
+    /** Saves settings that count from [effectiveFrom] on; without a day, on every day, which a closed period refuses. */
+    fun saveSettings(costing: CostingRules? = null, pricing: PricingSettings? = null, effectiveFrom: LocalDate? = null): Outcome =
+        execute(Change.SettingsSaved(costing, pricing, effectiveFrom))
 
     /** Closes every day up to [through] and keeps that day's menu figures as the period's official record. */
     fun closePeriod(through: LocalDate): Outcome =

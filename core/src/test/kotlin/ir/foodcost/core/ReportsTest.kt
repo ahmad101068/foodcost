@@ -13,6 +13,7 @@ import ir.foodcost.core.units.Dimension
 import ir.foodcost.core.units.Uom
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class ReportsTest {
@@ -75,6 +76,16 @@ class ReportsTest {
         assertAmount("60000", quote.requirements.items.first { it.ingredient.id == iid("cucumber") }.purchaseQty)
         assertAmount("380000000", quote.requirements.ingredientCost)
         assertAmount("380000000", quote.foodCostTotal)
+    }
+
+    @Test
+    fun `what to buy is worked out for more than zero portions only`() {
+        // The independent audit's B06: -2 portions gave -2,000 g of meat to buy.
+        val calc = FoodCostCalculator(catalog, pricing = pricing)
+        assertFailsWith<IllegalArgumentException> { calc.requirements(rid("kebab"), (-2).bd, D1) }
+        assertFailsWith<IllegalArgumentException> { calc.requirements(rid("kebab"), 0.bd, D1) }
+        val two = calc.requirements(rid("kebab"), 2.bd, D1).items.single { it.ingredient.id == iid("meat") }
+        assertTrue(two.purchaseQty.signum() > 0)
     }
 
     @Test

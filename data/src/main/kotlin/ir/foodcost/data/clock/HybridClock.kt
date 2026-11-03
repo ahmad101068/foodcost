@@ -13,7 +13,7 @@ data class Hlc(val wallMillis: Long, val counter: Int, val device: String) : Com
  * Hands out timestamps that always increase on this device, even if the phone's clock is set back,
  * and that sort after every timestamp received from other devices.
  */
-class HybridClock(private val device: String, private val wallClock: () -> Long = System::currentTimeMillis) {
+class HybridClock(val device: String, private val wallClock: () -> Long = System::currentTimeMillis) {
     private var last = Hlc(0, 0, device)
 
     @Synchronized

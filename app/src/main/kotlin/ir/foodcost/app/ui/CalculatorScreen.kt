@@ -351,7 +351,7 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, m
             if (netSales != null) {
                 Figure("فروش خالص", netSales, money, Modifier.weight(1f).testTag("net-sales"), onExplain = explain(Glossary.NET_SALES))
             } else {
-                Figure("قیمت پیشنهادی", result.suggested ?: "—", money, Modifier.weight(1f).testTag("suggested"), onExplain = explain(Glossary.SUGGESTED))
+                Figure(result.suggestedLabel, result.suggested ?: "—", money, Modifier.weight(1f).testTag("suggested"), onExplain = explain(Glossary.SUGGESTED))
             }
         }
         if (netSales != null && remaining != null) {
@@ -447,7 +447,7 @@ private fun note(result: QuickResult): String {
     if (!result.hasLines) return "قیمت هر کیلو و مقدار هر ماده را بنویسید."
     if (result.netSales == null) return "${result.method}، ${result.miscNote}"
     return listOfNotNull(
-        result.suggested?.let { "قیمت پیشنهادی $it" },
+        result.suggested?.let { "${result.suggestedLabel} $it" },
         result.raise?.let { "باید $it گران‌تر شود" },
     ).joinToString("، ")
 }

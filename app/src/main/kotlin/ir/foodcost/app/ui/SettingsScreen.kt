@@ -1,9 +1,6 @@
 package ir.foodcost.app.ui
 
 import android.content.Context
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -31,7 +28,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,19 +41,14 @@ import ir.foodcost.app.AppContainer
 import ir.foodcost.core.money.DisplayCurrency
 import ir.foodcost.core.money.PriceRounding
 import ir.foodcost.core.pricing.CostBasis
-import ir.foodcost.data.json.JsonException
 import ir.foodcost.data.ledger.LedgerState
 import ir.foodcost.presentation.Checked
 import ir.foodcost.presentation.Field
-import ir.foodcost.presentation.JalaliDate
 import ir.foodcost.presentation.Labels
 import ir.foodcost.presentation.MethodChoice
 import ir.foodcost.presentation.MoneyFormat
 import ir.foodcost.presentation.Persian
 import ir.foodcost.presentation.SettingsInput
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
 /** The settings tab: currency, pricing rules and backup. */
@@ -74,45 +65,11 @@ fun SettingsScreen(
     var input by remember(state.pricing, state.costing, money) { mutableStateOf(SettingsInput.of(state.pricing, state.costing, money)) }
     var errors by remember { mutableStateOf(emptyMap<Field, String>()) }
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val categoryNames = remember { HashMap<Int, FocusRequester>() }
     val categoryPercents = remember { HashMap<Int, FocusRequester>() }
     fun categoryName(i: Int): FocusRequester = categoryNames.getOrPut(i) { FocusRequester() }
     fun categoryPercent(i: Int): FocusRequester = categoryPercents.getOrPut(i) { FocusRequester() }
     var focusCategory by remember { mutableStateOf<Pair<Int, Boolean>?>(null) }
-
-    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        if (uri != null) {
-            scope.launch {
-                val saved = try {
-                    withContext(Dispatchers.IO) { writeText(context, uri, container.open().exportBackup()) }
-                } catch (e: Exception) {
-                    false
-                }
-                actions.say(if (saved) "پشتیبان ذخیره شد." else "پشتیبان ذخیره نشد.")
-            }
-        }
-    }
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            scope.launch {
-                val message = try {
-                    val text = withContext(Dispatchers.IO) { readText(context, uri) }
-                    if (text == null) {
-                        "فایل خوانده نشد."
-                    } else {
-                        val added = container.change { it.importBackup(text) }
-                        if (added == 0) "این پشتیبان چیز تازه‌ای نداشت." else "${Persian.digits(added)} تغییر از پشتیبان اضافه شد."
-                    }
-                } catch (e: JsonException) {
-                    "این فایل پشتیبان معتبر نیست."
-                } catch (e: Exception) {
-                    "فایل خوانده نشد."
-                }
-                actions.say(message)
-            }
-        }
-    }
 
     TabScaffold(title = "تنظیمات", nav = nav, actions = actions) { padding ->
         Column(
@@ -329,7 +286,7 @@ fun SettingsScreen(
                         }
                         is Checked.Valid -> {
                             errors = emptyMap()
-                            actions.run({ it.saveSettings(checked.value.costing, checked.value.pricing) }) {
+                            actions.run({ it.saveSettings(checked.value.costing, checked.value.pricing, effectiveFrom = today) }) {
                                 actions.say("تنظیمات ذخیره شد.")
                             }
                         }
@@ -338,31 +295,16 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("ذخیرهٔ قیمت‌گذاری") }
 
-            SettingsCard("پشتیبان") {
-                Text(
-                    "از همهٔ داده‌ها یک فایل پشتیبان بسازید و جای امنی نگه دارید. با همین فایل داده‌ها روی گوشی دیگر هم برمی‌گردند.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { exportLauncher.launch("foodcost-${JalaliDate.of(today).isoLike()}.json") }) {
-                        Text("ساخت پشتیبان")
-                    }
-                    OutlinedButton(onClick = { importLauncher.launch(arrayOf("*/*")) }) {
-                        Text("بازگرداندن")
-                    }
-                }
-                val unreadable = container.unreadableRows
-                if (unreadable > 0) {
-                    Text(
-                        "${Persian.digits(unreadable)} ردیف ذخیره‌شده خوانده نشد.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
+            BackupCard(container, today, actions)
 
             SettingsCard("دربارهٔ برنامه") {
                 Text("فودکاست، نسخهٔ ${Persian.digits(versionLabel(context))}", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "فودکاست برای یک نفر روی یک گوشی است: هر تغییری به نام مالک ثبت می‌شود و کاربر یا نقش جدا ندارد. " +
+                        "اگر چند نفر با یک گوشی کار می‌کنند، برنامه نمی‌گوید کدام تغییر را چه کسی داده است.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Text(
                     "قلم وزیرمتن، با مجوز SIL Open Font License",
                     style = MaterialTheme.typography.bodySmall,
@@ -389,12 +331,6 @@ private fun methodHint(method: MethodChoice): String = when (method) {
     MethodChoice.MARGIN -> "چند درصد قیمت فروش (بدون مالیات) سود ناخالص بماند؟"
     MethodChoice.MARKUP -> "چند درصد روی بها کشیده شود؟ ۲۰۰ یعنی سه برابر بها."
 }
-
-private fun writeText(context: Context, uri: Uri, text: String): Boolean =
-    context.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray(Charsets.UTF_8)) } != null
-
-private fun readText(context: Context, uri: Uri): String? =
-    context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
 
 @Suppress("DEPRECATION")
 private fun versionLabel(context: Context): String {

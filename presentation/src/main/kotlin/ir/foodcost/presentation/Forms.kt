@@ -175,7 +175,8 @@ data class PriceInput(
 
     /** The same in rials per kilo, liter or piece, for comparing with the last price. */
     fun unitRials(ingredient: Ingredient, money: MoneyFormat): Long? =
-        perBaseUnit(ingredient, money)?.multiply(Prices.shownUnitSize(ingredient.baseDimension))?.setScale(0, RoundingMode.HALF_UP)?.toLong()
+        perBaseUnit(ingredient, money)?.multiply(Prices.shownUnitSize(ingredient.baseDimension))?.setScale(0, RoundingMode.HALF_UP)
+            ?.takeIf { it <= BigDecimal(MoneyFormat.MAX_RIALS) }?.toLong()
 
     private fun perBaseUnit(ingredient: Ingredient, money: MoneyFormat): BigDecimal? {
         val qty = Numbers.parse(packageQty)?.takeIf { it.signum() > 0 } ?: return null

@@ -54,6 +54,7 @@ class OperationCodecTest {
                 Opt.Value(listOf(YieldStage("شستن", "0.98".bd))), Opt.Value(Conversions(gramsPerPiece = "120".bd)), Opt.Value(true),
             ),
             Change.IngredientSaved(rice, name = Opt.Value("برنج هاشمی")),
+            Change.IngredientSaved(rice, yields = Opt.Value(listOf(YieldStage("شستن", "0.9".bd))), effectiveFrom = D31),
             Change.PriceRecorded(
                 "p1",
                 PurchasePrice(rice, D1, "10".bd, Uom.KILOGRAM, 46_000_000, 1_000_000, 4_500_000, true, 200_000, "فروشگاه \"شمال\""),
@@ -64,6 +65,7 @@ class OperationCodecTest {
                 Opt.Value(PricingMethod.TargetMargin("30".bd, CostBasis.FULL_COST)), Opt.Value(false),
             ),
             Change.RecipeSaved(dish, pricing = Opt.Value(null)),
+            Change.RecipeSaved(dish, category = Opt.Value("drinks"), effectiveFrom = D31),
             Change.RecipeVersionSaved(
                 dish,
                 RecipeVersion(
@@ -90,6 +92,7 @@ class OperationCodecTest {
                 ),
             ),
             Change.SettingsSaved(pricing = PricingSettings()),
+            Change.SettingsSaved(CostingRules("9".bd), effectiveFrom = D31),
             Change.PeriodClosed(
                 D31,
                 MenuSnapshot(D31, listOf(MenuSnapshot.Item(dish, "کباب", 4_224_082, 13_500_000, 13_300_000, "34.42".bd, PriceStatus.OK))),
@@ -118,6 +121,24 @@ class OperationCodecTest {
         assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":99,"operations":[]}""") }
         assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":1,"operations":[{"id":"x"}]}""") }
         assertEquals(emptyList(), Backup.read("""{"format":"foodcost-backup","version":1,"operations":[]}"""))
+        assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":3,"operations":[]}""") }
+    }
+
+    @Test
+    fun `a backup says it has dated changes, so a version of the app that cannot read the day refuses it`() {
+        val dated = Operation(
+            OpId("d"), Hlc(1, 0, "A"), Actor("u", Role.OWNER),
+            Change.IngredientSaved(rice, yields = Opt.Value(listOf(YieldStage("پاک کردن", "0.8".bd))), effectiveFrom = D1),
+        )
+        val written = Backup.write(listOf(dated))
+        val root = Json.parse(written) as JsonObject
+        assertEquals(2, root.int("version")) // the versions before read only 1
+        assertEquals(listOf(dated), Backup.read(written))
+
+        // A file of version 1 is read as before: its changes count from no day in particular.
+        val old = written.replace(Regex("\"version\"\\s*:\\s*2"), "\"version\":1").replace(Regex(",?\"effectiveFrom\"\\s*:\\s*\"[^\"]*\""), "")
+        assertTrue(old != written)
+        assertEquals(null, (Backup.read(old).single().change as Change.IngredientSaved).effectiveFrom)
     }
 
     @Test

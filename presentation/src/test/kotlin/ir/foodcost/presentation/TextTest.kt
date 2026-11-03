@@ -70,6 +70,14 @@ class TextTest {
         assertEquals(13_505_000L, newRial.parse("1350.5"))
 
         assertEquals("۵ ریال", MoneyFormat(DisplayCurrency.RIAL).full(5))
+
+        // Up to 10^15 rials, far above any real price; past it, a slip of the keyboard, said as such.
+        assertEquals(MoneyFormat.MAX_RIALS, toman.parse("100000000000000"))
+        assertNull(toman.parse("100000000000001"))
+        assertNull(toman.parse("922337203685477580"))
+        assertTrue(toman.tooLarge("922337203685477580"))
+        assertFalse(toman.tooLarge("100000000000000"))
+        assertFalse(toman.tooLarge("بیست"))
     }
 
     @Test

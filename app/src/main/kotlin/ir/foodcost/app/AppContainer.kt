@@ -4,9 +4,11 @@ import android.content.Context
 import ir.foodcost.app.data.SqliteOperationStore
 import ir.foodcost.core.money.DisplayCurrency
 import ir.foodcost.data.clock.HybridClock
+import ir.foodcost.data.ledger.BackupPreview
 import ir.foodcost.data.ledger.Ledger
 import ir.foodcost.data.ledger.LedgerState
 import ir.foodcost.data.ops.Actor
+import ir.foodcost.data.ops.Operation
 import ir.foodcost.data.ops.Role
 import ir.foodcost.presentation.Days
 import ir.foodcost.presentation.QuickDrafts
@@ -119,6 +121,13 @@ class AppContainer(context: Context) {
     /** Stored rows that could not be read, if any. */
     val unreadableRows: Int get() = store?.unreadable ?: 0
 
+    /** Unreadable rows not shown to the user yet: more than when they last said they had read the warning. */
+    fun unreadableToWarn(): Int = unreadableRows.takeIf { it > prefs.getInt(KEY_UNREADABLE_SEEN, 0) } ?: 0
+
+    fun acknowledgeUnreadable() {
+        prefs.edit().putInt(KEY_UNREADABLE_SEEN, unreadableRows).apply()
+    }
+
     /** Opens the ledger once, reading every stored operation off the main thread. */
     suspend fun open(): Ledger = ledger ?: openLock.withLock {
         ledger ?: withContext(Dispatchers.IO) {
@@ -131,12 +140,32 @@ class AppContainer(context: Context) {
         }
     }
 
-    /** Runs a change off the main thread, then publishes the new state. */
+    /**
+     * Runs a change off the main thread as one change: what it stores is kept whole or, if it
+     * fails part way, not at all. Then publishes the new state.
+     */
     suspend fun <T> change(block: (Ledger) -> T): T {
         val l = open()
-        val result = withContext(Dispatchers.IO) { block(l) }
-        _state.value = l.state
+        val result = try {
+            withContext(Dispatchers.IO) { l.atomically(block) }
+        } finally {
+            _state.value = l.state
+        }
         return result
+    }
+
+    /** What the changes of a backup would add, worked out off the main thread; nothing is added. */
+    suspend fun previewBackup(operations: List<Operation>): BackupPreview {
+        val l = open()
+        return withContext(Dispatchers.IO) { l.preview(operations) }
+    }
+
+    /** Adds the changes of a backup, off the main thread. Returns how many were new. */
+    suspend fun receive(operations: List<Operation>): Int {
+        val l = open()
+        val added = withContext(Dispatchers.IO) { l.receive(operations) }
+        _state.value = l.state
+        return added
     }
 
     fun setCurrency(currency: DisplayCurrency) {
@@ -157,6 +186,7 @@ class AppContainer(context: Context) {
 
     private companion object {
         const val KEY_CURRENCY = "currency"
+        const val KEY_UNREADABLE_SEEN = "unreadable-seen"
         const val KEY_DEVICE = "device"
         const val OWNER_ID = "owner"
         const val DRAFT_FILE = "calculator-draft.json"

@@ -60,6 +60,12 @@ data class PriceRounding(val stepRials: Long = 1, val direction: Direction = Dir
             Direction.NEAREST -> steps.setScale(0, RoundingMode.HALF_UP)
             Direction.DOWN -> steps.setScale(0, RoundingMode.FLOOR)
         }.max(BigDecimal.ONE)
-        return whole.multiply(step).longValueExact()
+        // A price beyond whole rials comes only from absurd input; it shows as the largest amount
+        // there is, which no one takes for a price, rather than stopping the screen.
+        return whole.multiply(step).min(LARGEST).longValueExact()
+    }
+
+    private companion object {
+        val LARGEST: BigDecimal = BigDecimal(Long.MAX_VALUE)
     }
 }

@@ -5,6 +5,7 @@ import ir.foodcost.core.costing.CostingRules
 import ir.foodcost.core.model.IngredientId
 import ir.foodcost.core.model.PurchasePrice
 import ir.foodcost.core.model.RecipeId
+import ir.foodcost.core.model.RecipeKind
 import ir.foodcost.core.model.RecipeVersion
 import ir.foodcost.core.model.YieldStage
 import ir.foodcost.core.pricing.Overhead
@@ -108,10 +109,99 @@ class LedgerTest {
         val official = k.ledger.state.closedPeriods.single().snapshot
 
         k.ledger.recordPrice(T.price(k.meat, N2, 20_000_000)).applied()
-        k.ledger.updateIngredient(k.rice, yields = Opt.Value(listOf(YieldStage("شستن", "0.9".bd)))).applied()
+        k.ledger.updateIngredient(k.rice, yields = Opt.Value(listOf(YieldStage("شستن", "0.9".bd))), effectiveFrom = N2).applied()
 
         assertEquals(official, k.ledger.state.closedPeriods.single().snapshot)
         assertEquals(4_224_082L, assertNotNull(official).items.single().foodCostRials)
+    }
+
+    @Test
+    fun `a yield, a section or a setting changed after a close counts from its day, and the closed days are worked out as before`() {
+        val k = Kitchen(T.ledger("A"))
+        // A plate that takes the default share for spices, 3%: 100 g of meat at 16,000,000 a kilo.
+        val salad = k.ledger.createRecipe("سالاد", RecipeKind.MENU_ITEM)
+        k.ledger.saveRecipeVersion(salad, RecipeVersion(D1, batchLines = listOf(T.line(k.meat, "100")))).applied()
+        k.ledger.closePeriod(D31).applied()
+        val official = assertNotNull(k.ledger.state.closedPeriods.single().snapshot)
+        fun costOn(day: java.time.LocalDate) = k.ledger.calculator().cost(k.kebab, day).foodCostPerPortion
+        fun saladOn(day: java.time.LocalDate) = k.ledger.calculator().cost(salad, day).foodCostPerPortion
+
+        // As the independent audit's B01 and B02: half the rice lost in washing, and 9% for spices, from N2 on.
+        k.ledger.updateIngredient(k.rice, yields = Opt.Value(listOf(YieldStage("شستن", "0.5".bd))), effectiveFrom = N2).applied()
+        k.ledger.saveSettings(costing = CostingRules("9".bd, mapOf("main" to "9".bd)), effectiveFrom = N2).applied()
+        k.ledger.updateRecipe(k.kebab, category = Opt.Value("special"), effectiveFrom = N2).applied()
+
+        assertEquals(official, MenuSnapshot.of(k.ledger.calculator().menu(D31)))
+        assertAmount("1648000", saladOn(D31))
+        assertAmount("1744000", saladOn(N2))
+        assertAmount("4224081.6327", costOn(D31))
+        assertAmount("4224081.6327", costOn(D15))
+        assertTrue(costOn(N2) > costOn(D31))
+        assertEquals(listOf(YieldStage("شستن", "0.5".bd)), k.ledger.state.ingredients.getValue(k.rice).yields)
+        assertEquals("special", k.ledger.state.recipes.getValue(k.kebab).category)
+        assertEquals(CostingRules("9".bd, mapOf("main" to "9".bd)), k.ledger.state.costing)
+
+        // Without a day, or on a closed day, the same changes would rewrite the closed days, so they are refused.
+        val half = Opt.Value(listOf(YieldStage("شستن", "0.6".bd)))
+        assertEquals(RejectReason.PERIOD_CLOSED, k.ledger.updateIngredient(k.rice, yields = half).rejection())
+        assertEquals(RejectReason.PERIOD_CLOSED, k.ledger.updateIngredient(k.rice, yields = half, effectiveFrom = D15).rejection())
+        assertEquals(RejectReason.PERIOD_CLOSED, k.ledger.saveSettings(costing = CostingRules("5".bd)).rejection())
+        assertEquals(RejectReason.PERIOD_CLOSED, k.ledger.updateRecipe(k.kebab, category = Opt.Value("drinks"), effectiveFrom = D31).rejection())
+        // A name changes no figure, nor a value a day already has, so neither is refused.
+        k.ledger.updateIngredient(k.rice, name = Opt.Value("برنج هاشمی")).applied()
+        k.ledger.updateIngredient(k.rice, yields = Opt.Value(listOf(YieldStage("شستن", "0.5".bd))), effectiveFrom = N2).applied()
+        k.ledger.updateIngredient(k.rice, yields = Opt.Value(listOf(YieldStage("شستن", "0.98".bd)))).applied()
+        k.ledger.updateRecipe(k.kebab, archived = Opt.Value(false)).applied()
+        k.ledger.saveSettings(costing = CostingRules("9".bd, mapOf("main" to "9".bd)), effectiveFrom = N2).applied()
+        assertEquals(1, k.ledger.state.ingredients.getValue(k.rice).yieldsHistory.count { it.from == N2 })
+
+        // Read again from the stored operations, the same days get the same figures.
+        val again = ir.foodcost.data.ledger.LedgerState.fold(k.ledger.operations())
+        assertEquals(k.ledger.state, again)
+        assertEquals(official, MenuSnapshot.of(again.calculator().menu(D31)))
+    }
+
+    @Test
+    fun `of changes entered out of order, each day takes the one that counts from the latest day before it`() {
+        val k = Kitchen(T.ledger("A"))
+        val late = listOf(YieldStage("شستن", "0.8".bd))
+        val early = listOf(YieldStage("شستن", "0.9".bd))
+        k.ledger.updateIngredient(k.rice, yields = Opt.Value(late), effectiveFrom = N2).applied()
+        k.ledger.updateIngredient(k.rice, yields = Opt.Value(early), effectiveFrom = D15).applied()
+        val rice = k.ledger.state.ingredients.getValue(k.rice)
+        assertEquals(listOf(YieldStage("شستن", "0.98".bd)), rice.asOf(D1).yields)
+        assertEquals(early, rice.asOf(D31).yields)
+        assertEquals(late, rice.asOf(N2).yields)
+        assertEquals(late, rice.yields) // in force now
+        val calc = k.ledger.calculator()
+        assertTrue(calc.cost(k.kebab, D1).foodCostPerPortion < calc.cost(k.kebab, D31).foodCostPerPortion)
+        assertTrue(calc.cost(k.kebab, D31).foodCostPerPortion < calc.cost(k.kebab, N2).foodCostPerPortion)
+    }
+
+    @Test
+    fun `a change of several steps is stored whole, or not at all when a step fails`() {
+        val store = InMemoryOperationStore()
+        val ledger = T.ledger("A", store = store)
+        val before = ledger.state
+        assertFailsWith<IllegalStateException> {
+            ledger.atomically {
+                it.createIngredient("گوشت", Dimension.MASS)
+                assertEquals(1, it.state.ingredients.size) // the next step already sees it
+                error("refused")
+            }
+        }
+        assertEquals(before, ledger.state)
+        assertTrue(store.all().isEmpty())
+
+        val made = ledger.atomically {
+            val meat = it.createIngredient("گوشت", Dimension.MASS)
+            it.recordPrice(T.price(meat, D1, 16_000_000)).applied()
+            ledger.atomically { inner -> inner.createIngredient("پیاز", Dimension.MASS) } // one change still
+            meat
+        }
+        assertEquals(3, store.all().size)
+        assertTrue(ledger.state.ingredients.containsKey(made))
+        assertFailsWith<IllegalStateException> { ledger.atomically { it.receive(emptyList()) } }
     }
 
     @Test

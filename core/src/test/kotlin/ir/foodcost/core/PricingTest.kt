@@ -4,6 +4,8 @@ import ir.foodcost.core.F.D1
 import ir.foodcost.core.F.rid
 import ir.foodcost.core.model.Catalog
 import ir.foodcost.core.model.ExtraCost
+import ir.foodcost.core.model.IngredientId
+import ir.foodcost.core.model.PurchasePrice
 import ir.foodcost.core.model.SalesChannel
 import ir.foodcost.core.money.PriceRounding
 import ir.foodcost.core.money.PriceRounding.Direction
@@ -17,6 +19,7 @@ import ir.foodcost.core.pricing.PricingSettings
 import ir.foodcost.core.units.Uom
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 class PricingTest {
@@ -49,6 +52,22 @@ class PricingTest {
         assertEquals(10_400_000L, PriceRounding(100_000, Direction.DOWN).apply("10499999".bd))
         assertEquals(100_000L, PriceRounding(100_000, Direction.NEAREST).apply("30000".bd)) // never below one step
         assertEquals(0L, rounding.apply(0.bd))
+    }
+
+    @Test
+    fun `a total beyond whole rials is refused, and a price beyond them shows as the largest there is`() {
+        // The independent audit's B03: the largest gross plus one rial of tax came out negative.
+        assertFailsWith<IllegalArgumentException> {
+            PurchasePrice(IngredientId("x"), D1, 1.bd, Uom.KILOGRAM, Long.MAX_VALUE, taxRials = 1)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            PurchasePrice(IngredientId("x"), D1, 1.bd, Uom.KILOGRAM, Long.MAX_VALUE - 5, deliveryRials = 10)
+        }
+        // Tax claimed back is not added, so it cannot overflow either.
+        assertEquals(Long.MAX_VALUE, PurchasePrice(IngredientId("x"), D1, 1.bd, Uom.KILOGRAM, Long.MAX_VALUE, taxRials = 1, taxRecoverable = true).netCostRials)
+        assertEquals(960_000L, PurchasePrice(IngredientId("x"), D1, 1.bd, Uom.KILOGRAM, 1_000_000, 100_000, 50_000, deliveryRials = 10_000).netCostRials)
+
+        assertEquals(Long.MAX_VALUE, PriceRounding(100_000).apply("1e30".bd))
     }
 
     @Test

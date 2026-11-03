@@ -171,7 +171,12 @@ data class QuickResult(
      * «۳۶۴٬۱۰۵ ÷ ۵۷۲٬۷۲۷ × ۱۰۰ = ۶۳٫۶٪» for the food cost.
      */
     val explanations: Map<String, String> = emptyMap(),
-)
+    /** True when a row or another cost is not complete, so the figures leave it out and are not final. */
+    val provisional: Boolean = false,
+) {
+    /** The suggested price's name, saying when it leaves out what is not complete yet. */
+    val suggestedLabel: String get() = if (provisional) "قیمت پیشنهادی (ناقص)" else "قیمت پیشنهادی"
+}
 
 data class QuickSuggestion(val id: IngredientId, val name: String, val detail: String)
 
@@ -259,6 +264,7 @@ object QuickCalculator {
             val rials = money.parse(row.price)?.takeIf { it > 0 }
             val qty = Numbers.parse(row.qty)?.takeIf { it.signum() > 0 }
             val problem = when {
+                money.tooLarge(row.price) -> TOO_LARGE
                 rials == null -> "قیمت را بنویسید."
                 qty == null -> "مقدار را بنویسید."
                 !fits(row.uom, dimension, saved?.conversions ?: Conversions()) -> "این واحد به این ماده نمی‌خورد."
@@ -266,7 +272,7 @@ object QuickCalculator {
             }
             if (problem != null) {
                 problems[i] = problem
-                if (rials == null || qty == null) waiting += i
+                if ((rials == null || qty == null) && problem != TOO_LARGE) waiting += i
                 return@forEachIndexed
             }
             val id = IngredientId("quick-$i")
@@ -281,6 +287,7 @@ object QuickCalculator {
             val rials = money.parse(extra.amount)?.takeIf { it >= 0 }
             when {
                 extra.isBlank -> QuickExtraResult(null, waiting = true)
+                money.tooLarge(extra.amount) -> QuickExtraResult(TOO_LARGE, waiting = false)
                 rials == null -> QuickExtraResult("مبلغ را بنویسید.", waiting = true)
                 else -> {
                     extras += ExtraCost(extra.name.ifBlank { "هزینه" }, rials, extra.takeawayOnly)
@@ -371,6 +378,7 @@ object QuickCalculator {
             foodCostValue = sale?.foodCostPercent,
             remainingRials = sale?.remaining,
             explanations = if (hasLines) explanations(cost.foodCostPerPortion, other, sale, s, maxCost, menuRials, state.pricing.vatFactor, money) else emptyMap(),
+            provisional = hasLines && (problems.isNotEmpty() || extraResults.any { it.problem != null }),
         )
     }
 
@@ -640,6 +648,7 @@ object QuickCalculator {
             val key = matchedIngredient(state, row)?.id?.value ?: "typed|${Persian.searchKey(rowName)}|$dimension"
             when {
                 rowName.isEmpty() -> p.add(Field.ROW, "نام مادهٔ $where را بنویسید.")
+                money.tooLarge(row.price) -> p.add(Field.ROW, "قیمت «$rowName» بیش از حد بزرگ است.")
                 rials == null -> p.add(Field.ROW, "قیمت «$rowName» را بنویسید.")
                 qty == null -> p.add(Field.ROW, "مقدار «$rowName» را بنویسید.")
                 !fits(row.uom, dimension, saved?.conversions ?: Conversions()) -> p.add(Field.ROW, "واحد «$rowName» به آن نمی‌خورد.")
@@ -656,7 +665,11 @@ object QuickCalculator {
             if (extra.isBlank) return@forEach
             val extraName = extra.name.trim().ifEmpty { "هزینه" }
             val rials = money.parse(extra.amount)?.takeIf { it >= 0 }
-            if (rials == null) p.add(Field.EXTRA, "مبلغ «$extraName» را بنویسید.") else extras += ExtraCost(extraName, rials, extra.takeawayOnly)
+            when {
+                money.tooLarge(extra.amount) -> p.add(Field.EXTRA, "مبلغ «$extraName» بیش از حد بزرگ است.")
+                rials == null -> p.add(Field.EXTRA, "مبلغ «$extraName» را بنویسید.")
+                else -> extras += ExtraCost(extraName, rials, extra.takeawayOnly)
+            }
         }
         val portions = p.decimal(input.portions.ifBlank { "1" }, Field.PORTIONS, "تعداد پرس باید بیشتر از صفر باشد.") { it.signum() > 0 }
         val menu = if (input.menuPrice.isBlank()) null else money.parse(input.menuPrice)
@@ -732,6 +745,7 @@ object QuickCalculator {
      */
     fun shareText(input: QuickInput, result: QuickResult, money: MoneyFormat): String = buildString {
         appendLine(input.dishName.trim().ifEmpty { "محاسبهٔ فودکاست" })
+        if (result.provisional) appendLine("این حساب ناقص است؛ عددهای آن قطعی نیستند.")
         input.category?.let { appendLine("بخش منو: $it") }
         appendLine()
         appendLine("${portionsLabel(input)}:")
@@ -755,7 +769,7 @@ object QuickCalculator {
         appendLine()
         appendLine("بهای مواد هر پرس: ${result.costPerPortion}، ${result.miscNote}")
         result.otherCosts?.let { appendLine("هزینهٔ هر پرس با هزینه‌های دیگر: ${result.totalCost}") }
-        result.suggested?.let { appendLine("قیمت پیشنهادی: $it، ${result.method}") }
+        result.suggested?.let { appendLine("${result.suggestedLabel}: $it، ${result.method}") }
         result.menuRials?.let { appendLine("قیمت منو: ${money.full(it)}، ${result.statusLabel}") }
         result.netSales?.let { appendLine("فروش خالص: $it") }
         result.foodCostPercent?.let { appendLine("فودکاست: $it") }
@@ -771,8 +785,12 @@ object QuickCalculator {
     /**
      * Saves [plan]: creates the ingredients it does not know yet (reusing ones with the same name),
      * records the prices that changed, then saves the dish and its menu price. Returns the dish.
+     * All of it is one change: if any step is refused, nothing of it is kept.
      */
-    fun save(ledger: Ledger, plan: QuickPlan, today: LocalDate): RecipeId {
+    fun save(ledger: Ledger, plan: QuickPlan, today: LocalDate): RecipeId = ledger.atomically { saveSteps(ledger, plan, today) }
+
+    // One step after another; [save] runs them as one change, so a refused step undoes the rest.
+    private fun saveSteps(ledger: Ledger, plan: QuickPlan, today: LocalDate): RecipeId {
         val lines = plan.rows.map { row ->
             val id = row.ingredientId?.takeIf { ledger.state.ingredients.containsKey(it) }
                 ?: findByName(ledger.state, row.name, row.dimension)
@@ -791,6 +809,7 @@ object QuickCalculator {
                     existing,
                     name = if (record.name != plan.name) Opt.Value(plan.name) else Opt.Keep,
                     category = if (record.category != plan.category) Opt.Value(plan.category) else Opt.Keep,
+                    effectiveFrom = today,
                 ).orRefuse()
             }
             existing
@@ -868,6 +887,9 @@ object QuickCalculator {
     /** The saved dish [input] edits, unless it was archived or is gone since. */
     private fun editedDish(input: QuickInput, state: LedgerState): RecipeId? =
         input.recipeId?.takeIf { state.recipes[it]?.archived == false }
+
+    /** For an amount past any real price, most likely a slip of the keyboard. */
+    private const val TOO_LARGE = "این مبلغ بیش از حد بزرگ است."
 
     private fun dishNamed(state: LedgerState, name: String): RecipeId? {
         val key = Persian.searchKey(name)
