@@ -241,11 +241,13 @@ class WalkThroughTest {
             textSize("2.0")
             show("cost")
             shot("25-largest-text")
+            show("row-0-price")
+            shot("26-largest-text-rows")
             show("channel-remaining")
-            shot("26-largest-text-channels")
+            shot("27-largest-text-channels")
             click("غذاها")
             waitFor("چلوکباب کوبیده")
-            shot("27-largest-text-dishes")
+            shot("28-largest-text-dishes")
         } catch (e: Throwable) {
             // The walk itself is done.
         } finally {

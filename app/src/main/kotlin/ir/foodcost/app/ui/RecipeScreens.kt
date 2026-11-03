@@ -177,9 +177,9 @@ private fun PlateCard(row: MenuRow, onClick: () -> Unit) {
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 // The same cost as the calculator's: food, other costs and the overhead share.
-                LabeledValue("هزینهٔ هر پرس", row.cost, Modifier.weight(1f))
-                LabeledValue("قیمت منو", row.menuPrice ?: "ثبت نشده", Modifier.weight(1f))
-                LabeledValue("پیشنهادی", row.suggestedPrice, Modifier.weight(1f), emphasized = row.raise != null)
+                LabeledValue("هزینهٔ هر پرس", row.cost, Modifier.weight(1f), amount = true)
+                LabeledValue("قیمت منو", row.menuPrice ?: "ثبت نشده", Modifier.weight(1f), amount = true)
+                LabeledValue("پیشنهادی", row.suggestedPrice, Modifier.weight(1f), emphasized = row.raise != null, amount = true)
             }
             val notes = listOfNotNull(
                 row.otherCosts?.let { "بهای مواد ${row.foodCost}" },
@@ -202,7 +202,7 @@ private fun PreparationCard(row: RecipeRow, onClick: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), colors = whiteCardColors()) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(row.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            LabeledValue("هزینهٔ هر پرس", row.cost)
+            LabeledValue("هزینهٔ هر پرس", row.cost, amount = true)
         }
     }
 }
@@ -337,18 +337,18 @@ private fun CostCard(detail: RecipeDetail, onEditPrice: () -> Unit) {
                 }
                 // As on the calculator: food, other costs and the overhead share; the food alone below when they differ.
                 Text("هزینهٔ هر پرس", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(detail.pricing?.totalCost ?: detail.costPerPortion, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+                AmountText(detail.pricing?.totalCost ?: detail.costPerPortion, MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
             }
             if (detail.kind != RecipeKind.PREP) StatusChip(detail.status, detail.statusLabel)
         }
-        if (detail.pricing?.totalCost != null) LabeledValue("بهای مواد", detail.costPerPortion)
-        detail.batchCost?.let { LabeledValue("کل دستور", it) }
+        if (detail.pricing?.totalCost != null) LabeledValue("بهای مواد", detail.costPerPortion, amount = true)
+        detail.batchCost?.let { LabeledValue("کل دستور", it, amount = true) }
         detail.outputLabel?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
         detail.pricing?.let { pricing ->
             HorizontalDivider()
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                LabeledValue("قیمت پیشنهادی", pricing.suggested, Modifier.weight(1f), emphasized = true)
-                LabeledValue("قیمت فعلی منو", pricing.menuPrice ?: "ثبت نشده", Modifier.weight(1f), emphasized = true)
+                LabeledValue("قیمت پیشنهادی", pricing.suggested, Modifier.weight(1f), emphasized = true, amount = true)
+                LabeledValue("قیمت فعلی منو", pricing.menuPrice ?: "ثبت نشده", Modifier.weight(1f), emphasized = true, amount = true)
             }
             val notes = listOfNotNull(
                 pricing.method,

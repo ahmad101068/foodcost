@@ -586,10 +586,11 @@ private fun ChannelTable(channels: List<QuickChannel>, money: MoneyFormat, onExp
         Row(Modifier.fillMaxWidth().then(if (tag != null) Modifier.testTag(tag) else Modifier)) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1.3f))
             values.forEach {
+                // A gap before each column, so two amounts made smaller never run into one.
                 FitText(
                     it,
                     style = if (strong) MaterialTheme.typography.labelLarge else MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).padding(start = 8.dp),
                 )
             }
         }
@@ -818,14 +819,14 @@ private fun ChangeTable(changes: List<QuickChange>, money: MoneyFormat) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth()) {
             Text("به ${money.unit}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1.25f))
-            Text("قبل", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-            Text("بعد", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+            Text("قبل", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f).padding(start = 8.dp))
+            Text("بعد", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f).padding(start = 8.dp))
         }
         changes.forEach { change ->
             Row(Modifier.fillMaxWidth().testTag("change-${change.label}")) {
                 Text(change.label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1.25f))
-                FitText(change.before, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                Column(Modifier.weight(1f)) {
+                FitText(change.before, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                Column(Modifier.weight(1f).padding(start = 8.dp)) {
                     FitText(change.after, style = MaterialTheme.typography.labelLarge)
                     change.change?.let {
                         Text(it, style = MaterialTheme.typography.labelSmall, color = if (change.worse) MaterialTheme.colorScheme.error else better)
