@@ -73,6 +73,16 @@ sealed interface Screen {
         override val key: String get() = "price|$ingredientId"
     }
 
+    /** The guide: the words of the calculations, opened at [term], or how to use the app. */
+    data class Help(val section: String = TERMS, val term: String? = null) : Screen {
+        override val key: String get() = "help|$section|${term.orEmpty()}"
+
+        companion object {
+            const val TERMS = "terms"
+            const val GUIDE = "guide"
+        }
+    }
+
     companion object {
         fun fromKey(key: String): Screen? {
             val parts = key.split('|')
@@ -96,6 +106,7 @@ sealed interface Screen {
                 "ingredient" -> parts.getOrNull(1)?.let { Ingredient(it) }
                 "edit-ingredient" -> EditIngredient(parts.getOrNull(1)?.takeIf { it.isNotEmpty() })
                 "price" -> parts.getOrNull(1)?.let { NewPrice(it) }
+                "help" -> Help(parts.getOrNull(1)?.takeIf { it.isNotEmpty() } ?: Help.TERMS, parts.getOrNull(2)?.takeIf { it.isNotEmpty() })
                 else -> null
             }
         }

@@ -69,5 +69,6 @@ private fun AppContent(container: AppContainer, state: LedgerState, currency: Di
         is Screen.Ingredient -> IngredientScreen(IngredientId(screen.id), state, money, today, nav, actions)
         is Screen.EditIngredient -> IngredientEditScreen(screen.id?.let { IngredientId(it) }, state, nav, actions)
         is Screen.NewPrice -> PriceEntryScreen(IngredientId(screen.ingredientId), state, money, today, nav, actions)
+        is Screen.Help -> HelpScreen(screen, container, money, nav, actions)
     }
 }
