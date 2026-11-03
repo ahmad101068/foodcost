@@ -144,10 +144,14 @@ fun SettingsScreen(
                 Segmented(MethodChoice.entries, input.method, { methodName(it) }) { input = input.withMethod(it) }
                 TextInput(
                     value = input.percent,
-                    onValueChange = { input = input.copy(percent = it) },
+                    onValueChange = { input = input.copy(percent = it, carried = false) },
                     label = methodName(input.method),
                     error = errors[Field.PERCENT],
-                    supporting = listOfNotNull(methodHint(input.method), input.equivalents()).joinToString("\n"),
+                    supporting = listOfNotNull(
+                        methodHint(input.method),
+                        // From a margin or markup on every cost there is no food cost equivalent: the number is the old one.
+                        if (input.carried) "این عدد از روش قبلی مانده است. فودکاست فقط بهای مواد را می‌سنجد و با «همهٔ هزینه‌ها» برابری ثابتی ندارد؛ عدد را دوباره بنویسید." else input.equivalents(),
+                    ).joinToString("\n"),
                     number = true,
                     suffix = "٪",
                 )
@@ -158,7 +162,7 @@ fun SettingsScreen(
                         if (input.basis == CostBasis.FOOD_COST) {
                             "فقط بهای مواد؛ هزینه‌های دیگر از مانده کم می‌شوند."
                         } else {
-                            "مواد، هزینه‌های دیگر هر غذا و سهم سربار ماهانه."
+                            "مواد، هزینه‌های دیگر هر غذا و سهم سربار ماهانه. عدد با عوض کردن مبنا همان می‌ماند ولی قیمت‌ها عوض می‌شوند؛ روی همهٔ هزینه‌ها، عدد به سود نزدیک‌تر است و معمولاً خیلی کوچک‌تر از «فقط مواد»."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

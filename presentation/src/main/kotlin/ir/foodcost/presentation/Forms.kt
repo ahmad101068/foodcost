@@ -297,6 +297,11 @@ data class SettingsInput(
     val onlineUplift: String = "",
     /** Sections priced with their own food cost target instead of the general rule. */
     val categories: List<CategoryTargetInput> = emptyList(),
+    /**
+     * True when [percent] was kept from a margin or markup on every cost on a switch to a food
+     * cost target, which has no equivalent of it; typing a number clears it.
+     */
+    val carried: Boolean = false,
 ) {
     fun plusCategory(name: String): SettingsInput = copy(categories = categories + CategoryTargetInput(name))
 
@@ -388,20 +393,35 @@ data class SettingsInput(
     /**
      * The form with [choice] as its method and the number turned into that method's equivalent,
      * so switching the method leaves the suggested price as it was: a 35% food cost is a 65% margin
-     * and a 185.71% markup. A number that cannot be read is left as typed.
+     * and a 185.71% markup. A margin and a markup convert on whichever cost they are taken, every
+     * cost included: a 40% margin is a 66.67% markup. A margin or markup coming from a food cost
+     * target starts on the food alone, where it puts the same price. Only a margin or markup on
+     * every cost turning into a food cost target, which measures the food alone, has no equivalent:
+     * the number is kept and marked [carried]. A number that cannot be read is left as typed.
      */
     fun withMethod(choice: MethodChoice): SettingsInput {
         if (choice == method) return this
-        // On every cost entered, a margin is no longer the other side of a food cost share.
-        if (basis == CostBasis.FULL_COST) return copy(method = choice)
+        if (choice == MethodChoice.FOOD_COST && basis == CostBasis.FULL_COST) return copy(method = choice, carried = true)
         val converted = Numbers.parse(percent)?.let { equivalent(it, method, choice) }
-        return copy(method = choice, percent = converted?.let { Numbers.editable(it) } ?: percent)
+        return copy(
+            method = choice,
+            percent = converted?.let { Numbers.editable(it) } ?: percent,
+            basis = if (method == MethodChoice.FOOD_COST) CostBasis.FOOD_COST else basis,
+            carried = false,
+        )
     }
 
-    /** The number in the other two methods: «یعنی حاشیهٔ سود ۶۵٪ و مارک‌آپ ۱۸۵٫۷٪». */
+    /**
+     * The number in the other methods: «یعنی حاشیهٔ سود ۶۵٪ و مارک‌آپ ۱۸۵٫۷٪», or on every cost,
+     * where a food cost share has no equivalent, «یعنی مارک‌آپ ۶۶٫۷٪، روی همهٔ هزینه‌ها».
+     */
     fun equivalents(): String? {
-        if (basis == CostBasis.FULL_COST && method != MethodChoice.FOOD_COST) return null
         val value = Numbers.parse(percent) ?: return null
+        if (basis == CostBasis.FULL_COST && method != MethodChoice.FOOD_COST) {
+            val other = if (method == MethodChoice.MARGIN) MethodChoice.MARKUP else MethodChoice.MARGIN
+            val converted = equivalent(value, method, other) ?: return null
+            return "یعنی ${shortName(other)} ${Numbers.percent(converted)}، روی همهٔ هزینه‌ها"
+        }
         val others = MethodChoice.entries.filter { it != method }.map { other ->
             val converted = equivalent(value, method, other) ?: return null
             "${shortName(other)} ${Numbers.percent(converted)}"

@@ -8,6 +8,7 @@ import ir.foodcost.core.model.RecipeLine
 import ir.foodcost.core.model.RecipeVersion
 import ir.foodcost.core.model.YieldStage
 import ir.foodcost.core.money.DisplayCurrency
+import ir.foodcost.core.pricing.CostBasis
 import ir.foodcost.core.pricing.OnlineTerms
 import ir.foodcost.core.pricing.Overhead
 import ir.foodcost.core.pricing.PriceStatus
@@ -463,6 +464,21 @@ class QuickCalculatorTest {
         val plainRow = MenuStatusScreen.build(plain.state, today, toman).rows.single()
         assertEquals("۳۶۴٬۱۰۵ تومان", plainRow.cost)
         assertNull(plainRow.otherCosts)
+    }
+
+    @Test
+    fun `on every cost, a margin and the markup it turns into put the same price`() {
+        val suggested = listOf(MethodChoice.MARGIN, MethodChoice.MARKUP).map { choice ->
+            val ledger = ledger()
+            val form = SettingsInput.of(ledger.state.pricing, ledger.state.costing, toman)
+                .copy(method = MethodChoice.MARGIN, percent = "20", basis = CostBasis.FULL_COST)
+                .withMethod(choice)
+            val draft = valid(form.check(ledger.state.pricing, ledger.state.costing, toman))
+            ledger.saveSettings(draft.costing, draft.pricing)
+            QuickCalculator.compute(koobideh().plusExtra(QuickExtra("دستمزد", "20000")), ledger.state, toman, today).suggested
+        }
+        // 384,105 of food and wage at a 20% margin, or a 25% markup: 480,131 net, 530,000 on the menu.
+        assertEquals(List(2) { "۵۳۰٬۰۰۰ تومان" }, suggested)
     }
 
     @Test
