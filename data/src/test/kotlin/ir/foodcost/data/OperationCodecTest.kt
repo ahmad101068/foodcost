@@ -36,6 +36,7 @@ import ir.foodcost.data.ops.Operation
 import ir.foodcost.data.ops.OperationCodec
 import ir.foodcost.data.ops.Opt
 import ir.foodcost.data.ops.Role
+import ir.foodcost.data.ops.Seen
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -98,11 +99,22 @@ class OperationCodecTest {
                 MenuSnapshot(D31, listOf(MenuSnapshot.Item(dish, "کباب", 4_224_082, 13_500_000, 13_300_000, "34.42".bd, PriceStatus.OK))),
             ),
             Change.PeriodClosed(D31, null),
-            Change.PeriodClosed(D31, null, seen = mapOf("device-1" to Hlc(1_000, 3, "device-1"), "phone 2" to Hlc(900, 0, "phone 2"))),
+            Change.PeriodClosed(
+                D31,
+                null,
+                seen = mapOf(
+                    "device-1" to Seen(Hlc(1_000, 3, "device-1"), seq = 12, missing = listOf(4, 9)),
+                    "phone 2" to Seen(Hlc(900, 0, "phone 2")),
+                ),
+            ),
             Change.PeriodReopened(D1),
         )
         changes.forEachIndexed { i, change ->
-            val op = Operation(OpId("op$i"), Hlc(1_000L + i, i, "device-1"), Actor("u", Role.MANAGER), change, if (i % 2 == 0) "دلیل $i" else null)
+            val op = Operation(
+                OpId("op$i"), Hlc(1_000L + i, i, "device-1"), Actor("u", Role.MANAGER), change,
+                if (i % 2 == 0) "دلیل $i" else null,
+                seq = if (i % 3 == 0) null else i + 1L, // changes made before they were numbered have none
+            )
             val back = OperationCodec.decode(Json.parse(Json.write(OperationCodec.encode(op))) as JsonObject)
             assertEquals(op, back, "change $i")
         }
@@ -122,18 +134,31 @@ class OperationCodecTest {
         assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":99,"operations":[]}""") }
         assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":1,"operations":[{"id":"x"}]}""") }
         assertEquals(emptyList(), Backup.read("""{"format":"foodcost-backup","version":1,"operations":[]}"""))
-        assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":4,"operations":[]}""") }
+        assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":5,"operations":[]}""") }
     }
 
     @Test
-    fun `a backup with a close that says what it had seen is version 3, which the version before refuses rather than misreads`() {
+    fun `a backup with a close that says what it had seen is version 4, which the versions before refuse rather than misread`() {
         val close = Operation(
             OpId("c"), Hlc(5, 0, "A"), Actor("u", Role.OWNER),
-            Change.PeriodClosed(D31, null, seen = mapOf("A" to Hlc(4, 0, "A"))),
+            Change.PeriodClosed(D31, null, seen = mapOf("A" to Seen(Hlc(4, 0, "A"), seq = 3, missing = listOf(2)))),
+            seq = 4,
         )
         val written = Backup.write(listOf(close))
-        assertEquals(3, (Json.parse(written) as JsonObject).int("version"))
+        assertEquals(4, (Json.parse(written) as JsonObject).int("version"))
         assertEquals(listOf(close), Backup.read(written))
+
+        // A close of 0.7.1 kept only the latest clock of each device: it reads as having none of
+        // their numbered changes, and every change before that clock that has no number.
+        val older = Backup.read(
+            """{"format":"foodcost-backup","version":3,"operations":[{"id":"c","at":{"wall":5,"counter":0,"device":"A"},""" +
+                """"actor":{"id":"u","role":"OWNER"},"type":"PeriodClosed","data":{"through":"2026-10-31","seen":{"A":{"wall":4,"counter":0}}}}]}""",
+        )
+        assertEquals(mapOf("A" to Seen(Hlc(4, 0, "A"))), (older.single().change as Change.PeriodClosed).seen)
+        // A missing number above the highest one is damage, and the file is refused.
+        assertFailsWith<JsonException> {
+            Backup.read(written.replace(Regex("\"missing\"\\s*:\\s*\\[2]"), "\"missing\":[7]"))
+        }
         // Without such a close a file stays version 2, which 0.7.0 opens.
         assertEquals(2, (Json.parse(Backup.write(emptyList())) as JsonObject).int("version"))
     }

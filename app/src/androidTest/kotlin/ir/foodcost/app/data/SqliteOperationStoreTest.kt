@@ -21,8 +21,9 @@ import org.junit.runner.RunWith
 
 /**
  * The phone's own SQLite table, which the tests of the data module cannot reach: what is stored is
- * there after a restart, a row that cannot be read is counted and mended, and a batch that fails
- * part way stores nothing. It uses a database file of its own, not the app's.
+ * there after a restart, a row that cannot be read is counted and mended, a row stored under an id
+ * other than its own is not read, and a batch that fails part way stores nothing. It uses a
+ * database file of its own, not the app's.
  */
 @RunWith(AndroidJUnit4::class)
 class SqliteOperationStoreTest {
@@ -88,6 +89,25 @@ class SqliteOperationStoreTest {
         assertEquals(0, mended.unreadable)
         assertEquals(stored.toSet(), mended.all().toSet())
         mended.close()
+    }
+
+    @Test
+    fun aRowStoredUnderAnIdOtherThanItsOwnIsNotRead() {
+        // The audit of 0.7.1 (FCA-019): the id a row is stored under and the id in its text differ.
+        val first = store()
+        val stored = ledger(first).operations()
+        first.close()
+        context.openOrCreateDatabase(name, Context.MODE_PRIVATE, null).use { db ->
+            db.execSQL("UPDATE operations SET id = ? WHERE id = ?", arrayOf("another", stored[0].id.value))
+        }
+
+        val odd = store()
+        assertEquals(1, odd.unreadable)
+        assertFalse(odd.contains(stored[0].id))
+        odd.appendAll(stored) // the change itself comes back, under its own id
+        assertTrue(odd.contains(stored[0].id))
+        assertEquals(1, odd.unreadable) // the odd row stays, and is still said
+        odd.close()
     }
 
     @Test

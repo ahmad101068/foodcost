@@ -33,7 +33,8 @@ class SqliteOperationStore(context: Context, name: String = DATABASE) : Operatio
         helper.readableDatabase.rawQuery("SELECT seq, id, body FROM operations ORDER BY seq", null).use { cursor ->
             while (cursor.moveToNext()) rows += Triple(cursor.getLong(0), cursor.getString(1), cursor.getString(2))
         }
-        val read = StoredRows.read(rows.asSequence().map { (seq, _, body) -> seq to body })
+        // The id a row is stored under must be the one its text has; a row whose two differ is not read.
+        val read = StoredRows.readRows(rows.asSequence().map { (seq, id, body) -> StoredRows.Row(seq, id, body) })
         read.operations.forEach { cache[it.id] = it }
         val unreadableSeqs = read.unreadable.toHashSet()
         rows.filter { it.first in unreadableSeqs }.mapTo(unreadableIds) { it.second }

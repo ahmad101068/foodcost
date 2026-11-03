@@ -38,10 +38,36 @@ data class Operation(
     val actor: Actor,
     val change: Change,
     val reason: String? = null,
+    /**
+     * This change's number among the changes of its device, from 1 with none left out, so that a
+     * close can say exactly which of them it had. Null in changes made before they were numbered.
+     */
+    val seq: Long? = null,
 ) {
+    init {
+        require(seq == null || seq >= 1) { "A change's number starts at 1" }
+    }
+
     companion object {
         /** The order every device applies operations in, so every device reaches the same state. */
         val ORDER: Comparator<Operation> = compareBy<Operation> { it.at }.thenBy { it.id.value }
+    }
+}
+
+/**
+ * Which changes of one device a close had: every numbered change up to [seq] except those in
+ * [missing], and of the changes made before they were numbered, every one up to [at], as a device
+ * that sends its whole history passes them on.
+ */
+data class Seen(val at: Hlc, val seq: Long = 0, val missing: List<Long> = emptyList()) {
+    init {
+        require(seq >= 0 && missing.all { it in 1..seq }) { "A close's missing numbers must be below its highest" }
+    }
+
+    /** Whether the close had [op], a change of this device recorded before it. */
+    fun has(op: Operation): Boolean {
+        val n = op.seq ?: return op.at <= at
+        return n <= seq && n !in missing
     }
 }
 
@@ -111,12 +137,12 @@ sealed interface Change {
 
     /**
      * Closes every day up to [through]; [snapshot] keeps the official figures of the period.
-     * [seen] is, for each device, the latest of its changes the closing device had: a change for a
+     * [seen] is, for each device, which of its changes the closing device had: a change for a
      * closed day it had not seen stays out of those days on every device, however late it arrives
      * and wherever its clock puts it, until the period is reopened. Null in closes recorded before
-     * it was kept, which count everything recorded before them.
+     * it was kept, which are trusted only for their own device's changes.
      */
-    data class PeriodClosed(val through: LocalDate, val snapshot: MenuSnapshot?, val seen: Map<String, Hlc>? = null) : Change
+    data class PeriodClosed(val through: LocalDate, val snapshot: MenuSnapshot?, val seen: Map<String, Seen>? = null) : Change
 
     /** Reopens the closed periods that include [from] or come after it. */
     data class PeriodReopened(val from: LocalDate) : Change

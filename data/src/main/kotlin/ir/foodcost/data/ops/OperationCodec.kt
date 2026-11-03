@@ -51,6 +51,7 @@ object OperationCodec {
         "reason" to op.reason?.json,
         "type" to typeOf(op.change).json,
         "data" to encodeChange(op.change),
+        "seq" to op.seq?.json,
     )
 
     /** Reads one operation. A value the core refuses, such as a yield of zero, is reported as damaged JSON too. */
@@ -65,6 +66,7 @@ object OperationCodec {
                 actor = Actor(actor.string("id"), enumOf<Role>(actor.string("role"))),
                 change = decodeChange(o.string("type"), o.obj("data")),
                 reason = o.stringOrNull("reason"),
+                seq = o.longOrNull("seq"),
             )
         } catch (e: JsonException) {
             throw e
@@ -127,7 +129,16 @@ object OperationCodec {
             "through" to c.through.toString().json,
             "snapshot" to c.snapshot?.let(::encodeSnapshot),
             "seen" to c.seen?.let { seen ->
-                JsonObject(seen.toSortedMap().mapValues { (_, at) -> jsonObject("wall" to at.wallMillis.json, "counter" to at.counter.json) })
+                JsonObject(
+                    seen.toSortedMap().mapValues { (_, s) ->
+                        jsonObject(
+                            "wall" to s.at.wallMillis.json,
+                            "counter" to s.at.counter.json,
+                            "seq" to s.seq.takeIf { it > 0 }?.json,
+                            "missing" to s.missing.takeIf { it.isNotEmpty() }?.let { m -> jsonArray(m.map { it.json }) },
+                        )
+                    },
+                )
             },
         )
         is Change.PeriodReopened -> jsonObject("from" to c.from.toString().json)
@@ -173,7 +184,14 @@ object OperationCodec {
             date(d.string("through")),
             if (d.has("snapshot")) decodeSnapshot(d.obj("snapshot")) else null,
             seen = if (d.has("seen")) {
-                d.obj("seen").fields.mapValues { (device, at) -> at.asObject("seen").let { Hlc(it.long("wall"), it.int("counter"), device) } }
+                d.obj("seen").fields.mapValues { (device, value) ->
+                    val s = value.asObject("seen")
+                    Seen(
+                        at = Hlc(s.long("wall"), s.int("counter"), device),
+                        seq = s.longOrNull("seq") ?: 0,
+                        missing = if (s.has("missing")) s.array("missing").map { it.asDecimal("missing").longValueExact() } else emptyList(),
+                    )
+                }
             } else {
                 null
             },
@@ -412,12 +430,12 @@ object Backup {
 
     /**
      * The newest version read. 2 since a change can say from which day it counts, 3 when a close
-     * says what it had seen. A version of the app that reads only the earlier ones refuses a newer
-     * file whole rather than misread it: one before 2 would count dated changes on every day, one
-     * before 3 would let a change the close had not seen into a closed day. Older files read as
-     * they always did.
+     * says what it had seen, 4 since it says so by the numbers of each device's changes. A version
+     * of the app that reads only the earlier ones refuses a newer file whole rather than misread
+     * it: one before 2 would count dated changes on every day, one before 4 would let a change the
+     * close had not seen into a closed day. Older files read as they always did.
      */
-    const val VERSION = 3
+    const val VERSION = 4
 
     fun write(operations: List<Operation>): String = Json.write(
         jsonObject(
@@ -437,5 +455,5 @@ object Backup {
 
     /** The oldest version that reads [operations] right, so a file without closes still opens in 0.7.0. */
     private fun versionFor(operations: List<Operation>): Int =
-        if (operations.any { (it.change as? Change.PeriodClosed)?.seen != null }) 3 else 2
+        if (operations.any { (it.change as? Change.PeriodClosed)?.seen != null }) VERSION else 2
 }

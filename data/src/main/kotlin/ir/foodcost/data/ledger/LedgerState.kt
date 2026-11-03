@@ -25,6 +25,7 @@ import ir.foodcost.data.ops.OpId
 import ir.foodcost.data.ops.Operation
 import ir.foodcost.data.ops.Opt
 import ir.foodcost.data.ops.Role
+import ir.foodcost.data.ops.Seen
 import ir.foodcost.data.ops.valueOr
 import java.time.LocalDate
 import java.util.TreeMap
@@ -114,17 +115,24 @@ data class ClosedPeriod(
     val snapshot: MenuSnapshot?,
     val closedAt: Hlc,
     val closedBy: Actor,
-    /** For each device, the latest of its changes the close had; null for closes that did not keep it. */
-    val seen: Map<String, Hlc>? = null,
+    /** For each device, which of its changes the close had; null for closes that did not keep it. */
+    val seen: Map<String, Seen>? = null,
 ) {
     /**
-     * Whether the close had [op] when it was made. A change it had not seen, recorded after it or
-     * on a phone that had not heard of it, stays out of the days it closed.
+     * False for a close that did not keep what it had seen, made before 0.7.1: it is trusted only
+     * for its own device's changes, and a change from another device stays out of its days.
+     */
+    val verified: Boolean get() = seen != null
+
+    /**
+     * Whether the close had [op] when it was made. A change it had not seen, recorded after it, on a
+     * phone that had not heard of it, or left out of a file that passed on later ones, stays out of
+     * the days it closed.
      */
     fun saw(op: Operation): Boolean {
         if (op.at > closedAt) return false
-        val known = seen ?: return true // a close that did not keep what it had seen counts everything before it
-        return known[op.at.device]?.let { op.at <= it } == true
+        val known = seen ?: return op.at.device == closedAt.device
+        return known[op.at.device]?.has(op) == true
     }
 }
 

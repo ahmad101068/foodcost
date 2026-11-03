@@ -33,6 +33,17 @@ class BackupSafetyTest {
     }
 
     @Test
+    fun `a row stored under an id other than the one its text has is not read, as which is right cannot be told`() {
+        // The audit of 0.7.1 (FCA-019).
+        val ops = Kitchen(T.ledger("A")).ledger.operations()
+        val rows = ops.mapIndexed { i, op -> StoredRows.Row(i + 1L, op.id.value, Json.write(OperationCodec.encode(op))) }.toMutableList()
+        rows[1] = rows[1].copy(id = "another")
+        val read = StoredRows.readRows(rows.asSequence())
+        assertEquals(listOf(2L), read.unreadable)
+        assertEquals(ops - ops[1], read.operations)
+    }
+
+    @Test
     fun `a backup locked with a password opens with it, and only with it`() {
         val k = Kitchen(T.ledger("A"))
         val plain = k.ledger.exportBackup()
