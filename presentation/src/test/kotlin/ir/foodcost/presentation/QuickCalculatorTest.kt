@@ -9,6 +9,7 @@ import ir.foodcost.core.model.RecipeVersion
 import ir.foodcost.core.model.YieldStage
 import ir.foodcost.core.money.DisplayCurrency
 import ir.foodcost.core.pricing.OnlineTerms
+import ir.foodcost.core.pricing.Overhead
 import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.core.pricing.PricingMethod
 import ir.foodcost.core.units.Dimension
@@ -438,6 +439,30 @@ class QuickCalculatorTest {
         assertEquals(QuickInput(), QuickDrafts.decode(QuickDrafts.encode(QuickInput())))
         assertNull(QuickDrafts.decode("{"))
         assertNull(QuickDrafts.decode("""{"v":99}"""))
+    }
+
+    @Test
+    fun `the dishes list and recipe screen show the calculator's cost per portion, other costs and overhead included`() {
+        val ledger = ledger()
+        // 120 million toman of fixed costs over 1,000 portions: 120,000 toman a portion.
+        ledger.saveSettings(ledger.state.costing, ledger.state.pricing.copy(overhead = Overhead(1_200_000_000, BigDecimal(1000))))
+        val input = koobideh("630000").plusExtra(QuickExtra("دستمزد", "20000"))
+        val id = QuickCalculator.save(ledger, valid(QuickCalculator.check(input, ledger.state, toman, today)), today)
+        val calculator = QuickCalculator.compute(assertNotNull(QuickCalculator.open(ledger.state, id, today, toman)), ledger.state, toman, today)
+        assertEquals("۵۰۴٬۱۰۵ تومان", calculator.totalCost)
+
+        val row = MenuStatusScreen.build(ledger.state, today, toman).rows.single()
+        assertEquals(calculator.totalCost, row.cost)
+        assertEquals("۳۶۴٬۱۰۵ تومان", row.foodCost)
+        assertEquals("۱۴۰٬۰۰۰ تومان", row.otherCosts)
+        assertEquals(calculator.totalCost, RecipeScreens.detail(ledger.state, id, today, toman)?.pricing?.totalCost)
+
+        // With nothing but food, the cost is the food alone and nothing else is shown.
+        val plain = ledger()
+        QuickCalculator.save(plain, valid(QuickCalculator.check(koobideh("630000"), plain.state, toman, today)), today)
+        val plainRow = MenuStatusScreen.build(plain.state, today, toman).rows.single()
+        assertEquals("۳۶۴٬۱۰۵ تومان", plainRow.cost)
+        assertNull(plainRow.otherCosts)
     }
 
     @Test

@@ -176,11 +176,13 @@ private fun PlateCard(row: MenuRow, onClick: () -> Unit) {
                 StatusChip(row.status, row.statusLabel)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                LabeledValue("بهای هر پرس", row.foodCost, Modifier.weight(1f))
+                // The same cost as the calculator's: food, other costs and the overhead share.
+                LabeledValue("هزینهٔ هر پرس", row.cost, Modifier.weight(1f))
                 LabeledValue("قیمت منو", row.menuPrice ?: "ثبت نشده", Modifier.weight(1f))
                 LabeledValue("پیشنهادی", row.suggestedPrice, Modifier.weight(1f), emphasized = row.raise != null)
             }
             val notes = listOfNotNull(
+                row.otherCosts?.let { "بهای مواد ${row.foodCost}" },
                 row.foodCostPercent?.let { "فودکاست $it" },
                 row.raise?.let { "باید $it گران‌تر شود" },
             )
@@ -200,7 +202,7 @@ private fun PreparationCard(row: RecipeRow, onClick: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), colors = whiteCardColors()) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(row.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            LabeledValue("بهای هر پرس", row.cost)
+            LabeledValue("هزینهٔ هر پرس", row.cost)
         }
     }
 }
@@ -333,11 +335,13 @@ private fun CostCard(detail: RecipeDetail, onEditPrice: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Text("بهای هر پرس", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(detail.costPerPortion, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+                // As on the calculator: food, other costs and the overhead share; the food alone below when they differ.
+                Text("هزینهٔ هر پرس", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(detail.pricing?.totalCost ?: detail.costPerPortion, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
             }
             if (detail.kind != RecipeKind.PREP) StatusChip(detail.status, detail.statusLabel)
         }
+        if (detail.pricing?.totalCost != null) LabeledValue("بهای مواد", detail.costPerPortion)
         detail.batchCost?.let { LabeledValue("کل دستور", it) }
         detail.outputLabel?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
         detail.pricing?.let { pricing ->

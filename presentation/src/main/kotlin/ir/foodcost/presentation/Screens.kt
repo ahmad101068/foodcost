@@ -38,12 +38,20 @@ data class MenuRow(
     val category: String? = null,
     val status: PriceStatus,
     val statusLabel: String,
+    /** The food alone. */
     val foodCost: String,
     val menuPrice: String?,
     val suggestedPrice: String,
     val foodCostPercent: String?,
     /** How much the price should go up, such as ۸٪, when it is under or near the line. */
     val raise: String?,
+    /**
+     * Food, the dish's other costs for a portion eaten in and its overhead share: the same
+     * «هزینهٔ هر پرس» the calculator shows for the dish.
+     */
+    val cost: String = foodCost,
+    /** The part of [cost] that is not food, when there is one. */
+    val otherCosts: String? = null,
 )
 
 data class MenuStatusModel(val date: String, val rows: List<MenuRow>, val counts: Map<PriceStatus, Int>) {
@@ -92,6 +100,8 @@ object MenuStatusScreen {
             suggestedPrice = if (reliable) money.full(e.suggestion.menuPrice) else "نامشخص",
             foodCostPercent = e.foodCostPercent?.takeIf { reliable }?.let { Numbers.percent(it) },
             raise = e.changePercent?.takeIf { reliable && item.needsRaise() && it.signum() > 0 }?.let { Numbers.percent(it, 0) },
+            cost = costText(item.cost.hasLines, item.cost.isComplete, e.suggestion.fullCost, money),
+            otherCosts = (e.suggestion.fullCost - e.suggestion.foodCost).takeIf { reliable && it.signum() > 0 }?.let { money.full(it) },
         )
     }
 }
@@ -296,6 +306,8 @@ data class PricingInfo(
     val suggestedFoodCostPercent: String?,
     val raise: String?,
     val grossProfit: String?,
+    /** Food, other costs and the overhead share, as the calculator's «هزینهٔ هر پرس»; null when it is the food alone. */
+    val totalCost: String? = null,
 )
 
 data class RecipeDetail(
@@ -437,6 +449,7 @@ object RecipeScreens {
                     suggestedFoodCostPercent = s.foodCostPercent?.let { Numbers.percent(it) },
                     raise = evaluation.changePercent?.takeIf { it.signum() > 0 }?.let { Numbers.percent(it, 0) },
                     grossProfit = evaluation.grossProfit?.let { money.full(it) },
+                    totalCost = s.fullCost.takeIf { it.compareTo(s.foodCost) != 0 }?.let { money.full(it) },
                 )
             },
             issues = issues,
