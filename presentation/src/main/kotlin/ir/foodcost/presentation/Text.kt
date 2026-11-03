@@ -202,6 +202,6 @@ class MoneyFormat(val currency: DisplayCurrency) {
          * The largest amount the app takes: 10^15 rials, a hundred thousand billion tomans, far above any
          * real price. Kept that low, totals and prices worked out from amounts stay within whole rials.
          */
-        const val MAX_RIALS: Long = 1_000_000_000_000_000L
+        const val MAX_RIALS: Long = ir.foodcost.core.money.MAX_RIALS
     }
 }

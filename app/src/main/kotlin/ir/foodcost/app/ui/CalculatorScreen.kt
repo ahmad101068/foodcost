@@ -157,7 +157,7 @@ fun CalculatorScreen(
 
     val topActions: @Composable RowScope.() -> Unit = {
         if (result.hasLines) {
-            IconButton(onClick = { share(context, input.dishName, QuickCalculator.shareText(input, result, money)) }) {
+            IconButton(onClick = { share(context, input.dishName, QuickCalculator.shareText(input, result, money, actions.unreadableRows)) }) {
                 Icon(Icons.Filled.Share, contentDescription = "فرستادن نتیجه")
             }
         }
@@ -445,6 +445,7 @@ private fun Figure(
 /** Under the figures: the suggested price beside the menu price, or how it is worked out, or how to start. */
 private fun note(result: QuickResult): String {
     if (!result.hasLines) return "قیمت هر کیلو و مقدار هر ماده را بنویسید."
+    result.leftOutNote?.let { return it } // what the figures leave out comes first
     if (result.netSales == null) return "${result.method}، ${result.miscNote}"
     return listOfNotNull(
         result.suggested?.let { "${result.suggestedLabel} $it" },

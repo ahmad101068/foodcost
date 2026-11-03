@@ -8,7 +8,8 @@ plugins {
 }
 
 // A private signing key, given to the build through the repository's secrets. Without it the
-// release APK is signed with the build machine's debug key, which is enough for a preview.
+// release APK is signed with the build machine's debug key, which is enough for a build on one's
+// own computer; on GitHub the APK for testing is not made without it, and its signature is checked.
 val privateKeystore: File? = System.getenv("FOODCOST_KEYSTORE_FILE")?.let(::File)?.takeIf { it.isFile }
 
 android {
@@ -21,7 +22,7 @@ android {
         targetSdk = 35
         // Every build on GitHub gets a higher number, so a new APK installs over the old one.
         versionCode = (System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 0) + 1
-        versionName = "0.7.0"
+        versionName = "0.7.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

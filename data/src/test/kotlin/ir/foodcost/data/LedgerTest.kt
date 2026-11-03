@@ -20,6 +20,7 @@ import ir.foodcost.data.T.D15
 import ir.foodcost.data.T.D31
 import ir.foodcost.data.T.N2
 import ir.foodcost.data.clock.Hlc
+import ir.foodcost.data.ledger.LedgerState
 import ir.foodcost.data.ledger.RejectReason
 import ir.foodcost.data.ops.Actor
 import ir.foodcost.data.ops.Change
@@ -272,7 +273,7 @@ class LedgerTest {
     }
 
     @Test
-    fun `a price recorded offline for a day that was closed meanwhile is refused on every phone`() {
+    fun `a price for a closed day that the close had not seen stays out on every phone, whenever it was recorded`() {
         val wallA = FakeWall(1_000_000)
         val wallB = FakeWall(1_000_000)
         val a = T.ledger("A", wall = wallA)
@@ -281,11 +282,11 @@ class LedgerTest {
         b.receive(a.operations())
 
         wallB.now = 1_500_000
-        b.recordPrice(PurchasePrice(k.rice, D15, "10".bd, Uom.KILOGRAM, 47_000_000)).applied() // before the close
+        val early = b.recordPrice(PurchasePrice(k.rice, D15, "10".bd, Uom.KILOGRAM, 47_000_000)).applied() // before the close, by B's clock
         wallA.now = 2_000_000
-        a.closePeriod(D31).applied()
+        a.closePeriod(D31).applied() // A has not seen B's price
         wallB.now = 3_000_000
-        val late = b.recordPrice(PurchasePrice(k.rice, D15, "10".bd, Uom.KILOGRAM, 50_000_000)).applied() // B has not heard of it
+        val late = b.recordPrice(PurchasePrice(k.rice, D15, "10".bd, Uom.KILOGRAM, 50_000_000)).applied() // B has not heard of the close
 
         val fromA = a.operations()
         val fromB = b.operations()
@@ -293,9 +294,68 @@ class LedgerTest {
         b.receive(fromA)
 
         assertEquals(a.state, b.state)
-        assertEquals(listOf(late.id), a.state.rejections.map { it.operation.id })
-        assertEquals(RejectReason.PERIOD_CLOSED, a.state.rejections.single().reason)
-        assertEquals(47_000_000L, assertNotNull(a.state.catalog.priceAt(k.rice, D15)).grossRials)
+        assertEquals(setOf(early.id, late.id), a.state.rejections.map { it.operation.id }.toSet())
+        assertTrue(a.state.rejections.all { it.reason == RejectReason.PERIOD_CLOSED })
+        assertEquals(46_000_000L, assertNotNull(a.state.catalog.priceAt(k.rice, D15)).grossRials) // as the close found it
+        // The official figures and the figures worked out again agree.
+        assertEquals(a.state.closedPeriods.single().snapshot, MenuSnapshot.of(a.calculator().menu(D31)))
+    }
+
+    @Test
+    fun `a change recorded before a close but arriving after it stays out of the closed days, and the look before an import says so`() {
+        // The case the audit of 0.7.0 found: a dearer meat price from another phone, stamped before the close.
+        val wall = FakeWall(1_000)
+        val a = T.ledger("A", wall = wall)
+        val k = Kitchen(a)
+        val closed = a.calculator().cost(k.kebab, D15).foodCostPerPortion
+        wall.now = 3_000
+        a.closePeriod(D31).applied()
+        val remote = Operation(
+            OpId("remote"), Hlc(2_000, 0, "B"), Actor("B-user", Role.OWNER),
+            Change.PriceRecorded("remote", T.price(k.meat, D1, 32_000_000)),
+        )
+
+        assertEquals(1, a.preview(listOf(remote)).refused)
+        assertEquals(1, a.receive(listOf(remote)))
+        assertEquals(RejectReason.PERIOD_CLOSED, a.state.rejections.single { it.operation.id == remote.id }.reason)
+        assertEquals(0, closed.compareTo(a.calculator().cost(k.kebab, D15).foodCostPerPortion))
+        assertEquals(a.state.closedPeriods.single().snapshot, MenuSnapshot.of(a.calculator().menu(D31)))
+        assertEquals(a.state, LedgerState.fold(a.operations().shuffled(Random(5)))) // the same whatever the order
+    }
+
+    @Test
+    fun `reopening a period takes in the changes its close had not seen, and closing it again keeps them`() {
+        val wallA = FakeWall(1_000)
+        val a = T.ledger("A", wall = wallA)
+        val k = Kitchen(a)
+        val wallB = FakeWall(1_000)
+        val b = T.ledger("B", wall = wallB)
+        b.receive(a.operations())
+        wallB.now = 2_000
+        val dearer = b.recordPrice(T.price(k.meat, D1, 32_000_000), priceId = "dearer").applied()
+        wallA.now = 3_000
+        a.closePeriod(D31).applied()
+        a.receive(b.operations())
+        val closed = a.calculator().cost(k.kebab, D15).foodCostPerPortion
+        assertTrue(a.state.rejections.any { it.operation.id == dearer.id })
+
+        wallA.now = 4_000
+        a.reopenPeriod(D1, "فاکتور گوشت دیر رسید").applied()
+        assertTrue(a.state.rejections.none { it.operation.id == dearer.id })
+        val open = a.calculator().cost(k.kebab, D15).foodCostPerPortion
+        assertTrue(open > closed)
+
+        wallA.now = 5_000
+        a.closePeriod(D31).applied()
+        assertEquals(a.state.closedPeriods.single().snapshot, MenuSnapshot.of(a.calculator().menu(D31)))
+        assertEquals(0, open.compareTo(a.calculator().cost(k.kebab, D15).foodCostPerPortion))
+
+        // A phone that gets everything, in any order, comes to the same.
+        val c = T.ledger("C")
+        c.receive(a.operations().shuffled(Random(3)))
+        assertEquals(a.state, c.state)
+        b.receive(a.operations())
+        assertEquals(a.state, b.state)
     }
 
     @Test

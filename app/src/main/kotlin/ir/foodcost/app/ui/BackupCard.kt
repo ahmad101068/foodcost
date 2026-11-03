@@ -49,7 +49,7 @@ import java.time.LocalDate
 private sealed interface Importing {
     data class Locked(val text: String, val wrong: Boolean) : Importing
 
-    class Review(val operations: List<Operation>, val preview: BackupPreview) : Importing
+    class Review(val operations: List<Operation>, val preview: BackupPreview, val sealed: Boolean) : Importing
 }
 
 /**
@@ -91,7 +91,7 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
     }
 
     // A look at what a readable backup adds; nothing is imported until it is confirmed.
-    suspend fun review(plain: String) {
+    suspend fun review(plain: String, sealed: Boolean) {
         val operations = try {
             withContext(Dispatchers.IO) { Backup.read(plain) }
         } catch (e: JsonException) {
@@ -102,7 +102,7 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
             return
         }
         val preview = container.previewBackup(operations)
-        if (preview.fresh == 0) actions.say("این پشتیبان چیز تازه‌ای نداشت.") else importing = Importing.Review(operations, preview)
+        if (preview.fresh == 0) actions.say("این پشتیبان چیز تازه‌ای نداشت.") else importing = Importing.Review(operations, preview, sealed)
     }
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -116,7 +116,7 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
                 when {
                     read == null -> actions.say("فایل خوانده نشد.")
                     read.second -> importing = Importing.Locked(read.first, wrong = false)
-                    else -> review(read.first)
+                    else -> review(read.first, sealed = false)
                 }
             }
         }
@@ -166,7 +166,7 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
                         return@launch
                     }
                     importing = null
-                    review(plain)
+                    review(plain, sealed = true)
                 }
             },
         )
@@ -175,7 +175,7 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
             title = { Text("وارد کردن پشتیبان") },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(BackupTexts.preview(stage.preview), style = MaterialTheme.typography.bodyMedium)
+                    Text(BackupTexts.preview(stage.preview, stage.sealed), style = MaterialTheme.typography.bodyMedium)
                     Text(
                         "چیزی از داده‌های این گوشی پاک نمی‌شود؛ تغییرهایی که از قبل هست دوباره اضافه نمی‌شوند.",
                         style = MaterialTheme.typography.bodySmall,

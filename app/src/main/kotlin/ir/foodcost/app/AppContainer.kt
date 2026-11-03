@@ -1,6 +1,7 @@
 package ir.foodcost.app
 
 import android.content.Context
+import android.util.AtomicFile
 import ir.foodcost.app.data.SqliteOperationStore
 import ir.foodcost.core.money.DisplayCurrency
 import ir.foodcost.data.clock.HybridClock
@@ -61,7 +62,9 @@ class AppContainer(context: Context) {
      */
     val today: StateFlow<LocalDate> = _today.asStateFlow()
 
-    private val draftFile = File(appContext.filesDir, DRAFT_FILE)
+    // Written whole or not at all: a write cut short, by a full phone or the app being closed,
+    // leaves the last whole draft, never half of one.
+    private val draftFile = AtomicFile(File(appContext.filesDir, DRAFT_FILE))
     private val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
@@ -71,6 +74,7 @@ class AppContainer(context: Context) {
     val quickDraft = MutableStateFlow(readDraft())
 
     init {
+        File(appContext.filesDir, "$DRAFT_FILE.tmp").delete() // left by versions before the draft was written whole
         background.launch {
             // The amounts and the currency they are in are written together. A currency change
             // sets both at once, and the pause lets only the pair after it be written.
@@ -96,25 +100,28 @@ class AppContainer(context: Context) {
     fun saveDraft() = writeDraft(quickDraft.value, _currency.value)
 
     private fun readDraft(): QuickInput = try {
-        if (draftFile.exists()) QuickDrafts.decode(draftFile.readText(), _currency.value) ?: QuickInput() else QuickInput()
+        QuickDrafts.decode(draftFile.readFully().toString(Charsets.UTF_8), _currency.value) ?: QuickInput()
     } catch (e: IOException) {
-        QuickInput()
+        QuickInput() // none yet, or not readable
     }
 
     /** Replaces the stored draft in one step, so a write cut short never leaves half a draft. */
     @Synchronized
     private fun writeDraft(input: QuickInput, currency: DisplayCurrency) {
-        try {
-            if (input == QuickInput()) {
-                draftFile.delete()
-                return
-            }
-            val text = QuickDrafts.encode(input, currency)
-            val temp = File(draftFile.path + ".tmp")
-            temp.writeText(text)
-            if (!temp.renameTo(draftFile)) draftFile.writeText(text)
+        if (input == QuickInput()) {
+            draftFile.delete()
+            return
+        }
+        val out = try {
+            draftFile.startWrite()
         } catch (e: IOException) {
-            // The calculation is still on the screen; only its copy on the phone is older.
+            return // the calculation is still on the screen; only its copy on the phone is older
+        }
+        try {
+            out.write(QuickDrafts.encode(input, currency).toByteArray(Charsets.UTF_8))
+            draftFile.finishWrite(out)
+        } catch (e: IOException) {
+            draftFile.failWrite(out)
         }
     }
 
@@ -122,7 +129,12 @@ class AppContainer(context: Context) {
     val unreadableRows: Int get() = store?.unreadable ?: 0
 
     /** Unreadable rows not shown to the user yet: more than when they last said they had read the warning. */
-    fun unreadableToWarn(): Int = unreadableRows.takeIf { it > prefs.getInt(KEY_UNREADABLE_SEEN, 0) } ?: 0
+    fun unreadableToWarn(): Int {
+        val seen = prefs.getInt(KEY_UNREADABLE_SEEN, 0)
+        val now = unreadableRows
+        if (now < seen) prefs.edit().putInt(KEY_UNREADABLE_SEEN, now).apply() // some were mended since
+        return now.takeIf { it > seen } ?: 0
+    }
 
     fun acknowledgeUnreadable() {
         prefs.edit().putInt(KEY_UNREADABLE_SEEN, unreadableRows).apply()

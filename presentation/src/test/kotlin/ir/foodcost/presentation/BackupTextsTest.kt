@@ -16,15 +16,17 @@ class BackupTextsTest {
     fun `the look before an import says what comes, from when and where, and what the rules refuse`() {
         assertEquals(
             "این پشتیبان ۱۰ تغییر تازه دارد: ۲ ماده، ۳ قیمت خرید، ۴ دستور یا نسخهٔ دستور، ۱ قیمت منو.\n" +
-                "از ۱۱ مهر ۱۴۰۵ تا ۲۱ مهر ۱۴۰۵ ثبت شده‌اند، روی یک گوشی دیگر.",
-            BackupTexts.preview(preview(10)),
+                "از ۱۱ مهر ۱۴۰۵ تا ۲۱ مهر ۱۴۰۵ ثبت شده‌اند، روی یک گوشی دیگر.\n" +
+                BackupTexts.SEALED,
+            BackupTexts.preview(preview(10), sealed = true),
         )
         assertEquals(
             "این پشتیبان ۱۰ تغییر تازه دارد: ۲ ماده، ۳ قیمت خرید، ۴ دستور یا نسخهٔ دستور، ۱ قیمت منو.\n" +
                 "همه در ۱۱ مهر ۱۴۰۵ ثبت شده‌اند، روی ۲ گوشی دیگر.\n" +
                 "۳ تغییر را کسی جز مالک ثبت کرده است.\n" +
-                "۶ تغییر با قاعده‌ها جور نیست، مثل قیمتی برای روزی در دورهٔ بسته؛ نگه داشته می‌شود ولی چیزی را عوض نمی‌کند.",
-            BackupTexts.preview(preview(10, refused = 6, byOthers = 3, devices = 2, last = LocalDate.of(2026, 10, 3))),
+                "۶ تغییر با قاعده‌ها جور نیست، مثل قیمتی برای روزی در دورهٔ بسته؛ نگه داشته می‌شود ولی چیزی را عوض نمی‌کند.\n" +
+                BackupTexts.NOT_SEALED,
+            BackupTexts.preview(preview(10, refused = 6, byOthers = 3, devices = 2, last = LocalDate.of(2026, 10, 3)), sealed = false),
         )
     }
 }

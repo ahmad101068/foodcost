@@ -109,8 +109,14 @@ sealed interface Change {
         val effectiveFrom: LocalDate? = null,
     ) : Change
 
-    /** Closes every day up to [through]; [snapshot] keeps the official figures of the period. */
-    data class PeriodClosed(val through: LocalDate, val snapshot: MenuSnapshot?) : Change
+    /**
+     * Closes every day up to [through]; [snapshot] keeps the official figures of the period.
+     * [seen] is, for each device, the latest of its changes the closing device had: a change for a
+     * closed day it had not seen stays out of those days on every device, however late it arrives
+     * and wherever its clock puts it, until the period is reopened. Null in closes recorded before
+     * it was kept, which count everything recorded before them.
+     */
+    data class PeriodClosed(val through: LocalDate, val snapshot: MenuSnapshot?, val seen: Map<String, Hlc>? = null) : Change
 
     /** Reopens the closed periods that include [from] or come after it. */
     data class PeriodReopened(val from: LocalDate) : Change

@@ -18,6 +18,9 @@ import java.math.BigDecimal
 
 /** Every Persian word the screens show for the core's values. */
 object Labels {
+    /** A suggested price beyond the largest amount, which only absurd input reaches, in place of the number. */
+    const val TOO_LARGE_PRICE = "بیش از حد بزرگ"
+
     fun currency(currency: DisplayCurrency): String = when (currency) {
         DisplayCurrency.RIAL -> "ریال"
         DisplayCurrency.TOMAN -> "تومان"

@@ -123,7 +123,13 @@ object OperationCodec {
             "pricing" to c.pricing?.let(::encodePricing),
             "effectiveFrom" to c.effectiveFrom?.toString()?.json,
         )
-        is Change.PeriodClosed -> jsonObject("through" to c.through.toString().json, "snapshot" to c.snapshot?.let(::encodeSnapshot))
+        is Change.PeriodClosed -> jsonObject(
+            "through" to c.through.toString().json,
+            "snapshot" to c.snapshot?.let(::encodeSnapshot),
+            "seen" to c.seen?.let { seen ->
+                JsonObject(seen.toSortedMap().mapValues { (_, at) -> jsonObject("wall" to at.wallMillis.json, "counter" to at.counter.json) })
+            },
+        )
         is Change.PeriodReopened -> jsonObject("from" to c.from.toString().json)
     }
 
@@ -166,6 +172,11 @@ object OperationCodec {
         "PeriodClosed" -> Change.PeriodClosed(
             date(d.string("through")),
             if (d.has("snapshot")) decodeSnapshot(d.obj("snapshot")) else null,
+            seen = if (d.has("seen")) {
+                d.obj("seen").fields.mapValues { (device, at) -> at.asObject("seen").let { Hlc(it.long("wall"), it.int("counter"), device) } }
+            } else {
+                null
+            },
         )
         "PeriodReopened" -> Change.PeriodReopened(date(d.string("from")))
         else -> throw JsonException("Unknown operation type \"$type\"")
@@ -400,16 +411,18 @@ object Backup {
     private const val FORMAT = "foodcost-backup"
 
     /**
-     * 2 since a change can say from which day it counts. Versions of the app before that read
-     * only version 1, so they refuse a newer file whole rather than count its dated changes for
-     * every day. Files of version 1 read as they always did: none of their changes has a day.
+     * The newest version read. 2 since a change can say from which day it counts, 3 when a close
+     * says what it had seen. A version of the app that reads only the earlier ones refuses a newer
+     * file whole rather than misread it: one before 2 would count dated changes on every day, one
+     * before 3 would let a change the close had not seen into a closed day. Older files read as
+     * they always did.
      */
-    const val VERSION = 2
+    const val VERSION = 3
 
     fun write(operations: List<Operation>): String = Json.write(
         jsonObject(
             "format" to FORMAT.json,
-            "version" to VERSION.json,
+            "version" to versionFor(operations).json,
             "operations" to jsonArray(operations.map(OperationCodec::encode)),
         ),
     )
@@ -421,4 +434,8 @@ object Backup {
         if (version !in 1..VERSION) throw JsonException("Backup version $version is not supported")
         return root.array("operations").map { OperationCodec.decode(it.asObject("operation")) }
     }
+
+    /** The oldest version that reads [operations] right, so a file without closes still opens in 0.7.0. */
+    private fun versionFor(operations: List<Operation>): Int =
+        if (operations.any { (it.change as? Change.PeriodClosed)?.seen != null }) 3 else 2
 }

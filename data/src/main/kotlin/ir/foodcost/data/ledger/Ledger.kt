@@ -94,7 +94,9 @@ class Ledger(
         builder.add(op)?.let { return Outcome.Rejected(op, it) }
         val batch = pending
         if (batch != null) batch += op else store.append(op)
-        state = builder.build()
+        // A reopened period takes in the changes its close had not seen, wherever they sit in the
+        // order, so everything is applied again.
+        state = if (change is Change.PeriodReopened) LedgerState.fold(store.all() + batch.orEmpty()) else builder.build()
         return Outcome.Applied(op)
     }
 
@@ -134,10 +136,11 @@ class Ledger(
         store.appendAll(fresh)
         clock.receive(fresh.maxOf { it.at })
         val last = state.lastAt
-        state = if (last == null || fresh.all { it.at > last }) {
+        state = if ((last == null || fresh.all { it.at > last }) && fresh.none { it.change.isPeriodChange }) {
             StateBuilder(state).also { b -> fresh.sortedWith(Operation.ORDER).forEach { b.add(it) } }.build()
         } else {
-            // Something older arrived late: apply everything again in order.
+            // Something older arrived late, or a close or reopening that decides which changes count
+            // on the days it covers, wherever they sit: apply everything again in order.
             LedgerState.fold(store.all())
         }
         return fresh.size
@@ -298,9 +301,15 @@ class Ledger(
     fun saveSettings(costing: CostingRules? = null, pricing: PricingSettings? = null, effectiveFrom: LocalDate? = null): Outcome =
         execute(Change.SettingsSaved(costing, pricing, effectiveFrom))
 
-    /** Closes every day up to [through] and keeps that day's menu figures as the period's official record. */
-    fun closePeriod(through: LocalDate): Outcome =
-        execute(Change.PeriodClosed(through, MenuSnapshot.of(calculator().menu(through))))
+    /**
+     * Closes every day up to [through] and keeps that day's menu figures as the period's official
+     * record, with the latest change of each device it has: a change it has not seen stays out.
+     */
+    @Synchronized
+    fun closePeriod(through: LocalDate): Outcome {
+        val seen = (store.all() + pending.orEmpty()).groupBy { it.at.device }.mapValues { (_, ops) -> ops.maxOf { it.at } }
+        return execute(Change.PeriodClosed(through, MenuSnapshot.of(calculator().menu(through)), seen))
+    }
 
     /** Reopens closed periods from [from] on. Managers only, and the reason is kept in the history. */
     fun reopenPeriod(from: LocalDate, reason: String): Outcome {

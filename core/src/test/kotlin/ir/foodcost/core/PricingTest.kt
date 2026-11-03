@@ -7,6 +7,7 @@ import ir.foodcost.core.model.ExtraCost
 import ir.foodcost.core.model.IngredientId
 import ir.foodcost.core.model.PurchasePrice
 import ir.foodcost.core.model.SalesChannel
+import ir.foodcost.core.money.MAX_RIALS
 import ir.foodcost.core.money.PriceRounding
 import ir.foodcost.core.money.PriceRounding.Direction
 import ir.foodcost.core.pricing.CostBasis
@@ -18,6 +19,7 @@ import ir.foodcost.core.pricing.PricingMethod
 import ir.foodcost.core.pricing.PricingSettings
 import ir.foodcost.core.units.Uom
 import org.junit.jupiter.api.Test
+import java.math.BigDecimal
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
@@ -67,7 +69,22 @@ class PricingTest {
         assertEquals(Long.MAX_VALUE, PurchasePrice(IngredientId("x"), D1, 1.bd, Uom.KILOGRAM, Long.MAX_VALUE, taxRials = 1, taxRecoverable = true).netCostRials)
         assertEquals(960_000L, PurchasePrice(IngredientId("x"), D1, 1.bd, Uom.KILOGRAM, 1_000_000, 100_000, 50_000, deliveryRials = 10_000).netCostRials)
 
-        assertEquals(Long.MAX_VALUE, PriceRounding(100_000).apply("1e30".bd))
+        assertNull(PriceRounding(100_000).apply("1e30".bd))
+    }
+
+    @Test
+    fun `a suggested price beyond the largest amount is said to be too large, not shown as a number`() {
+        val rounding = PriceRounding(100_000)
+        assertEquals(MAX_RIALS, rounding.apply(BigDecimal(MAX_RIALS)))
+        assertNull(rounding.apply(BigDecimal(MAX_RIALS) + BigDecimal.ONE))
+        assertNull(rounding.apply(BigDecimal(Long.MAX_VALUE).multiply("2".bd))) // the case of the audit of 0.7.0
+
+        // A kilo at the largest amount: at a 35% target the price would be almost three times it.
+        val e = FoodCostCalculator(dish(MAX_RIALS, menuPrice = 10_000_000)).evaluate(rid("dish"), D1)
+        assertEquals(true, e.suggestion.tooLarge)
+        assertEquals(PriceStatus.INCOMPLETE, e.status)
+        val fine = FoodCostCalculator(dish(3_500_000)).evaluate(rid("dish"), D1).suggestion
+        assertEquals(false, fine.tooLarge)
     }
 
     @Test
