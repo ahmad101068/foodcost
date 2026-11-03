@@ -289,7 +289,7 @@ object QuickCalculator {
             }
         }
 
-        val savedDish = input.recipeId?.let { catalog.recipe(it) }
+        val savedDish = editedDish(input, state)?.let { catalog.recipe(it) }
         val portions = Numbers.parse(input.portions)?.takeIf { it.signum() > 0 } ?: BigDecimal.ONE
         val recipe = Recipe(
             id = QUICK,
@@ -621,7 +621,8 @@ object QuickCalculator {
         val p = Problems()
         val name = input.dishName.trim()
         if (name.isEmpty()) p.add(Field.NAME, "نام غذا را بنویسید.")
-        val namesake = if (input.recipeId == null && name.isNotEmpty()) dishNamed(state, name) else null
+        val editing = editedDish(input, state)
+        val namesake = if (editing == null && name.isNotEmpty()) dishNamed(state, name) else null
         if (namesake != null && open(state, namesake, today, money) == null) {
             p.add(Field.NAME, "«$name» با جزئیات بیشتر در دستورها هست؛ از منو بازش کنید یا نام دیگری بنویسید.")
         }
@@ -662,7 +663,7 @@ object QuickCalculator {
         if (input.menuPrice.isNotBlank() && (menu == null || menu <= 0)) p.add(Field.AMOUNT, "قیمت منو درست نیست.")
         // A new calculation saved over a dish on the menu keeps that dish's section unless one is chosen.
         val category = input.category?.trim()?.ifEmpty { null } ?: namesake?.let { state.recipes[it]?.category }
-        return p.result { QuickPlan(name, rows, portions!!, menu, input.recipeId ?: namesake, input.miscPercent, extras, category) }
+        return p.result { QuickPlan(name, rows, portions!!, menu, editing ?: namesake, input.miscPercent, extras, category) }
     }
 
     /**
@@ -782,7 +783,7 @@ object QuickCalculator {
             }
             RecipeLine(ComponentRef.IngredientRef(id), row.qty, row.uom)
         }
-        val existing = plan.recipeId?.takeIf { ledger.state.recipes.containsKey(it) }
+        val existing = plan.recipeId?.takeIf { ledger.state.recipes[it]?.archived == false }
         val recipeId = if (existing != null) {
             val record = ledger.state.recipes.getValue(existing)
             if (record.name != plan.name || record.category != plan.category) {
@@ -857,6 +858,17 @@ object QuickCalculator {
         if (saved) LINE_UNITS.filter { fits(it, dimension, conversions) } else LINE_UNITS
 
     /** The plate on the menu called [name], however its spaces and letters were typed. */
+    /**
+     * [input] as it stands with [state]. A dish archived since, or gone, is no longer the one being
+     * edited: saving makes a new dish instead of changing one the dishes list no longer shows.
+     */
+    fun current(input: QuickInput, state: LedgerState): QuickInput =
+        if (input.recipeId != null && editedDish(input, state) == null) input.copy(recipeId = null) else input
+
+    /** The saved dish [input] edits, unless it was archived or is gone since. */
+    private fun editedDish(input: QuickInput, state: LedgerState): RecipeId? =
+        input.recipeId?.takeIf { state.recipes[it]?.archived == false }
+
     private fun dishNamed(state: LedgerState, name: String): RecipeId? {
         val key = Persian.searchKey(name)
         return state.recipes.values.firstOrNull {

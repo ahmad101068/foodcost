@@ -15,6 +15,12 @@ class MainActivity : ComponentActivity() {
         setContent { FoodCostApp(container) }
     }
 
+    // Back on the screen, perhaps the next morning: prices recorded from now on get the new date.
+    override fun onStart() {
+        super.onStart()
+        (application as FoodCostApplication).container.refreshToday()
+    }
+
     // The calculation in the calculator is kept as it is typed; this catches the last keys before
     // the phone may close the app in the background.
     override fun onStop() {

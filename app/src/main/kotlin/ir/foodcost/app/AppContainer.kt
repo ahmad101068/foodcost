@@ -8,6 +8,7 @@ import ir.foodcost.data.ledger.Ledger
 import ir.foodcost.data.ledger.LedgerState
 import ir.foodcost.data.ops.Actor
 import ir.foodcost.data.ops.Role
+import ir.foodcost.presentation.Days
 import ir.foodcost.presentation.QuickDrafts
 import ir.foodcost.presentation.QuickInput
 import kotlinx.coroutines.CoroutineScope
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -25,6 +27,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
+import java.time.LocalDate
+import java.time.ZonedDateTime
 import java.util.UUID
 
 /** The app's single ledger and the user's display choices. Lives as long as the app. */
@@ -47,6 +51,14 @@ class AppContainer(context: Context) {
     private val _currency = MutableStateFlow(readCurrency())
     val currency: StateFlow<DisplayCurrency> = _currency.asStateFlow()
 
+    private val _today = MutableStateFlow(LocalDate.now())
+
+    /**
+     * The date every price is recorded with. It is read again when the app comes back to the
+     * screen and at midnight, so a phone left on overnight dates the next day's prices right.
+     */
+    val today: StateFlow<LocalDate> = _today.asStateFlow()
+
     private val draftFile = File(appContext.filesDir, DRAFT_FILE)
     private val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -58,33 +70,47 @@ class AppContainer(context: Context) {
 
     init {
         background.launch {
-            quickDraft.drop(1).collectLatest { input ->
+            // The amounts and the currency they are in are written together. A currency change
+            // sets both at once, and the pause lets only the pair after it be written.
+            combine(quickDraft, _currency) { input, currency -> input to currency }.drop(1).collectLatest { (input, currency) ->
                 delay(DRAFT_PAUSE_MILLIS) // one write when typing pauses, not one per key
-                writeDraft(input)
+                writeDraft(input, currency)
+            }
+        }
+        background.launch {
+            while (true) {
+                delay(Days.millisToTomorrow(ZonedDateTime.now()))
+                refreshToday()
             }
         }
     }
 
+    /** Reads the date again, as the app comes back to the screen, perhaps on another day. */
+    fun refreshToday() {
+        _today.value = LocalDate.now()
+    }
+
     /** Writes the calculation now, as the app leaves the screen and may be closed. */
-    fun saveDraft() = writeDraft(quickDraft.value)
+    fun saveDraft() = writeDraft(quickDraft.value, _currency.value)
 
     private fun readDraft(): QuickInput = try {
-        if (draftFile.exists()) QuickDrafts.decode(draftFile.readText()) ?: QuickInput() else QuickInput()
+        if (draftFile.exists()) QuickDrafts.decode(draftFile.readText(), _currency.value) ?: QuickInput() else QuickInput()
     } catch (e: IOException) {
         QuickInput()
     }
 
     /** Replaces the stored draft in one step, so a write cut short never leaves half a draft. */
     @Synchronized
-    private fun writeDraft(input: QuickInput) {
+    private fun writeDraft(input: QuickInput, currency: DisplayCurrency) {
         try {
             if (input == QuickInput()) {
                 draftFile.delete()
                 return
             }
+            val text = QuickDrafts.encode(input, currency)
             val temp = File(draftFile.path + ".tmp")
-            temp.writeText(QuickDrafts.encode(input))
-            if (!temp.renameTo(draftFile)) draftFile.writeText(QuickDrafts.encode(input))
+            temp.writeText(text)
+            if (!temp.renameTo(draftFile)) draftFile.writeText(text)
         } catch (e: IOException) {
             // The calculation is still on the screen; only its copy on the phone is older.
         }
@@ -114,7 +140,11 @@ class AppContainer(context: Context) {
     }
 
     fun setCurrency(currency: DisplayCurrency) {
+        val old = _currency.value
+        if (currency == old) return
         prefs.edit().putString(KEY_CURRENCY, currency.name).apply()
+        // The calculator's amounts were typed in the old currency: the same amounts, in the new one.
+        quickDraft.value = QuickDrafts.convert(quickDraft.value, old, currency)
         _currency.value = currency
     }
 

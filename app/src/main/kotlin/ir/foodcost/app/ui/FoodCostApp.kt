@@ -24,7 +24,6 @@ import ir.foodcost.core.model.RecipeId
 import ir.foodcost.core.money.DisplayCurrency
 import ir.foodcost.data.ledger.LedgerState
 import ir.foodcost.presentation.MoneyFormat
-import java.time.LocalDate
 
 @Composable
 fun FoodCostApp(container: AppContainer) {
@@ -51,7 +50,7 @@ private fun AppContent(container: AppContainer, state: LedgerState, currency: Di
     val scope = rememberCoroutineScope()
     val actions = remember(container, scope, snackbar) { AppActions(container, scope, snackbar) }
     val money = remember(currency) { MoneyFormat(currency) }
-    val today = remember { LocalDate.now() }
+    val today by container.today.collectAsState()
 
     // Back goes up one screen; on another tab it goes to the calculator before leaving the app.
     BackHandler(enabled = nav.canGoBack || nav.tab != Tab.CALC) {

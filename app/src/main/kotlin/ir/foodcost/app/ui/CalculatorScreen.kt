@@ -112,7 +112,8 @@ fun CalculatorScreen(
     var dish by remember(recipeId) {
         mutableStateOf(recipeId?.let { QuickCalculator.open(state, it, today, money) } ?: QuickInput())
     }
-    val input = if (recipeId == null) draft else dish
+    // A dish archived since it was opened here is no longer the one edited: saving makes a new one.
+    val input = QuickCalculator.current(if (recipeId == null) draft else dish, state)
     val update: (QuickInput) -> Unit = { if (recipeId == null) container.quickDraft.value = it else dish = it }
     val result = remember(input, state, money, today) { QuickCalculator.compute(input, state, money, today) }
     var askName by remember { mutableStateOf(false) }
@@ -422,12 +423,12 @@ private fun Figure(
             }
         }
         Row {
-            Text(
+            // Measured after the unit beside it, and smaller rather than cut off when it does not fit.
+            FitText(
                 number,
                 style = if (isResult) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,
                 color = if (isResult) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                modifier = Modifier.alignByBaseline(),
+                modifier = Modifier.weight(1f, fill = false).alignByBaseline(),
             )
             if (number != text) {
                 Text(
@@ -585,11 +586,11 @@ private fun ChannelTable(channels: List<QuickChannel>, money: MoneyFormat, onExp
         Row(Modifier.fillMaxWidth().then(if (tag != null) Modifier.testTag(tag) else Modifier)) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1.3f))
             values.forEach {
-                Text(
+                // A gap before each column, so two amounts made smaller never run into one.
+                FitText(
                     it,
                     style = if (strong) MaterialTheme.typography.labelLarge else MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).padding(start = 8.dp),
                 )
             }
         }
@@ -818,15 +819,15 @@ private fun ChangeTable(changes: List<QuickChange>, money: MoneyFormat) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth()) {
             Text("به ${money.unit}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1.25f))
-            Text("قبل", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-            Text("بعد", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+            Text("قبل", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f).padding(start = 8.dp))
+            Text("بعد", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f).padding(start = 8.dp))
         }
         changes.forEach { change ->
             Row(Modifier.fillMaxWidth().testTag("change-${change.label}")) {
                 Text(change.label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1.25f))
-                Text(change.before, style = MaterialTheme.typography.bodyMedium, maxLines = 1, modifier = Modifier.weight(1f))
-                Column(Modifier.weight(1f)) {
-                    Text(change.after, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                FitText(change.before, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                    FitText(change.after, style = MaterialTheme.typography.labelLarge)
                     change.change?.let {
                         Text(it, style = MaterialTheme.typography.labelSmall, color = if (change.worse) MaterialTheme.colorScheme.error else better)
                     }

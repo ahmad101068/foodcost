@@ -133,7 +133,8 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
-          cores: 4
+          # A private repository's runner has 2 processors, a public one's 4.
+          cores: ${{ github.event.repository.private && 2 || 4 }}
           ram-size: 4096M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none

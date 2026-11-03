@@ -28,6 +28,7 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -43,9 +44,21 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.OffsetMapping
@@ -54,6 +67,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import ir.foodcost.app.ui.theme.displayColors
 import ir.foodcost.app.ui.theme.statusColors
 import ir.foodcost.core.pricing.PriceStatus
@@ -78,7 +92,8 @@ fun TabScaffold(
                         selected = nav.tab == tab,
                         onClick = { nav.tab(tab) },
                         icon = { Icon(tab.icon, contentDescription = null) },
-                        label = { Text(tab.label) },
+                        // One line, smaller with the phone's large text, rather than a word broken in two.
+                        label = { FitText(tab.label, MaterialTheme.typography.labelMedium) },
                     )
                 }
             }
@@ -210,12 +225,57 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** A small caption over a value. */
+/**
+ * An amount on one line that gets smaller rather than being cut off when it does not fit, as with
+ * the phone's largest text: a number with its last digits cut off reads as another number.
+ */
 @Composable
-fun LabeledValue(label: String, value: String, modifier: Modifier = Modifier, emphasized: Boolean = false) {
+fun FitText(text: String, style: TextStyle, modifier: Modifier = Modifier, color: Color = Color.Unspecified) {
+    val width = LocalConfiguration.current.screenWidthDp
+    // Starts at the full size for each new amount; an amount that fits never changes size.
+    var scale by remember(text, style, width) { mutableFloatStateOf(1f) }
+    Text(
+        text,
+        modifier = modifier,
+        color = color,
+        style = if (style.fontSize.isSpecified) style.copy(fontSize = style.fontSize * scale) else style,
+        maxLines = 1,
+        softWrap = false,
+        onTextLayout = { layout ->
+            if (layout.didOverflowWidth && scale > MIN_FIT_SCALE) scale = (scale * FIT_STEP).coerceAtLeast(MIN_FIT_SCALE)
+        },
+    )
+}
+
+private const val FIT_STEP = 0.9f
+private const val MIN_FIT_SCALE = 0.5f
+
+/**
+ * An amount with its unit, as the screens write it (۳٬۹۲۹٬۴۵۰ ریال): the number stays whole on one
+ * line, smaller if it must, and the unit goes beside it or below it. Anything else is plain text.
+ */
+@Composable
+fun AmountText(value: String, style: TextStyle, modifier: Modifier = Modifier, color: Color = Color.Unspecified) {
+    val parts = AMOUNT.matchEntire(value)?.groupValues
+    if (parts == null) {
+        Text(value, style = style, color = color, modifier = modifier)
+    } else {
+        FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            FitText(parts[1], style, color = color)
+            Text(parts[2], style = style, color = color)
+        }
+    }
+}
+
+private val AMOUNT = Regex("""([+\-−\u200E\u200F]*[۰-۹0-9][۰-۹0-9٬٫,.]*)\s+(\S.*)""")
+
+/** A small caption over a value. An [amount] keeps its number whole, as [AmountText] does. */
+@Composable
+fun LabeledValue(label: String, value: String, modifier: Modifier = Modifier, emphasized: Boolean = false, amount: Boolean = false) {
     Column(modifier) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = if (emphasized) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium)
+        val style = if (emphasized) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium
+        if (amount) AmountText(value, style) else Text(value, style = style)
     }
 }
 
@@ -238,11 +298,21 @@ fun TextInput(
     onImeAction: (() -> Unit)? = null,
 ) {
     val message = error ?: supporting
+    var width by remember { mutableIntStateOf(0) }
+    val base = LocalTextStyle.current
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    // A long number gets smaller rather than losing its first digits past the edge of the field.
+    val textStyle = remember(value, suffix, width, base, number, density) {
+        val room = width - with(density) { FIELD_PADDING.roundToPx() }
+        if (number && width > 0) fitted(measurer, DigitGroups.of(value)?.shown ?: value, suffix, base, room) else base
+    }
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().onSizeChanged { width = it.width },
+        textStyle = textStyle,
         singleLine = true,
         isError = error != null,
         suffix = if (suffix != null) {
@@ -262,6 +332,22 @@ fun TextInput(
         keyboardActions = if (onImeAction != null) KeyboardActions(onAny = { onImeAction() }) else KeyboardActions.Default,
         visualTransformation = if (number) GroupDigits else VisualTransformation.None,
     )
+}
+
+/** A text field's own padding on both sides, and a little room. */
+private val FIELD_PADDING = 40.dp
+
+/** [style], made smaller until [text] and its [suffix] fit in [room] pixels. */
+private fun fitted(measurer: TextMeasurer, text: String, suffix: String?, style: TextStyle, room: Int): TextStyle {
+    if (!style.fontSize.isSpecified) return style
+    val available = room - (suffix?.let { measurer.measure(it, style = style, softWrap = false, maxLines = 1).size.width } ?: 0)
+    var scale = 1f
+    var current = style
+    while (scale > MIN_FIT_SCALE && measurer.measure(text, style = current, softWrap = false, maxLines = 1).size.width > available) {
+        scale = (scale * FIT_STEP).coerceAtLeast(MIN_FIT_SCALE)
+        current = style.copy(fontSize = style.fontSize * scale)
+    }
+    return current
 }
 
 /** Shows 1450000 as 1٬450٬000 while it is typed; the typed text itself is left alone. */

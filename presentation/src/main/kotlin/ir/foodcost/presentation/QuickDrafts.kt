@@ -2,6 +2,7 @@ package ir.foodcost.presentation
 
 import ir.foodcost.core.model.IngredientId
 import ir.foodcost.core.model.RecipeId
+import ir.foodcost.core.money.DisplayCurrency
 import ir.foodcost.core.units.Uom
 import ir.foodcost.data.json.Json
 import ir.foodcost.data.json.JsonException
@@ -13,14 +14,16 @@ import ir.foodcost.data.json.jsonObject
 
 /**
  * The calculator's calculation as text, so it is still there after the phone closes the app.
- * Everything is kept as typed; a draft that cannot be read is dropped rather than half restored.
+ * Everything is kept as typed, with the currency the amounts were typed in; a draft that cannot be
+ * read is dropped rather than half restored.
  */
 object QuickDrafts {
     private const val VERSION = 1
 
-    fun encode(input: QuickInput): String = Json.write(
+    fun encode(input: QuickInput, currency: DisplayCurrency): String = Json.write(
         jsonObject(
             "v" to VERSION.json,
+            "currency" to currency.name.json,
             "dishName" to input.dishName.json,
             "rows" to jsonArray(
                 input.rows.map { row ->
@@ -46,16 +49,42 @@ object QuickDrafts {
         ),
     )
 
-    /** The draft in [text], or null when it is not one this version can read. */
-    fun decode(text: String): QuickInput? = try {
+    /**
+     * The draft in [text] with its amounts in [currency], or null when it is not one this version
+     * can read. A draft typed in another currency has its amounts converted; one written before
+     * drafts kept their currency is taken as typed in [currency].
+     */
+    fun decode(text: String, currency: DisplayCurrency): QuickInput? = try {
         val o = Json.parse(text).asObject("draft")
-        if (o.int("v") != VERSION) null else read(o)
+        if (o.int("v") != VERSION) {
+            null
+        } else {
+            val typedIn = o.stringOrNull("currency")?.let { name -> DisplayCurrency.entries.firstOrNull { it.name == name } }
+            convert(read(o), typedIn ?: currency, currency)
+        }
     } catch (e: JsonException) {
         null
     } catch (e: ArithmeticException) {
         null
     } catch (e: IllegalArgumentException) {
         null
+    }
+
+    /**
+     * The same calculation with its amounts in [to] instead of [from]: the prices, the menu price
+     * and the other costs, so a change of currency leaves every figure as it was. Anything that does
+     * not read as an amount is left as typed.
+     */
+    fun convert(input: QuickInput, from: DisplayCurrency, to: DisplayCurrency): QuickInput {
+        if (from == to) return input
+        val typed = MoneyFormat(from)
+        val shown = MoneyFormat(to)
+        fun amount(text: String): String = typed.parse(text)?.let { shown.editable(it) } ?: text
+        return input.copy(
+            rows = input.rows.map { it.copy(price = amount(it.price)) },
+            menuPrice = amount(input.menuPrice),
+            extras = input.extras.map { it.copy(amount = amount(it.amount)) },
+        )
     }
 
     private fun read(o: JsonObject): QuickInput {
