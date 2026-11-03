@@ -43,9 +43,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.OffsetMapping
@@ -54,6 +61,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import ir.foodcost.app.ui.theme.displayColors
 import ir.foodcost.app.ui.theme.statusColors
 import ir.foodcost.core.pricing.PriceStatus
@@ -209,6 +217,31 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
         modifier = modifier.padding(top = 8.dp, bottom = 4.dp),
     )
 }
+
+/**
+ * An amount on one line that gets smaller rather than being cut off when it does not fit, as with
+ * the phone's largest text: a number with its last digits cut off reads as another number.
+ */
+@Composable
+fun FitText(text: String, style: TextStyle, modifier: Modifier = Modifier, color: Color = Color.Unspecified) {
+    val width = LocalConfiguration.current.screenWidthDp
+    // Starts at the full size for each new amount; an amount that fits never changes size.
+    var scale by remember(text, style, width) { mutableFloatStateOf(1f) }
+    Text(
+        text,
+        modifier = modifier,
+        color = color,
+        style = if (style.fontSize.isSpecified) style.copy(fontSize = style.fontSize * scale) else style,
+        maxLines = 1,
+        softWrap = false,
+        onTextLayout = { layout ->
+            if (layout.didOverflowWidth && scale > MIN_FIT_SCALE) scale = (scale * FIT_STEP).coerceAtLeast(MIN_FIT_SCALE)
+        },
+    )
+}
+
+private const val FIT_STEP = 0.9f
+private const val MIN_FIT_SCALE = 0.5f
 
 /** A small caption over a value. */
 @Composable

@@ -36,7 +36,8 @@ import java.io.File
  * his own numbers, saved, found among the dishes, re-priced when meat gets dearer (a slip of a zero
  * flagged on the way, and the change shown before it is saved), an ingredient price updated from the
  * list, the detailed screens, then a food cost target for main dishes and the calculation shared as
- * text. Screenshots of each step are left in the app's files for the workflow to collect.
+ * text. Last, the switch to rials keeps the calculation as it was, and the phone's largest text cuts
+ * off no amount. Screenshots of each step are left in the app's files for the workflow to collect.
  */
 @RunWith(AndroidJUnit4::class)
 class WalkThroughTest {
@@ -219,6 +220,45 @@ class WalkThroughTest {
 
         share()
         darkTheme()
+
+        // Switched to rials, the calculation is the same plate: 364,105 toman is 3,641,050 rials.
+        click("تنظیمات")
+        click("ریال")
+        click("ماشین‌حساب")
+        waitForFigure("cost", "۳٬۶۴۱٬۰۵۰")
+        largeText()
+    }
+
+    /**
+     * The amounts in rials with the phone's text larger and largest, for a look that no amount is
+     * cut off. A missing picture fails nothing.
+     */
+    private fun largeText() {
+        try {
+            textSize("1.5")
+            show("cost")
+            shot("24-larger-text")
+            textSize("2.0")
+            show("cost")
+            shot("25-largest-text")
+            show("channel-remaining")
+            shot("26-largest-text-channels")
+            click("غذاها")
+            waitFor("چلوکباب کوبیده")
+            shot("27-largest-text-dishes")
+        } catch (e: Throwable) {
+            // The walk itself is done.
+        } finally {
+            shell("settings put system font_scale 1.0")
+        }
+    }
+
+    /** Sets the phone's text size; the app's screen is made again with it. */
+    private fun textSize(scale: String) {
+        shell("settings put system font_scale $scale")
+        Thread.sleep(3000)
+        rule.waitForIdle()
+        waitForTag("cost")
     }
 
     /** The calculation handed to the phone's share sheet as text. A missing picture fails nothing. */

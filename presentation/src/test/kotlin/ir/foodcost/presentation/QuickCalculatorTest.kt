@@ -18,6 +18,7 @@ import ir.foodcost.core.units.Uom
 import ir.foodcost.data.clock.HybridClock
 import ir.foodcost.data.ledger.Ledger
 import ir.foodcost.data.ops.Actor
+import ir.foodcost.data.ops.Opt
 import ir.foodcost.data.ops.Role
 import ir.foodcost.data.store.InMemoryOperationStore
 import org.junit.jupiter.api.Test
@@ -436,10 +437,78 @@ class QuickCalculatorTest {
             .copy(menuPrice = "630000", miscPercent = BigDecimal("2.5"), category = "غذای اصلی")
             .plusExtra(QuickExtra("ظرف و بسته‌بندی", "15000", takeawayOnly = true))
             .withRow(4, QuickRow("زعفران", "", "0.5", Uom.MESGHAL))
-        assertEquals(draft, QuickDrafts.decode(QuickDrafts.encode(draft)))
-        assertEquals(QuickInput(), QuickDrafts.decode(QuickDrafts.encode(QuickInput())))
-        assertNull(QuickDrafts.decode("{"))
-        assertNull(QuickDrafts.decode("""{"v":99}"""))
+        assertEquals(draft, QuickDrafts.decode(QuickDrafts.encode(draft, DisplayCurrency.TOMAN), DisplayCurrency.TOMAN))
+        assertEquals(QuickInput(), QuickDrafts.decode(QuickDrafts.encode(QuickInput(), DisplayCurrency.TOMAN), DisplayCurrency.TOMAN))
+        assertNull(QuickDrafts.decode("{", DisplayCurrency.TOMAN))
+        assertNull(QuickDrafts.decode("""{"v":99}""", DisplayCurrency.TOMAN))
+    }
+
+    @Test
+    fun `a change of currency turns the calculator's amounts into the new currency, so every figure stays`() {
+        val rial = MoneyFormat(DisplayCurrency.RIAL)
+        val draft = koobideh("630000").plusExtra(QuickExtra("ظرف و بسته‌بندی", "15000", takeawayOnly = true))
+        val inRials = QuickDrafts.convert(draft, DisplayCurrency.TOMAN, DisplayCurrency.RIAL)
+        assertEquals(listOf("14500000", "11000000", "800000", "3500000", ""), inRials.rows.map { it.price })
+        assertEquals("6300000", inRials.menuPrice)
+        assertEquals("150000", inRials.extras.single().amount)
+        assertEquals(draft.rows.map { it.qty }, inRials.rows.map { it.qty }) // grams are not money
+
+        // The same plate: 364,105 toman is 3,641,050 rials, at the same food cost.
+        val before = QuickCalculator.compute(draft, ledger().state, toman, today)
+        val after = QuickCalculator.compute(inRials, ledger().state, rial, today)
+        assertEquals("۳۶۴٬۱۰۵ تومان", before.totalCost)
+        assertEquals("۳٬۶۴۱٬۰۵۰ ریال", after.totalCost)
+        assertEquals("۶۳٫۶٪", after.foodCostPercent)
+        assertEquals(before.foodCostPercent, after.foodCostPercent)
+        assertEquals(before.totalCostRials, after.totalCostRials)
+        assertEquals(before.suggestedRials, after.suggestedRials)
+
+        // Back to toman as it was typed; 1,450,000 toman is 1,450 new rials.
+        assertEquals(draft, QuickDrafts.convert(inRials, DisplayCurrency.RIAL, DisplayCurrency.TOMAN))
+        assertEquals("1450", QuickDrafts.convert(draft, DisplayCurrency.TOMAN, DisplayCurrency.NEW_RIAL).rows[0].price)
+
+        // Whatever is not an amount stays as typed, to be corrected on the screen.
+        val odd = QuickInput(menuPrice = "۶۳۰ هزار").withRow(0, QuickRow("گوشت", "", "170"))
+        assertEquals(odd, QuickDrafts.convert(odd, DisplayCurrency.TOMAN, DisplayCurrency.RIAL))
+
+        // A draft kept in toman and read after the switch to rials comes back in rials; one kept
+        // before drafts recorded their currency is read as typed.
+        assertEquals(inRials, QuickDrafts.decode(QuickDrafts.encode(draft, DisplayCurrency.TOMAN), DisplayCurrency.RIAL))
+        val older = QuickDrafts.encode(draft, DisplayCurrency.TOMAN).replace("\"currency\":\"TOMAN\",", "")
+        assertTrue("currency" !in older)
+        assertEquals(draft, QuickDrafts.decode(older, DisplayCurrency.RIAL))
+    }
+
+    @Test
+    fun `a calculation whose dish was archived since is saved as a new dish, not into the hidden one`() {
+        val ledger = ledger()
+        val first = QuickCalculator.save(ledger, valid(QuickCalculator.check(koobideh("630000"), ledger.state, toman, today)), today)
+        val draft = assertNotNull(QuickCalculator.open(ledger.state, first, today, toman))
+        assertEquals(draft, QuickCalculator.current(draft, ledger.state))
+
+        // The dish is archived from the dishes list while the calculator still holds it.
+        assertIs<Ledger.Outcome.Applied>(ledger.updateRecipe(first, archived = Opt.Value(true)))
+        assertNull(QuickCalculator.current(draft, ledger.state).recipeId)
+        val plan = valid(QuickCalculator.check(draft, ledger.state, toman, today))
+        assertNull(plan.recipeId)
+        assertTrue(QuickCalculator.review(draft, plan, ledger.state, toman, today).changes.isEmpty())
+
+        val second = QuickCalculator.save(ledger, plan, today)
+        assertTrue(second != first)
+        assertEquals(true, ledger.state.recipes[first]?.archived)
+        assertEquals(listOf(second), MenuStatusScreen.build(ledger.state, today, toman).rows.map { it.recipeId })
+
+        // Even a plan made before the dish was archived does not change it.
+        val other = ledger()
+        val kept = QuickCalculator.save(other, valid(QuickCalculator.check(koobideh("630000"), other.state, toman, today)), today)
+        val dearer = assertNotNull(QuickCalculator.open(other.state, kept, today, toman)).copy(menuPrice = "700000")
+        val stale = valid(QuickCalculator.check(dearer, other.state, toman, today))
+        assertEquals(kept, stale.recipeId)
+        assertIs<Ledger.Outcome.Applied>(other.updateRecipe(kept, archived = Opt.Value(true)))
+        val made = QuickCalculator.save(other, stale, today)
+        assertTrue(made != kept)
+        assertEquals(6_300_000L, other.state.catalog.menuPriceAt(kept, today)?.rials)
+        assertEquals(7_000_000L, other.state.catalog.menuPriceAt(made, today)?.rials)
     }
 
     @Test
