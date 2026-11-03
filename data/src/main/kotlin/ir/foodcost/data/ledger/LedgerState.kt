@@ -109,7 +109,24 @@ data class RecipeRecord(
 
 data class PriceRecord(val priceId: String, val price: PurchasePrice, val recordedAt: Hlc, val voided: Boolean)
 
-data class ClosedPeriod(val through: LocalDate, val snapshot: MenuSnapshot?, val closedAt: Hlc, val closedBy: Actor)
+data class ClosedPeriod(
+    val through: LocalDate,
+    val snapshot: MenuSnapshot?,
+    val closedAt: Hlc,
+    val closedBy: Actor,
+    /** For each device, the latest of its changes the close had; null for closes that did not keep it. */
+    val seen: Map<String, Hlc>? = null,
+) {
+    /**
+     * Whether the close had [op] when it was made. A change it had not seen, recorded after it or
+     * on a phone that had not heard of it, stays out of the days it closed.
+     */
+    fun saw(op: Operation): Boolean {
+        if (op.at > closedAt) return false
+        val known = seen ?: return true // a close that did not keep what it had seen counts everything before it
+        return known[op.at.device]?.let { op.at <= it } == true
+    }
+}
 
 enum class RejectReason {
     /** The change would alter a day inside a closed period. */
@@ -211,17 +228,30 @@ data class LedgerState(
             CostingRules(), PricingSettings(), null, emptyList(), emptyList(), emptySet(), null,
         )
 
-        /** Applies [operations] in [Operation.ORDER]; duplicates count once. */
+        /**
+         * Applies [operations] in [Operation.ORDER]; duplicates count once. The periods still closed
+         * at the end are worked out first, from the closes and reopenings alone, so that a change
+         * the close of its day had not seen stays out of that day wherever it sits in the order.
+         */
         fun fold(operations: Collection<Operation>): LedgerState {
-            val builder = StateBuilder(EMPTY)
-            operations.sortedWith(Operation.ORDER).forEach { builder.add(it) }
+            val sorted = operations.sortedWith(Operation.ORDER)
+            val closes = StateBuilder(EMPTY).apply { sorted.filter { it.change.isPeriodChange }.forEach { add(it) } }.build().closedPeriods
+            val builder = StateBuilder(EMPTY, closes)
+            sorted.forEach { builder.add(it) }
             return builder.build()
         }
     }
 }
 
-/** Applies operations one at a time. They must come in [Operation.ORDER]. */
-internal class StateBuilder(from: LedgerState) {
+/** Whether the change closes or reopens a period. */
+internal val Change.isPeriodChange: Boolean get() = this is Change.PeriodClosed || this is Change.PeriodReopened
+
+/**
+ * Applies operations one at a time. They must come in [Operation.ORDER]. [finalCloses] are the
+ * periods still closed once every operation is applied, when they are known ahead; without them
+ * the periods closed so far count, which is the same when no close or reopening comes later.
+ */
+internal class StateBuilder(from: LedgerState, private val finalCloses: List<ClosedPeriod>? = null) {
     private val ingredients = LinkedHashMap(from.ingredients)
     private val prices = LinkedHashMap(from.prices)
     private val recipes = LinkedHashMap(from.recipes)
@@ -313,7 +343,7 @@ internal class StateBuilder(from: LedgerState) {
             }
             is Change.PeriodClosed -> {
                 lockedThrough = c.through
-                closedPeriods += ClosedPeriod(c.through, c.snapshot, op.at, op.actor)
+                closedPeriods += ClosedPeriod(c.through, c.snapshot, op.at, op.actor, c.seen)
             }
             is Change.PeriodReopened -> {
                 closedPeriods.removeAll { !it.through.isBefore(c.from) }
@@ -397,8 +427,11 @@ internal class StateBuilder(from: LedgerState) {
             is Change.MenuPriceRemoved -> c.effectiveFrom
             else -> null
         }
-        val locked = lockedThrough
-        if (day != null && locked != null && !day.isAfter(locked)) return RejectReason.PERIOD_CLOSED
+        // A closed day stays as its close found it: a change for it that the close had not seen,
+        // recorded after it or arriving late from a phone that recorded it earlier, stays out
+        // until the period is reopened, the same on every phone whatever order things arrive in.
+        val closes = finalCloses ?: closedPeriods
+        if (day != null && closes.any { !day.isAfter(it.through) && !it.saw(op) }) return RejectReason.PERIOD_CLOSED
         return null
     }
 

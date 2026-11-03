@@ -6,6 +6,7 @@ import ir.foodcost.core.costing.RecipeCost
 import ir.foodcost.core.model.Recipe
 import ir.foodcost.core.model.RecipeKind
 import ir.foodcost.core.model.SalesChannel
+import ir.foodcost.core.money.MAX_RIALS
 import ir.foodcost.core.money.PriceRounding
 import ir.foodcost.core.over
 import java.math.BigDecimal
@@ -138,6 +139,11 @@ data class PriceSuggestion(
     val vatFactor: BigDecimal,
     /** The recipe's own costs that are not food, for a portion eaten in. */
     val extras: BigDecimal = BigDecimal.ZERO,
+    /**
+     * The price is beyond [ir.foodcost.core.money.MAX_RIALS], which only absurd input reaches:
+     * [menuPrice] then holds that ceiling and is no price, and the evaluation counts as incomplete.
+     */
+    val tooLarge: Boolean = false,
 ) {
     /** Food, the recipe's other costs and the overhead share: the base of prices on the full cost. */
     val fullCost: BigDecimal get() = foodCost + extras + overhead
@@ -205,7 +211,8 @@ class Pricer(private val settings: PricingSettings) {
         settings.minimumGrossProfitRials?.let { net = net.max(food + BigDecimal(it)) }
         val vatFactor = settings.vatFactor
         val gross = net.multiply(vatFactor)
-        return PriceSuggestion(method, food, overhead, net, gross, settings.rounding.apply(gross), vatFactor, extras)
+        val rounded = settings.rounding.apply(gross)
+        return PriceSuggestion(method, food, overhead, net, gross, rounded ?: MAX_RIALS, vatFactor, extras, tooLarge = rounded == null)
     }
 
     private fun overheadFor(recipe: Recipe): BigDecimal =
@@ -214,8 +221,11 @@ class Pricer(private val settings: PricingSettings) {
     /** The recipe's own other costs for [channel] and its share of the overhead: everything but food and commission. */
     fun otherCosts(cost: RecipeCost, channel: SalesChannel): BigDecimal = cost.extrasPerPortion(channel) + overheadFor(cost.recipe)
 
-    /** The price of [channel] when the menu in the restaurant says [menuPrice]: online prices carry the uplift. */
-    fun channelPrice(menuPrice: Long, channel: SalesChannel): Long {
+    /**
+     * The price of [channel] when the menu in the restaurant says [menuPrice]: online prices carry
+     * the uplift. Null when that puts it beyond [MAX_RIALS].
+     */
+    fun channelPrice(menuPrice: Long, channel: SalesChannel): Long? {
         val uplift = settings.online.priceUpliftPercent
         if (channel != SalesChannel.ONLINE || uplift.signum() == 0) return menuPrice
         return settings.rounding.apply(BigDecimal(menuPrice).multiply(BigDecimal.ONE + uplift.asFraction()))
@@ -263,7 +273,7 @@ class Pricer(private val settings: PricingSettings) {
         val suggestion = suggest(cost)
         val status = when {
             !cost.hasLines -> PriceStatus.EMPTY
-            !cost.isComplete -> PriceStatus.INCOMPLETE
+            !cost.isComplete || suggestion.tooLarge -> PriceStatus.INCOMPLETE
             currentPrice == null -> PriceStatus.NO_PRICE
             suggestion.grossPrice.signum() <= 0 -> PriceStatus.OK
             else -> {

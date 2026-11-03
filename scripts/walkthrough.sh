@@ -12,7 +12,8 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb logcat -c || true
 
-adb shell am instrument -w -e class ir.foodcost.app.WalkThroughTest "$APP.test/androidx.test.runner.AndroidJUnitRunner" | tee walkthrough.log
+# The walk-through, and the tests of the phone's own database, which uses a file of its own.
+adb shell am instrument -w -e class ir.foodcost.app.WalkThroughTest,ir.foodcost.app.data.SqliteOperationStoreTest "$APP.test/androidx.test.runner.AndroidJUnitRunner" | tee walkthrough.log
 
 mkdir -p screenshots
 for f in $(adb shell run-as "$APP" ls files/screenshots | tr -d '\r'); do
@@ -20,7 +21,7 @@ for f in $(adb shell run-as "$APP" ls files/screenshots | tr -d '\r'); do
 done
 adb logcat -d '*:E' > logcat.txt || true
 failed=0
-grep -q "^OK (1 test)" walkthrough.log || failed=1
+grep -qE "^OK \([0-9]+ tests?\)" walkthrough.log || failed=1
 
 # The release build is shrunk by R8, which the test above does not cover: it must start too.
 adb install -r app/build/outputs/apk/release/app-release.apk

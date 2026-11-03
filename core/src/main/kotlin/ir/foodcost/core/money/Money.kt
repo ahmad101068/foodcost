@@ -5,6 +5,12 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 
 /**
+ * The largest amount the app takes or puts forward, a million billion rials: far beyond any real
+ * price or cost, and safely inside whole rials. Only absurd input reaches it.
+ */
+const val MAX_RIALS: Long = 1_000_000_000_000_000L
+
+/**
  * How amounts are shown and typed. Storage is always whole current rials, so every currency
  * converts exactly and switching the display never changes a stored number.
  */
@@ -48,8 +54,12 @@ data class PriceRounding(val stepRials: Long = 1, val direction: Direction = Dir
         require(stepRials >= 1) { "The rounding step must be at least one rial" }
     }
 
-    /** Rounds to whole steps and never returns less than one step. Zero or less returns 0. */
-    fun apply(amountRials: BigDecimal): Long {
+    /**
+     * Rounds to whole steps and never returns less than one step. Zero or less returns 0. Null
+     * beyond [MAX_RIALS]: such a price comes only from absurd input, and is said to be too large
+     * rather than shown as a number that looks like a price.
+     */
+    fun apply(amountRials: BigDecimal): Long? {
         if (amountRials.signum() <= 0) return 0
         val step = BigDecimal(stepRials)
         // Cut the noise that repeating divisions leave in the last digits,
@@ -60,12 +70,11 @@ data class PriceRounding(val stepRials: Long = 1, val direction: Direction = Dir
             Direction.NEAREST -> steps.setScale(0, RoundingMode.HALF_UP)
             Direction.DOWN -> steps.setScale(0, RoundingMode.FLOOR)
         }.max(BigDecimal.ONE)
-        // A price beyond whole rials comes only from absurd input; it shows as the largest amount
-        // there is, which no one takes for a price, rather than stopping the screen.
-        return whole.multiply(step).min(LARGEST).longValueExact()
+        val rounded = whole.multiply(step)
+        return if (rounded > LARGEST) null else rounded.longValueExact()
     }
 
     private companion object {
-        val LARGEST: BigDecimal = BigDecimal(Long.MAX_VALUE)
+        val LARGEST: BigDecimal = BigDecimal(MAX_RIALS)
     }
 }

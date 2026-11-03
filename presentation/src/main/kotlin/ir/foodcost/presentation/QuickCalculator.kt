@@ -173,9 +173,19 @@ data class QuickResult(
     val explanations: Map<String, String> = emptyMap(),
     /** True when a row or another cost is not complete, so the figures leave it out and are not final. */
     val provisional: Boolean = false,
+    /** The names of the rows and other costs not complete, which the figures leave out. */
+    val leftOut: List<String> = emptyList(),
 ) {
     /** The suggested price's name, saying when it leaves out what is not complete yet. */
     val suggestedLabel: String get() = if (provisional) "قیمت پیشنهادی (ناقص)" else "قیمت پیشنهادی"
+
+    /** «پیاز» کامل نیست و در جمع نیامده است: what the figures of an incomplete calculation leave out. */
+    val leftOutNote: String?
+        get() = when (leftOut.size) {
+            0 -> null
+            1 -> "«${leftOut[0]}» کامل نیست و در جمع نیامده است."
+            else -> leftOut.dropLast(1).joinToString("، ") { "«$it»" } + " و «${leftOut.last()}» کامل نیستند و در جمع نیامده‌اند."
+        }
 }
 
 data class QuickSuggestion(val id: IngredientId, val name: String, val detail: String)
@@ -355,8 +365,12 @@ object QuickCalculator {
             miscNote = "با ${Numbers.percent(cost.miscPercent)} برای نمک، ادویه و روغن",
             method = Labels.method(s.method) + (section?.let { " برای $it" } ?: ""),
             pricesFoodOnly = basisOf(s.method) == CostBasis.FOOD_COST,
-            suggested = if (hasLines) money.full(s.menuPrice) else null,
-            suggestedRials = if (hasLines) s.menuPrice else null,
+            suggested = when {
+                !hasLines -> null
+                s.tooLarge -> Labels.TOO_LARGE_PRICE
+                else -> money.full(s.menuPrice)
+            },
+            suggestedRials = s.menuPrice.takeIf { hasLines && !s.tooLarge },
             netSales = sale?.let { money.full(it.netSales) },
             foodCostPercent = sale?.foodCostPercent?.let { Numbers.percent(it) },
             remaining = sale?.let { signed(it.remaining, money) },
@@ -379,6 +393,12 @@ object QuickCalculator {
             remainingRials = sale?.remaining,
             explanations = if (hasLines) explanations(cost.foodCostPerPortion, other, sale, s, maxCost, menuRials, state.pricing.vatFactor, money) else emptyMap(),
             provisional = hasLines && (problems.isNotEmpty() || extraResults.any { it.problem != null }),
+            leftOut = if (!hasLines) {
+                emptyList()
+            } else {
+                input.rows.indices.filter { it in problems }.map { i -> input.rows[i].name.trim().ifEmpty { "ردیف ${Persian.digits(i + 1)}" } } +
+                    input.extras.indices.filter { extraResults[it].problem != null }.map { input.extras[it].name.trim().ifEmpty { "هزینه" } }
+            },
         )
     }
 
@@ -435,6 +455,7 @@ object QuickCalculator {
             is PricingMethod.Markup -> "${a(base(m.basis))} × (۱۰۰٪ + ${Numbers.percent(m.percent)})"
         }
         val vat = if (s.vatFactor.compareTo(BigDecimal.ONE) == 0) "" else "، با مالیات ${a(s.grossPrice)}"
+        if (s.tooLarge) return "$start = ${a(s.netPrice)}$vat؛ این مبلغ بیش از حد بزرگ است، مقدار و قیمت ردیف‌ها را ببینید."
         return "$start = ${a(s.netPrice)}$vat، گرد شده ${money.full(s.menuPrice)}"
     }
 
@@ -534,8 +555,9 @@ object QuickCalculator {
             list += row(takeaway, pricer.priceLeaving(dineIn.remaining, cost, SalesChannel.TAKEAWAY))
         }
         if (online) {
-            val price = pricer.channelPrice(dineIn.price, SalesChannel.ONLINE)
-            list += row(pricer.sale(cost, SalesChannel.ONLINE, price), pricer.priceLeaving(dineIn.remaining, cost, SalesChannel.ONLINE))
+            pricer.channelPrice(dineIn.price, SalesChannel.ONLINE)?.let { price ->
+                list += row(pricer.sale(cost, SalesChannel.ONLINE, price), pricer.priceLeaving(dineIn.remaining, cost, SalesChannel.ONLINE))
+            }
         }
         return if (list.size > 1) list else emptyList()
     }
@@ -743,9 +765,14 @@ object QuickCalculator {
      * The calculation as plain text, to send to a partner or the kitchen: each ingredient with its
      * quantity, price and cost, the other costs, then the figures on the display.
      */
-    fun shareText(input: QuickInput, result: QuickResult, money: MoneyFormat): String = buildString {
+    /**
+     * The calculation as text to send. [unreadable] stored changes that could not be read are said
+     * too: the prices of saved ingredients may be without them.
+     */
+    fun shareText(input: QuickInput, result: QuickResult, money: MoneyFormat, unreadable: Int = 0): String = buildString {
         appendLine(input.dishName.trim().ifEmpty { "محاسبهٔ فودکاست" })
         if (result.provisional) appendLine("این حساب ناقص است؛ عددهای آن قطعی نیستند.")
+        if (unreadable > 0) appendLine(BackupTexts.unreadableShort(unreadable))
         input.category?.let { appendLine("بخش منو: $it") }
         appendLine()
         appendLine("${portionsLabel(input)}:")
@@ -765,7 +792,7 @@ object QuickCalculator {
                 appendLine("• ${extra.name.trim().ifEmpty { "هزینه" }}$note: ${money.full(rials)}")
             }
         }
-        if (result.incompleteRows > 0) appendLine("${Persian.digits(result.incompleteRows)} ردیف کامل نیست و در جمع نیامده است.")
+        result.leftOutNote?.let { appendLine(it) }
         appendLine()
         appendLine("بهای مواد هر پرس: ${result.costPerPortion}، ${result.miscNote}")
         result.otherCosts?.let { appendLine("هزینهٔ هر پرس با هزینه‌های دیگر: ${result.totalCost}") }

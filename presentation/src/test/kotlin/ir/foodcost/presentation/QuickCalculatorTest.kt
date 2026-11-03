@@ -492,12 +492,21 @@ class QuickCalculatorTest {
         val text = QuickCalculator.shareText(partial, result, toman)
         assertEquals("این حساب ناقص است؛ عددهای آن قطعی نیستند.", text.lines()[1])
         assertTrue("قیمت پیشنهادی (ناقص): " in text)
+        // What is left out is named, on the screen and in the text.
+        assertEquals(listOf("دمبه"), result.leftOut)
+        assertEquals("«دمبه» کامل نیست و در جمع نیامده است.", result.leftOutNote)
+        assertTrue("«دمبه» کامل نیست و در جمع نیامده است." in text)
+        val two = partial.withRow(2, QuickRow("", "50000", ""))
+        assertEquals("«دمبه» و «ردیف ۳» کامل نیستند و در جمع نیامده‌اند.", QuickCalculator.compute(two, ledger().state, toman, today).leftOutNote)
+        // Stored changes that could not be read are said in the text as well.
+        assertEquals(BackupTexts.unreadableShort(2), QuickCalculator.shareText(koobideh(), QuickCalculator.compute(koobideh(), ledger().state, toman, today), toman, unreadable = 2).lines()[1])
         // Saving it is refused until the price is written.
         assertIs<Checked.Invalid>(QuickCalculator.check(partial.copy(dishName = "کوبیده"), ledger().state, toman, today))
 
         val complete = QuickCalculator.compute(koobideh(), ledger().state, toman, today)
         assertFalse(complete.provisional)
         assertEquals("قیمت پیشنهادی", complete.suggestedLabel)
+        assertEquals(null, complete.leftOutNote)
     }
 
     @Test
@@ -510,10 +519,14 @@ class QuickCalculatorTest {
         val refused = assertIs<Checked.Invalid>(QuickCalculator.check(slip, ledger().state, toman, today))
         assertTrue(refused.errors.values.any { "«گوشت» بیش از حد بزرگ است" in it })
 
-        // The largest amount taken, for ten tonnes: the suggestion is past whole rials and shows as the largest there is.
+        // The largest amount taken, for ten tonnes: the suggestion is past the largest amount, and is
+        // said to be too large rather than shown as a number that looks like a price (audit of 0.7.0, FCA-013).
         val largest = QuickInput(dishName = "مجلس").withRow(0, QuickRow("زعفران", "100000000000000", "10000000"))
         val big = QuickCalculator.compute(largest, ledger().state, toman, today)
-        assertEquals(Long.MAX_VALUE, big.suggestedRials)
+        assertEquals(null, big.suggestedRials)
+        assertEquals("بیش از حد بزرگ", big.suggested)
+        assertEquals(PriceStatus.INCOMPLETE, big.status)
+        assertTrue("بیش از حد بزرگ" in big.explanations.getValue(Glossary.SUGGESTED))
     }
 
     @Test

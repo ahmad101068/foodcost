@@ -97,9 +97,13 @@ object MenuStatusScreen {
             statusLabel = Labels.status(item.status),
             foodCost = costText(item.cost.hasLines, item.cost.isComplete, item.cost.foodCostPerPortion, money),
             menuPrice = e.currentPrice?.let { money.full(it) },
-            suggestedPrice = if (reliable) money.full(e.suggestion.menuPrice) else "نامشخص",
+            suggestedPrice = when {
+                !reliable -> "نامشخص"
+                e.suggestion.tooLarge -> Labels.TOO_LARGE_PRICE
+                else -> money.full(e.suggestion.menuPrice)
+            },
             foodCostPercent = e.foodCostPercent?.takeIf { reliable }?.let { Numbers.percent(it) },
-            raise = e.changePercent?.takeIf { reliable && item.needsRaise() && it.signum() > 0 }?.let { Numbers.percent(it, 0) },
+            raise = e.changePercent?.takeIf { reliable && !e.suggestion.tooLarge && item.needsRaise() && it.signum() > 0 }?.let { Numbers.percent(it, 0) },
             cost = costText(item.cost.hasLines, item.cost.isComplete, e.suggestion.fullCost, money),
             otherCosts = (e.suggestion.fullCost - e.suggestion.foodCost).takeIf { reliable && it.signum() > 0 }?.let { money.full(it) },
         )
@@ -299,7 +303,8 @@ data class LineRow(
 data class PricingInfo(
     val method: String,
     val suggested: String,
-    val suggestedRials: Long,
+    /** Null when the suggestion is too large to be a price. */
+    val suggestedRials: Long?,
     val menuPrice: String?,
     val menuPriceRials: Long?,
     val foodCostPercent: String?,
@@ -441,8 +446,8 @@ object RecipeScreens {
             } else {
                 PricingInfo(
                     method = Labels.method(s.method),
-                    suggested = money.full(s.menuPrice),
-                    suggestedRials = s.menuPrice,
+                    suggested = if (s.tooLarge) Labels.TOO_LARGE_PRICE else money.full(s.menuPrice),
+                    suggestedRials = s.menuPrice.takeIf { !s.tooLarge },
                     menuPrice = evaluation.currentPrice?.let { money.full(it) },
                     menuPriceRials = evaluation.currentPrice,
                     foodCostPercent = evaluation.foodCostPercent?.let { Numbers.percent(it) },

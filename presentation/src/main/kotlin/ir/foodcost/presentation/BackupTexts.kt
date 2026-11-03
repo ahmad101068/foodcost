@@ -11,8 +11,12 @@ object BackupTexts {
 
     const val WRONG_PASSWORD = "رمز درست نیست، یا فایل بعد از رمزگذاری عوض شده است."
 
-    /** The changes a backup would add, from when and where, for a look before importing it. */
-    fun preview(p: BackupPreview): String = buildString {
+    /**
+     * The changes a backup would add, from when and where, for a look before importing it, and
+     * whether the file was [sealed]: one locked with a password cannot have been changed since,
+     * one without could have been by anyone who had it.
+     */
+    fun preview(p: BackupPreview, sealed: Boolean): String = buildString {
         val parts = listOfNotNull(
             count(p.ingredients, "ماده"),
             count(p.prices, "قیمت خرید"),
@@ -48,12 +52,25 @@ object BackupTexts {
             appendLine()
             append("${Persian.digits(p.refused)} تغییر با قاعده‌ها جور نیست، مثل قیمتی برای روزی در دورهٔ بسته؛ نگه داشته می‌شود ولی چیزی را عوض نمی‌کند.")
         }
+        appendLine()
+        append(if (sealed) SEALED else NOT_SEALED)
     }
+
+    /** Said of a backup locked with a password, which opens only unchanged. */
+    const val SEALED = "این فایل رمز داشت و از وقتی ساخته شده عوض نشده است."
+
+    /** Said of a backup without a password: nothing shows who made it or that it was not changed. */
+    const val NOT_SEALED =
+        "این فایل رمز ندارد: هر کس به آن دسترسی داشته می‌توانسته آن را عوض کند. فقط فایلی را وارد کنید که خودتان ساخته‌اید یا از منبعش مطمئنید."
 
     /** Stored rows the app could not read, and what that means for the figures and for backups. */
     fun unreadable(count: Int): String =
         "${Persian.digits(count)} تغییر ذخیره‌شده خوانده نشد. عددهایی که می‌بینید این تغییرها را ندارند و پشتیبانی که بسازید هم آن‌ها را نخواهد داشت. " +
             "این ردیف‌ها روی گوشی می‌مانند و پاک نمی‌شوند؛ پیش از تصمیم مهم با پشتیبانی تماس بگیرید."
+
+    /** The same in one line, for the top of the screens with figures and for a calculation sent as text. */
+    fun unreadableShort(count: Int): String =
+        "${Persian.digits(count)} تغییر ذخیره‌شده خوانده نشد؛ عددها ممکن است کامل نباشند."
 
     private fun count(n: Int, what: String): String? = if (n > 0) "${Persian.digits(n)} $what" else null
 }

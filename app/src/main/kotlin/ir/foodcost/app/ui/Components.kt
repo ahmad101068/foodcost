@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
@@ -71,6 +72,7 @@ import androidx.compose.ui.unit.isSpecified
 import ir.foodcost.app.ui.theme.displayColors
 import ir.foodcost.app.ui.theme.statusColors
 import ir.foodcost.core.pricing.PriceStatus
+import ir.foodcost.presentation.BackupTexts
 import ir.foodcost.presentation.DigitGroups
 
 /** A tab's screen: a title on top and the tabs at the bottom. */
@@ -84,7 +86,12 @@ fun TabScaffold(
     content: @Composable (PaddingValues) -> Unit,
 ) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text(title) }, actions = topActions) },
+        topBar = {
+            Column {
+                TopAppBar(title = { Text(title) }, actions = topActions)
+                UnreadableWarning(actions)
+            }
+        },
         bottomBar = {
             NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest) {
                 Tab.entries.forEach { tab ->
@@ -104,6 +111,24 @@ fun TabScaffold(
     )
 }
 
+/**
+ * A line under the title on every screen while stored changes could not be read: the figures are
+ * without them, so none of them is shown as if it were complete.
+ */
+@Composable
+private fun UnreadableWarning(actions: AppActions) {
+    val count = actions.unreadableRows
+    if (count == 0) return
+    Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth().testTag("unreadable-warning")) {
+        Text(
+            BackupTexts.unreadableShort(count),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+        )
+    }
+}
+
 /** A screen opened from a tab, with a way back. */
 @Composable
 fun DetailScaffold(
@@ -116,15 +141,18 @@ fun DetailScaffold(
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                navigationIcon = {
-                    IconButton(onClick = { nav.back() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "بازگشت")
-                    }
-                },
-                actions = topActions,
-            )
+            Column {
+                TopAppBar(
+                    title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    navigationIcon = {
+                        IconButton(onClick = { nav.back() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "بازگشت")
+                        }
+                    },
+                    actions = topActions,
+                )
+                UnreadableWarning(actions)
+            }
         },
         floatingActionButton = floatingActionButton,
         snackbarHost = { SnackbarHost(actions.snackbar) },

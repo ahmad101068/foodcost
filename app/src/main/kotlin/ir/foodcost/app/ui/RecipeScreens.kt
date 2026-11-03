@@ -469,8 +469,10 @@ private fun MenuPriceDialog(pricing: PricingInfo, money: MoneyFormat, onDismiss:
                     supporting = money.parse(text)?.let { money.full(it) },
                     number = true,
                 )
-                TextButton(onClick = { text = money.editable(pricing.suggestedRials) }) {
-                    Text("همان قیمت پیشنهادی: ${pricing.suggested}")
+                pricing.suggestedRials?.let { suggested ->
+                    TextButton(onClick = { text = money.editable(suggested) }) {
+                        Text("همان قیمت پیشنهادی: ${pricing.suggested}")
+                    }
                 }
                 Text(
                     "قیمت تازه از امروز حساب می‌شود؛ قیمت روزهای قبل همان می‌ماند.",

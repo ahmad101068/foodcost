@@ -98,6 +98,7 @@ class OperationCodecTest {
                 MenuSnapshot(D31, listOf(MenuSnapshot.Item(dish, "کباب", 4_224_082, 13_500_000, 13_300_000, "34.42".bd, PriceStatus.OK))),
             ),
             Change.PeriodClosed(D31, null),
+            Change.PeriodClosed(D31, null, seen = mapOf("device-1" to Hlc(1_000, 3, "device-1"), "phone 2" to Hlc(900, 0, "phone 2"))),
             Change.PeriodReopened(D1),
         )
         changes.forEachIndexed { i, change ->
@@ -121,7 +122,20 @@ class OperationCodecTest {
         assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":99,"operations":[]}""") }
         assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":1,"operations":[{"id":"x"}]}""") }
         assertEquals(emptyList(), Backup.read("""{"format":"foodcost-backup","version":1,"operations":[]}"""))
-        assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":3,"operations":[]}""") }
+        assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":4,"operations":[]}""") }
+    }
+
+    @Test
+    fun `a backup with a close that says what it had seen is version 3, which the version before refuses rather than misreads`() {
+        val close = Operation(
+            OpId("c"), Hlc(5, 0, "A"), Actor("u", Role.OWNER),
+            Change.PeriodClosed(D31, null, seen = mapOf("A" to Hlc(4, 0, "A"))),
+        )
+        val written = Backup.write(listOf(close))
+        assertEquals(3, (Json.parse(written) as JsonObject).int("version"))
+        assertEquals(listOf(close), Backup.read(written))
+        // Without such a close a file stays version 2, which 0.7.0 opens.
+        assertEquals(2, (Json.parse(Backup.write(emptyList())) as JsonObject).int("version"))
     }
 
     @Test
