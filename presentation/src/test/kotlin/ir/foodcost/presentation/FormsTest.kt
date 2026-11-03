@@ -149,11 +149,20 @@ class FormsTest {
         assertNull(valid(input.copy(monthlyFixed = "", monthlyPortions = "").check(PricingSettings(), CostingRules(), toman)).pricing.overhead)
         assertEquals(setOf(Field.COMMISSION), errors(input.copy(onlineCommission = "100").check(PricingSettings(), CostingRules(), toman)))
 
-        // On every cost entered, a margin is no food cost share: switching keeps the number.
+        // On every cost entered, a margin and a markup still convert, staying on every cost.
         val full = input.copy(method = MethodChoice.MARGIN, percent = "30", basis = CostBasis.FULL_COST)
         assertEquals(PricingMethod.TargetMargin(BigDecimal(30), CostBasis.FULL_COST), valid(full.check(PricingSettings(), CostingRules(), toman)).pricing.defaultMethod)
-        assertEquals("30", full.withMethod(MethodChoice.MARKUP).percent)
-        assertNull(full.equivalents())
+        val markup = full.withMethod(MethodChoice.MARKUP)
+        assertEquals("42.86" to CostBasis.FULL_COST, markup.percent to markup.basis)
+        assertEquals("30", markup.withMethod(MethodChoice.MARGIN).percent)
+        assertEquals("یعنی مارک‌آپ ۴۲٫۹٪، روی همهٔ هزینه‌ها", full.equivalents())
+
+        // A food cost target measures the food alone: from every cost it has no equivalent, so the number is kept and marked.
+        val foodCost = full.withMethod(MethodChoice.FOOD_COST)
+        assertEquals("30" to true, foodCost.percent to foodCost.carried)
+        // Back to a margin from a food cost target, it starts on the food alone, where it puts the same price.
+        val back = foodCost.copy(percent = "35", carried = false).withMethod(MethodChoice.MARGIN)
+        assertEquals(Triple("65", CostBasis.FOOD_COST, false), Triple(back.percent, back.basis, back.carried))
     }
 
     @Test
