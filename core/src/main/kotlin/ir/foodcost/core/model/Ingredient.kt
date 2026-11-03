@@ -56,8 +56,13 @@ data class PurchasePrice(
         require(packageUom.dimension != Dimension.PORTION) { "A purchase cannot be in portions" }
         require(grossRials >= 0 && discountRials >= 0 && taxRials >= 0 && deliveryRials >= 0) { "Amounts cannot be negative" }
         require(discountRials <= grossRials) { "The discount cannot exceed the gross price" }
+        require(runCatching { netCostRials }.isSuccess) { "The total is beyond the range of whole rials" }
     }
 
-    /** Gross − discount + tax that is not claimed back + delivery. */
-    val netCostRials: Long get() = grossRials - discountRials + (if (taxRecoverable) 0 else taxRials) + deliveryRials
+    /**
+     * Gross − discount + tax that is not claimed back + delivery. Added exactly: a total beyond the
+     * range of whole rials is refused when the price is made, instead of coming out negative.
+     */
+    val netCostRials: Long
+        get() = Math.addExact(Math.addExact(grossRials - discountRials, if (taxRecoverable) 0L else taxRials), deliveryRials)
 }

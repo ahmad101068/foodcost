@@ -54,6 +54,7 @@ class CostEngine(
 
         /** The ingredients needed for [portions] portions, waste included, through every sub-recipe. */
         fun requirements(id: RecipeId, portions: BigDecimal): RequirementList {
+            require(portions.signum() > 0) { "What to buy is worked out for more than zero portions, not $portions" }
             val recipe = requireNotNull(catalog.recipe(id)) { "Unknown recipe $id" }
             val usable = LinkedHashMap<IngredientId, BigDecimal>()
             val purchase = LinkedHashMap<IngredientId, BigDecimal>()

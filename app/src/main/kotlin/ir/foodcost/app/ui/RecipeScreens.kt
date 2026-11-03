@@ -285,6 +285,7 @@ fun RecipeScreen(id: RecipeId, state: LedgerState, money: MoneyFormat, today: Lo
                         name = Opt.Value(input.name),
                         kind = Opt.Value(input.kind),
                         category = Opt.Value(input.categoryOrNull),
+                        effectiveFrom = today,
                     )
                 }) { dialog = null }
             },

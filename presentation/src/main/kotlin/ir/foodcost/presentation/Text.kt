@@ -175,16 +175,33 @@ class MoneyFormat(val currency: DisplayCurrency) {
     /** An amount as plain Latin digits in this currency, for putting back into a text field. */
     fun editable(rials: Long): String = Numbers.editable(currency.exact(rials))
 
-    /** Reads an amount typed in this currency. Null when it is not a number, is negative, or is finer than a rial. */
+    /**
+     * Reads an amount typed in this currency. Null when it is not a number, is negative, is finer
+     * than a rial, or is above [MAX_RIALS].
+     */
     fun parse(text: String): Long? {
         val value = Numbers.parse(text) ?: return null
         if (value.signum() < 0) return null
         return try {
-            currency.toRials(value)
+            currency.toRials(value).takeIf { it <= MAX_RIALS }
         } catch (e: IllegalArgumentException) {
             null
         } catch (e: ArithmeticException) {
             null
         }
+    }
+
+    /** Whether [text] is a number too large to be an amount, for saying so rather than that it is missing. */
+    fun tooLarge(text: String): Boolean {
+        val value = Numbers.parse(text) ?: return false
+        return value.signum() > 0 && value.multiply(java.math.BigDecimal(currency.rialsPerUnit)) > java.math.BigDecimal(MAX_RIALS)
+    }
+
+    companion object {
+        /**
+         * The largest amount the app takes: 10^15 rials, a hundred thousand billion tomans, far above any
+         * real price. Kept that low, totals and prices worked out from amounts stay within whole rials.
+         */
+        const val MAX_RIALS: Long = 1_000_000_000_000_000L
     }
 }

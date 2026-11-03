@@ -95,6 +95,7 @@ object OperationCodec {
             opt("yields", c.yields) { list -> jsonArray(list.map { jsonObject("name" to it.name.json, "ratio" to it.ratio.json) }) }
             opt("conversions", c.conversions) { encodeConversions(it) }
             opt("archived", c.archived) { it.json }
+            date("effectiveFrom", c.effectiveFrom)
         }
         is Change.PriceRecorded -> jsonObject("priceId" to c.priceId.json, "price" to encodePrice(c.price))
         is Change.PriceVoided -> jsonObject("priceId" to c.priceId.json)
@@ -104,6 +105,7 @@ object OperationCodec {
             opt("category", c.category) { it?.json ?: JsonNull }
             opt("pricing", c.pricing) { it?.let(::encodeMethod) ?: JsonNull }
             opt("archived", c.archived) { it.json }
+            date("effectiveFrom", c.effectiveFrom)
         }
         is Change.RecipeVersionSaved -> jsonObject("recipeId" to c.recipeId.value.json, "version" to encodeVersion(c.version))
         is Change.RecipeVersionRemoved -> jsonObject("recipeId" to c.recipeId.value.json, "validFrom" to c.validFrom.toString().json)
@@ -119,6 +121,7 @@ object OperationCodec {
         is Change.SettingsSaved -> jsonObject(
             "costing" to c.costing?.let(::encodeCosting),
             "pricing" to c.pricing?.let(::encodePricing),
+            "effectiveFrom" to c.effectiveFrom?.toString()?.json,
         )
         is Change.PeriodClosed -> jsonObject("through" to c.through.toString().json, "snapshot" to c.snapshot?.let(::encodeSnapshot))
         is Change.PeriodReopened -> jsonObject("from" to c.from.toString().json)
@@ -138,6 +141,7 @@ object OperationCodec {
             },
             conversions = d.opt("conversions") { decodeConversions(it.asObject("conversions")) },
             archived = d.opt("archived") { it.asBool("archived") },
+            effectiveFrom = d.dateOrNull("effectiveFrom"),
         )
         "PriceRecorded" -> Change.PriceRecorded(d.string("priceId"), decodePrice(d.obj("price")))
         "PriceVoided" -> Change.PriceVoided(d.string("priceId"))
@@ -148,6 +152,7 @@ object OperationCodec {
             category = d.opt("category") { if (it == JsonNull) null else it.asString("category") },
             pricing = d.opt("pricing") { if (it == JsonNull) null else decodeMethod(it.asObject("pricing")) },
             archived = d.opt("archived") { it.asBool("archived") },
+            effectiveFrom = d.dateOrNull("effectiveFrom"),
         )
         "RecipeVersionSaved" -> Change.RecipeVersionSaved(RecipeId(d.string("recipeId")), decodeVersion(d.obj("version")))
         "RecipeVersionRemoved" -> Change.RecipeVersionRemoved(RecipeId(d.string("recipeId")), date(d.string("validFrom")))
@@ -156,6 +161,7 @@ object OperationCodec {
         "SettingsSaved" -> Change.SettingsSaved(
             costing = if (d.has("costing")) decodeCosting(d.obj("costing")) else null,
             pricing = if (d.has("pricing")) decodePricing(d.obj("pricing")) else null,
+            effectiveFrom = d.dateOrNull("effectiveFrom"),
         )
         "PeriodClosed" -> Change.PeriodClosed(
             date(d.string("through")),
@@ -356,6 +362,9 @@ object OperationCodec {
         },
     )
 
+    /** Written before changes had a day they count from, an operation without one counts on every day. */
+    private fun JsonObject.dateOrNull(key: String): LocalDate? = if (has(key)) date(string(key)) else null
+
     private fun date(text: String): LocalDate = try {
         LocalDate.parse(text)
     } catch (e: java.time.format.DateTimeParseException) {
@@ -372,6 +381,10 @@ object OperationCodec {
         fun <T> opt(key: String, value: Opt<T>, encode: (T) -> JsonValue) {
             if (value is Opt.Value) fields[key] = encode(value.value)
         }
+
+        fun date(key: String, value: LocalDate?) {
+            if (value != null) fields[key] = value.toString().json
+        }
     }
 
     private fun fields(first: Pair<String, JsonValue>, block: FieldWriter.() -> Unit): JsonObject =
@@ -385,7 +398,13 @@ object OperationCodec {
 /** A whole backup: every operation, in the order the device stored them. */
 object Backup {
     private const val FORMAT = "foodcost-backup"
-    private const val VERSION = 1
+
+    /**
+     * 2 since a change can say from which day it counts. Versions of the app before that read
+     * only version 1, so they refuse a newer file whole rather than count its dated changes for
+     * every day. Files of version 1 read as they always did: none of their changes has a day.
+     */
+    const val VERSION = 2
 
     fun write(operations: List<Operation>): String = Json.write(
         jsonObject(
@@ -399,7 +418,7 @@ object Backup {
         val root = Json.parse(text).asObject("backup")
         if (root.stringOrNull("format") != FORMAT) throw JsonException("This file is not a food cost backup")
         val version = root.int("version")
-        if (version != VERSION) throw JsonException("Backup version $version is not supported")
+        if (version !in 1..VERSION) throw JsonException("Backup version $version is not supported")
         return root.array("operations").map { OperationCodec.decode(it.asObject("operation")) }
     }
 }

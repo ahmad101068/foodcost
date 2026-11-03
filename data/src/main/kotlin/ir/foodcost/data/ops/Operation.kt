@@ -67,6 +67,11 @@ sealed interface Change {
         val yields: Opt<List<YieldStage>> = Opt.Keep,
         val conversions: Opt<Conversions> = Opt.Keep,
         val archived: Opt<Boolean> = Opt.Keep,
+        /**
+         * The day a new yield or conversion starts to count; the days before keep the old one.
+         * Null counts it on every day, as for a new ingredient.
+         */
+        val effectiveFrom: LocalDate? = null,
     ) : Change
 
     /** A purchase price is only ever added; a wrong one is voided and entered again. */
@@ -81,6 +86,8 @@ sealed interface Change {
         val category: Opt<String?> = Opt.Keep,
         val pricing: Opt<PricingMethod?> = Opt.Keep,
         val archived: Opt<Boolean> = Opt.Keep,
+        /** The day a new menu section or pricing method starts to count; null counts it on every day. */
+        val effectiveFrom: LocalDate? = null,
     ) : Change
 
     /** Adds the version, or replaces the one that starts on the same day. */
@@ -92,8 +99,15 @@ sealed interface Change {
 
     data class MenuPriceRemoved(val recipeId: RecipeId, val effectiveFrom: LocalDate) : Change
 
-    /** Null leaves that part of the settings as it is. */
-    data class SettingsSaved(val costing: CostingRules? = null, val pricing: PricingSettings? = null) : Change
+    /**
+     * Null leaves that part of the settings as it is. The settings count from [effectiveFrom] on;
+     * the days before keep the old ones. Null counts them on every day.
+     */
+    data class SettingsSaved(
+        val costing: CostingRules? = null,
+        val pricing: PricingSettings? = null,
+        val effectiveFrom: LocalDate? = null,
+    ) : Change
 
     /** Closes every day up to [through]; [snapshot] keeps the official figures of the period. */
     data class PeriodClosed(val through: LocalDate, val snapshot: MenuSnapshot?) : Change

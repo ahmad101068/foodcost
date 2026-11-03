@@ -23,22 +23,49 @@ import ir.foodcost.data.ops.Actor
 import ir.foodcost.data.ops.Change
 import ir.foodcost.data.ops.OpId
 import ir.foodcost.data.ops.Operation
+import ir.foodcost.data.ops.Opt
 import ir.foodcost.data.ops.Role
 import ir.foodcost.data.ops.valueOr
 import java.time.LocalDate
 import java.util.TreeMap
+
+/**
+ * A value one change set, counting from [from] on; null counts it on every day. Of two that count
+ * from the same day, the one recorded later ([at]) wins, as with prices.
+ */
+data class Dated<T>(val from: LocalDate?, val at: Hlc, val value: T) {
+    internal val day: LocalDate get() = from ?: LocalDate.MIN
+}
+
+private fun <T> latestFirst(): Comparator<Dated<T>> = compareBy<Dated<T>>({ it.day }, { it.at })
+
+/** The value in force on [date]: the one that counts from the latest day on or before it. */
+fun <T> List<Dated<T>>.inForce(date: LocalDate): Dated<T>? = filter { !it.day.isAfter(date) }.maxWithOrNull(latestFirst())
+
+/** The value in force from the last day any of them counts from. */
+fun <T> List<Dated<T>>.latest(): Dated<T>? = maxWithOrNull(latestFirst())
+
+/**
+ * Whether [value] counting from [from] changes the value of any day: it does when it differs from
+ * the one in force on that day, which stays in force until the next day a change counts from.
+ */
+internal fun <T> List<Dated<T>>.changedBy(value: T, from: LocalDate?, default: T): Boolean =
+    (inForce(from ?: LocalDate.MIN)?.value ?: default) != value
 
 data class IngredientRecord(
     val id: IngredientId,
     val name: String?,
     val baseDimension: Dimension?,
     val category: String?,
+    /** The yield in force now; [yieldsHistory] has the days each one counted from. */
     val yields: List<YieldStage>,
     val conversions: Conversions,
     /** Hidden from pickers but still costed in the recipes that use it. */
     val archived: Boolean,
     val createdAt: Hlc,
     val updatedAt: Hlc,
+    val yieldsHistory: List<Dated<List<YieldStage>>> = emptyList(),
+    val conversionsHistory: List<Dated<Conversions>> = emptyList(),
 ) {
     /** The core model, once the name and the base dimension are known. */
     fun toIngredient(): Ingredient? {
@@ -46,23 +73,38 @@ data class IngredientRecord(
         val dimension = baseDimension ?: return null
         return Ingredient(id, n, dimension, yields, conversions, category)
     }
+
+    /** As it was on [date]: the yield and conversions in force that day. */
+    fun asOf(date: LocalDate): IngredientRecord = copy(
+        yields = yieldsHistory.inForce(date)?.value ?: emptyList(),
+        conversions = conversionsHistory.inForce(date)?.value ?: Conversions(),
+    )
 }
 
 data class RecipeRecord(
     val id: RecipeId,
     val name: String?,
     val kind: RecipeKind?,
+    /** The menu section in force now; [categoryHistory] has the days each one counted from. */
     val category: String?,
     val pricing: PricingMethod?,
     val archived: Boolean,
     val createdAt: Hlc,
     val updatedAt: Hlc,
+    val categoryHistory: List<Dated<String?>> = emptyList(),
+    val pricingHistory: List<Dated<PricingMethod?>> = emptyList(),
 ) {
     fun toRecipe(versions: Collection<RecipeVersion>): Recipe? {
         val n = name ?: return null
         val k = kind ?: return null
         return Recipe(id, n, k, versions.toList(), category, pricing)
     }
+
+    /** As it was on [date]: the section and pricing method in force that day. */
+    fun asOf(date: LocalDate): RecipeRecord = copy(
+        category = categoryHistory.inForce(date)?.value,
+        pricing = pricingHistory.inForce(date)?.value,
+    )
 }
 
 data class PriceRecord(val priceId: String, val price: PurchasePrice, val recordedAt: Hlc, val voided: Boolean)
@@ -111,6 +153,9 @@ data class LedgerState(
     val rejections: List<Rejection>,
     val appliedIds: Set<OpId>,
     val lastAt: Hlc?,
+    /** The costing rules with the days each counted from; [costing] is the one in force now. */
+    val costingHistory: List<Dated<CostingRules>> = emptyList(),
+    val pricingHistory: List<Dated<PricingSettings>> = emptyList(),
 ) {
     val periodLock: PeriodLock get() = PeriodLock(lockedThrough)
 
@@ -124,7 +169,41 @@ data class LedgerState(
         )
     }
 
-    fun calculator(): FoodCostCalculator = FoodCostCalculator(catalog, costing, pricing)
+    /** Works out each day on the yields, sections and settings in force that day. */
+    fun calculator(): FoodCostCalculator = FoodCostCalculator(catalog, costing, pricing, earlier = ::termsAt)
+
+    /** The last day a change to a yield, a conversion, a section, a pricing method or a setting counts from. */
+    private val lastTermsDay: LocalDate? by lazy {
+        val days = ArrayList<LocalDate>()
+        ingredients.values.forEach { r ->
+            r.yieldsHistory.mapNotNullTo(days) { it.from }
+            r.conversionsHistory.mapNotNullTo(days) { it.from }
+        }
+        recipes.values.forEach { r ->
+            r.categoryHistory.mapNotNullTo(days) { it.from }
+            r.pricingHistory.mapNotNullTo(days) { it.from }
+        }
+        costingHistory.mapNotNullTo(days) { it.from }
+        pricingHistory.mapNotNullTo(days) { it.from }
+        days.maxOrNull()
+    }
+
+    /** The catalog and settings in force on [date], or null when they are the ones in force now. */
+    private fun termsAt(date: LocalDate): FoodCostCalculator.Terms? {
+        val last = lastTermsDay ?: return null
+        if (!date.isBefore(last)) return null
+        val then = Catalog(
+            ingredients.values.mapNotNull { it.asOf(date).toIngredient() },
+            prices.values.filter { !it.voided }.map { it.price },
+            recipes.values.mapNotNull { it.asOf(date).toRecipe(versions[it.id].orEmpty().values) },
+            menuPrices.flatMap { (id, byDate) -> byDate.map { (day, rials) -> MenuPrice(id, day, rials) } },
+        )
+        return FoodCostCalculator.Terms(
+            then,
+            costingHistory.inForce(date)?.value ?: CostingRules(),
+            pricingHistory.inForce(date)?.value ?: PricingSettings(),
+        )
+    }
 
     companion object {
         val EMPTY = LedgerState(
@@ -152,6 +231,8 @@ internal class StateBuilder(from: LedgerState) {
         .apply { from.menuPrices.forEach { (id, byDate) -> put(id, TreeMap(byDate)) } }
     private var costing = from.costing
     private var pricing = from.pricing
+    private val costingHistory = ArrayList(from.costingHistory)
+    private val pricingHistory = ArrayList(from.pricingHistory)
     private var lockedThrough = from.lockedThrough
     private val closedPeriods = ArrayList(from.closedPeriods)
     private val rejections = ArrayList(from.rejections)
@@ -176,29 +257,41 @@ internal class StateBuilder(from: LedgerState) {
             is Change.IngredientSaved -> {
                 val old = ingredients[c.id]
                     ?: IngredientRecord(c.id, null, null, null, emptyList(), Conversions(), false, op.at, op.at)
+                val yieldsHistory = c.yields.dated(old.yieldsHistory, c.effectiveFrom, op, emptyList())
+                val conversionsHistory = c.conversions.dated(old.conversionsHistory, c.effectiveFrom, op, Conversions())
                 val new = old.copy(
                     name = c.name.valueOr(old.name),
                     baseDimension = c.baseDimension.valueOr(old.baseDimension),
                     category = c.category.valueOr(old.category),
-                    yields = c.yields.valueOr(old.yields),
-                    conversions = c.conversions.valueOr(old.conversions),
+                    yields = yieldsHistory.latest()?.value ?: emptyList(),
+                    conversions = conversionsHistory.latest()?.value ?: Conversions(),
                     archived = c.archived.valueOr(old.archived),
                     updatedAt = op.at,
+                    yieldsHistory = yieldsHistory,
+                    conversionsHistory = conversionsHistory,
                 )
-                if (new.name?.isBlank() == true || !followsCoreRules { new.toIngredient() }) return RejectReason.INVALID
+                // The new yield and conversions must follow the core's rules even if a later day's are in force now.
+                val asSet = new.copy(yields = c.yields.valueOr(new.yields), conversions = c.conversions.valueOr(new.conversions))
+                if (new.name?.isBlank() == true || !followsCoreRules { new.toIngredient() } || !followsCoreRules { asSet.toIngredient() }) {
+                    return RejectReason.INVALID
+                }
                 ingredients[c.id] = new
             }
             is Change.PriceRecorded -> prices[c.priceId] = PriceRecord(c.priceId, c.price, op.at, voided = false)
             is Change.PriceVoided -> prices[c.priceId] = prices.getValue(c.priceId).copy(voided = true)
             is Change.RecipeSaved -> {
                 val old = recipes[c.id] ?: RecipeRecord(c.id, null, null, null, null, false, op.at, op.at)
+                val categoryHistory = c.category.dated(old.categoryHistory, c.effectiveFrom, op, null)
+                val pricingHistory = c.pricing.dated(old.pricingHistory, c.effectiveFrom, op, null)
                 val new = old.copy(
                     name = c.name.valueOr(old.name),
                     kind = c.kind.valueOr(old.kind),
-                    category = c.category.valueOr(old.category),
-                    pricing = c.pricing.valueOr(old.pricing),
+                    category = categoryHistory.latest()?.value,
+                    pricing = pricingHistory.latest()?.value,
                     archived = c.archived.valueOr(old.archived),
                     updatedAt = op.at,
+                    categoryHistory = categoryHistory,
+                    pricingHistory = pricingHistory,
                 )
                 if (new.name?.isBlank() == true) return RejectReason.INVALID
                 recipes[c.id] = new
@@ -211,8 +304,12 @@ internal class StateBuilder(from: LedgerState) {
             }
             is Change.MenuPriceRemoved -> menuPrices.getValue(c.recipeId).remove(c.effectiveFrom)
             is Change.SettingsSaved -> {
-                c.costing?.let { costing = it }
-                c.pricing?.let { pricing = it }
+                c.costing?.takeIf { costingHistory.changedBy(it, c.effectiveFrom, CostingRules()) }
+                    ?.let { costingHistory += Dated(c.effectiveFrom, op.at, it) }
+                c.pricing?.takeIf { pricingHistory.changedBy(it, c.effectiveFrom, PricingSettings()) }
+                    ?.let { pricingHistory += Dated(c.effectiveFrom, op.at, it) }
+                costing = costingHistory.latest()?.value ?: CostingRules()
+                pricing = pricingHistory.latest()?.value ?: PricingSettings()
             }
             is Change.PeriodClosed -> {
                 lockedThrough = c.through
@@ -232,6 +329,10 @@ internal class StateBuilder(from: LedgerState) {
     } catch (e: IllegalArgumentException) {
         false
     }
+
+    /** [history] with this value added as of [from], when the change sets it and it changes some day's value. */
+    private fun <T> Opt<T>.dated(history: List<Dated<T>>, from: LocalDate?, op: Operation, default: T): List<Dated<T>> =
+        if (this is Opt.Value && history.changedBy(value, from, default)) history + Dated(from, op.at, value) else history
 
     private fun rejectionFor(op: Operation): RejectReason? {
         val c = op.change
@@ -264,7 +365,30 @@ internal class StateBuilder(from: LedgerState) {
             else -> {}
         }
 
-        val day: LocalDate? = when (c) {
+        // A new yield, conversion, section, pricing method or setting counts from its day on, or on
+        // every day without one: on a closed day it would change the official figures.
+        val termsDay: LocalDate? = when (c) {
+            is Change.IngredientSaved -> ingredients[c.id]?.let { old ->
+                val from = c.effectiveFrom
+                val changes = (c.yields is Opt.Value && old.yieldsHistory.changedBy(c.yields.value, from, emptyList())) ||
+                    (c.conversions is Opt.Value && old.conversionsHistory.changedBy(c.conversions.value, from, Conversions()))
+                if (changes) from ?: LocalDate.MIN else null
+            }
+            is Change.RecipeSaved -> recipes[c.id]?.let { old ->
+                val from = c.effectiveFrom
+                val changes = (c.category is Opt.Value && old.categoryHistory.changedBy(c.category.value, from, null)) ||
+                    (c.pricing is Opt.Value && old.pricingHistory.changedBy(c.pricing.value, from, null))
+                if (changes) from ?: LocalDate.MIN else null
+            }
+            is Change.SettingsSaved -> {
+                val from = c.effectiveFrom
+                val changes = c.costing?.let { costingHistory.changedBy(it, from, CostingRules()) } == true ||
+                    c.pricing?.let { pricingHistory.changedBy(it, from, PricingSettings()) } == true
+                if (changes) from ?: LocalDate.MIN else null
+            }
+            else -> null
+        }
+        val day: LocalDate? = termsDay ?: when (c) {
             is Change.PriceRecorded -> c.price.effectiveFrom
             is Change.PriceVoided -> prices.getValue(c.priceId).price.effectiveFrom
             is Change.RecipeVersionSaved -> c.version.validFrom
@@ -291,5 +415,7 @@ internal class StateBuilder(from: LedgerState) {
         rejections = rejections.toList(),
         appliedIds = HashSet(appliedIds),
         lastAt = lastAt,
+        costingHistory = costingHistory.toList(),
+        pricingHistory = pricingHistory.toList(),
     )
 }

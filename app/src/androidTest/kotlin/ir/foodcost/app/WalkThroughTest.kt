@@ -224,6 +224,7 @@ class WalkThroughTest {
         // Switched to rials, the calculation is the same plate: 364,105 toman is 3,641,050 rials.
         click("تنظیمات")
         click("ریال")
+        backupPassword()
         click("ماشین‌حساب")
         waitForFigure("cost", "۳٬۶۴۱٬۰۵۰")
         largeText()
@@ -253,6 +254,19 @@ class WalkThroughTest {
         } finally {
             shell("settings put system font_scale 1.0")
         }
+    }
+
+    /** A backup is offered a password, with why it is worth one; too short a password is refused. */
+    private fun backupPassword() {
+        click("ساخت پشتیبان")
+        waitFor("ساخت بدون رمز")
+        shot("29-backup-password")
+        type("رمز (اگر می‌خواهید)", "123")
+        click("ساخت با رمز")
+        waitFor("رمز دست‌کم ۶ حرف باشد.")
+        shot("30-backup-short-password")
+        click("برگشت")
+        rule.waitUntil(timeoutMillis = 15_000) { rule.onAllNodesWithText("ساخت با رمز").fetchSemanticsNodes().isEmpty() }
     }
 
     /** Sets the phone's text size; the app's screen is made again with it. */

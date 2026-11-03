@@ -358,7 +358,7 @@ private fun VoidPriceDialog(price: PriceRow, onDismiss: () -> Unit, onVoid: (Str
 
 /** The ingredient form, for a new ingredient when [id] is null. */
 @Composable
-fun IngredientEditScreen(id: IngredientId?, state: LedgerState, nav: Navigator, actions: AppActions) {
+fun IngredientEditScreen(id: IngredientId?, state: LedgerState, today: LocalDate, nav: Navigator, actions: AppActions) {
     val record = id?.let { state.ingredients[it] }
     val editing = record != null
     var input by remember(id) { mutableStateOf(record?.let { IngredientInput.of(it) } ?: IngredientInput()) }
@@ -457,6 +457,8 @@ fun IngredientEditScreen(id: IngredientId?, state: LedgerState, nav: Navigator, 
                                         category = Opt.Value(draft.category),
                                         yields = Opt.Value(draft.yields),
                                         conversions = Opt.Value(draft.conversions),
+                                        // A new yield counts from today on; the days before keep their costs.
+                                        effectiveFrom = today,
                                     )
                                 }) { nav.back() }
                             }
