@@ -2,7 +2,9 @@ package ir.foodcost.app.data
 
 import android.content.ContentValues
 import android.content.Context
+import android.database.DatabaseErrorHandler
 import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteDatabaseCorruptException
 import android.database.sqlite.SQLiteOpenHelper
 import ir.foodcost.data.json.Json
 import ir.foodcost.data.ops.OpId
@@ -10,15 +12,25 @@ import ir.foodcost.data.ops.Operation
 import ir.foodcost.data.ops.OperationCodec
 import ir.foodcost.data.store.OperationStore
 import ir.foodcost.data.store.StoredRows
+import java.io.File
+import java.io.IOException
 
 /**
  * Keeps operations in one append-only SQLite table on the phone. Each row holds the operation's
  * JSON, the same text a backup holds. Rows are read once when the app opens and kept in memory.
  * [name] is the database file; tests use one of their own.
+ *
+ * A damaged file is never deleted, which is what Android does by default. One that cannot be
+ * read at all is set aside whole, under a name of its own beside it, and an empty one is started
+ * in its place: [setAside] says so, for the app to tell, and a backup brings the data back.
  */
 class SqliteOperationStore(context: Context, name: String = DATABASE) : OperationStore {
-    private val helper = Helper(context, name)
+    private val file: File = context.getDatabasePath(name)
+    private var helper = Helper(context, name)
     private val cache = LinkedHashMap<OpId, Operation>()
+
+    /** The damaged database file this store found when it opened and set aside, or null. */
+    val setAside: File?
 
     // The ids of rows that could not be read. They stay in the table and are left out of the data,
     // until the same operation arrives again, from a backup, and its row is mended with it.
@@ -29,10 +41,17 @@ class SqliteOperationStore(context: Context, name: String = DATABASE) : Operatio
         @Synchronized get() = unreadableIds.size
 
     init {
-        val rows = ArrayList<Triple<Long, String, String>>()
-        helper.readableDatabase.rawQuery("SELECT seq, id, body FROM operations ORDER BY seq", null).use { cursor ->
-            while (cursor.moveToNext()) rows += Triple(cursor.getLong(0), cursor.getString(1), cursor.getString(2))
+        var aside: File? = null
+        val rows = try {
+            readTable()
+        } catch (e: SQLiteDatabaseCorruptException) {
+            // The file cannot be read at all: kept whole under another name, and an empty one started.
+            helper.close()
+            aside = setAside(file)
+            helper = Helper(context, name)
+            readTable()
         }
+        setAside = aside
         // The id a row is stored under must be the one its text has; a row whose two differ is not read.
         val read = StoredRows.readRows(rows.asSequence().map { (seq, id, body) -> StoredRows.Row(seq, id, body) })
         read.operations.forEach { cache[it.id] = it }
@@ -87,7 +106,26 @@ class SqliteOperationStore(context: Context, name: String = DATABASE) : Operatio
     /** Closes the database, for tests that open the same file again. */
     fun close() = helper.close()
 
-    private class Helper(context: Context, name: String) : SQLiteOpenHelper(context, name, null, 1) {
+    private fun readTable(): List<Triple<Long, String, String>> {
+        val rows = ArrayList<Triple<Long, String, String>>()
+        helper.readableDatabase.rawQuery("SELECT seq, id, body FROM operations ORDER BY seq", null).use { cursor ->
+            while (cursor.moveToNext()) rows += Triple(cursor.getLong(0), cursor.getString(1), cursor.getString(2))
+        }
+        return rows
+    }
+
+    /**
+     * Android's default answer to a damaged database is to delete it: here nothing is deleted. The
+     * error reaches the code that hit it, and a file that cannot be read when the app opens is set
+     * aside whole.
+     */
+    private class KeepDamaged : DatabaseErrorHandler {
+        override fun onCorruption(dbObj: SQLiteDatabase) {
+            // Nothing: the file stays as it is.
+        }
+    }
+
+    private class Helper(context: Context, name: String) : SQLiteOpenHelper(context, name, null, 1, KeepDamaged()) {
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL(
                 "CREATE TABLE $TABLE (" +
@@ -115,5 +153,23 @@ class SqliteOperationStore(context: Context, name: String = DATABASE) : Operatio
         /** The app's database file. */
         const val DATABASE = "foodcost.db"
         private const val TABLE = "operations"
+
+        /**
+         * Moves [file] and the journal files beside it to a name of their own, which nothing in the
+         * app opens or deletes, so its data can still be got at. Throws if the file cannot be moved:
+         * an empty database is never started over data that was not kept.
+         */
+        private fun setAside(file: File): File {
+            var aside = File(file.parentFile, "${file.name}.damaged-${System.currentTimeMillis()}")
+            while (aside.exists()) aside = File(aside.path + "-1")
+            if (!file.renameTo(aside)) throw IOException("The damaged database ${file.name} could not be set aside")
+            for (suffix in listOf("-journal", "-wal", "-shm")) {
+                val part = File(file.path + suffix)
+                if (part.exists() && !part.renameTo(File(aside.path + suffix))) {
+                    throw IOException("The damaged database's ${part.name} could not be set aside")
+                }
+            }
+            return aside
+        }
     }
 }

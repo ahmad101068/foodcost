@@ -92,6 +92,10 @@ sealed interface Change {
     data class IngredientSaved(
         val id: IngredientId,
         val name: Opt<String> = Opt.Keep,
+        /**
+         * What the ingredient is costed per: set when it is made and never changed after, since
+         * every price and line of it is worked out in it. Another one makes another ingredient.
+         */
         val baseDimension: Opt<Dimension> = Opt.Keep,
         val category: Opt<String?> = Opt.Keep,
         val yields: Opt<List<YieldStage>> = Opt.Keep,
@@ -116,8 +120,17 @@ sealed interface Change {
         val category: Opt<String?> = Opt.Keep,
         val pricing: Opt<PricingMethod?> = Opt.Keep,
         val archived: Opt<Boolean> = Opt.Keep,
-        /** The day a new menu section or pricing method starts to count; null counts it on every day. */
+        /**
+         * The day a new kind, menu section or pricing method starts to count; the days before keep
+         * the old one. Null counts it on every day. A recipe's first kind counts on every day.
+         */
         val effectiveFrom: LocalDate? = null,
+        /**
+         * Whether [effectiveFrom] dates a new [kind] too. False in changes recorded before 0.7.5,
+         * whose kind counted on every day whatever their day: they still do, so data and closes
+         * of those versions keep the figures they had.
+         */
+        val kindDated: Boolean = true,
     ) : Change
 
     /** Adds the version, or replaces the one that starts on the same day. */

@@ -277,6 +277,7 @@ fun RecipeScreen(id: RecipeId, state: LedgerState, money: MoneyFormat, today: Lo
             title = "ویرایش دستور",
             initial = detail.header,
             sections = state.pricing.methodByCategory.keys.toList(),
+            note = "نوع و بخش منوی تازه از امروز حساب می‌شوند؛ عددهای روزهای قبل همان می‌مانند.",
             onDismiss = { dialog = null },
             onSave = { input ->
                 actions.run({
@@ -411,6 +412,8 @@ fun RecipeHeaderDialog(
     onArchive: (() -> Unit)? = null,
     /** The sections with a food cost target of their own in the settings, offered with one tap. */
     sections: List<String> = emptyList(),
+    /** Said under the fields, such as from which day a change counts. */
+    note: String? = null,
 ) {
     var input by remember { mutableStateOf(initial) }
     var errors by remember { mutableStateOf(emptyMap<Field, String>()) }
@@ -430,6 +433,7 @@ fun RecipeHeaderDialog(
                 if (sections.isNotEmpty()) {
                     ChoiceChips(sections, input.category.trim(), { it }) { input = input.copy(category = it) }
                 }
+                note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 if (onArchive != null) {
                     TextButton(onClick = onArchive) {
                         Text("حذف این دستور", color = MaterialTheme.colorScheme.error)

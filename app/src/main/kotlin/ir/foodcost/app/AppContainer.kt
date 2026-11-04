@@ -140,11 +140,20 @@ class AppContainer(context: Context) {
         prefs.edit().putInt(KEY_UNREADABLE_SEEN, unreadableRows).apply()
     }
 
+    /** The name a damaged database file was set aside under, until the user says they read it; or null. */
+    fun setAsideToWarn(): String? = prefs.getString(KEY_SET_ASIDE, null)
+
+    fun acknowledgeSetAside() {
+        prefs.edit().remove(KEY_SET_ASIDE).apply()
+    }
+
     /** Opens the ledger once, reading every stored operation off the main thread. */
     suspend fun open(): Ledger = ledger ?: openLock.withLock {
         ledger ?: withContext(Dispatchers.IO) {
             val s = SqliteOperationStore(appContext)
             store = s
+            // A damaged file set aside is said until the user has read it, even if the app closes first.
+            s.setAside?.let { prefs.edit().putString(KEY_SET_ASIDE, it.name).commit() }
             Ledger(s, HybridClock(deviceId()), Actor(OWNER_ID, Role.OWNER))
         }.also {
             ledger = it
@@ -213,6 +222,7 @@ class AppContainer(context: Context) {
     private companion object {
         const val KEY_CURRENCY = "currency"
         const val KEY_UNREADABLE_SEEN = "unreadable-seen"
+        const val KEY_SET_ASIDE = "damaged-database-set-aside"
         const val KEY_DEVICE = "device"
         const val DEVICE_FILE = "device"
         const val OWNER_ID = "owner"

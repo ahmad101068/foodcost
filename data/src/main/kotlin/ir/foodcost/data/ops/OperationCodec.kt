@@ -109,6 +109,8 @@ object OperationCodec {
             opt("pricing", c.pricing) { it?.let(::encodeMethod) ?: JsonNull }
             opt("archived", c.archived) { it.json }
             date("effectiveFrom", c.effectiveFrom)
+            // Written by 0.7.5 on: its day dates the kind too. Without it, the kind counts on every day.
+            if (c.kindDated) fields["kindDated"] = true.json
         }
         is Change.RecipeVersionSaved -> jsonObject("recipeId" to c.recipeId.value.json, "version" to encodeVersion(c.version))
         is Change.RecipeVersionRemoved -> jsonObject("recipeId" to c.recipeId.value.json, "validFrom" to c.validFrom.toString().json)
@@ -173,6 +175,8 @@ object OperationCodec {
             pricing = d.opt("pricing") { if (it == JsonNull) null else decodeMethod(it.asObject("pricing")) },
             archived = d.opt("archived") { it.asBool("archived") },
             effectiveFrom = d.dateOrNull("effectiveFrom"),
+            // Recorded before 0.7.5 without it: the kind counted on every day, and still does.
+            kindDated = d.has("kindDated") && d.bool("kindDated"),
         )
         "RecipeVersionSaved" -> Change.RecipeVersionSaved(RecipeId(d.string("recipeId")), decodeVersion(d.obj("version")))
         "RecipeVersionRemoved" -> Change.RecipeVersionRemoved(RecipeId(d.string("recipeId")), date(d.string("validFrom")))
@@ -444,12 +448,13 @@ object Backup {
     /**
      * The newest version read. 2 since a change can say from which day it counts, 3 when a close
      * says what it had seen, 4 since changes are numbered, 5 since a close lists its unnumbered
-     * changes and writes its gaps as ranges. A version of the app that reads only the earlier ones
-     * refuses a newer file whole rather than misread it: one before 2 would count dated changes on
-     * every day, one before 4 would drop the numbers, one before 5 would let a change the close had
-     * not seen into a closed day. Older files read as they always did.
+     * changes and writes its gaps as ranges, 6 since a recipe's kind counts from its day. A version
+     * of the app that reads only the earlier ones refuses a newer file whole rather than misread
+     * it: one before 2 would count dated changes on every day, one before 4 would drop the numbers,
+     * one before 5 would let a change the close had not seen into a closed day, one before 6 would
+     * count a dated kind on every day, closed days included. Older files read as they always did.
      */
-    const val VERSION = 5
+    const val VERSION = 6
 
     fun write(operations: List<Operation>): String = Json.write(
         jsonObject(
@@ -469,6 +474,7 @@ object Backup {
 
     /** The oldest version that reads [operations] right, so a file of older changes still opens in 0.7.0. */
     private fun versionFor(operations: List<Operation>): Int = when {
+        operations.any { (it.change as? Change.RecipeSaved)?.let { c -> c.kindDated && c.kind is Opt.Value && c.effectiveFrom != null } == true } -> 6
         operations.any { (it.change as? Change.PeriodClosed)?.seen != null } -> 5
         operations.any { it.seq != null } -> 4
         else -> 2

@@ -4,6 +4,7 @@ import ir.foodcost.data.ledger.BackupPreview
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class BackupTextsTest {
     private fun preview(fresh: Int, refused: Int = 0, byOthers: Int = 0, devices: Int = 1, last: LocalDate = LocalDate.of(2026, 10, 13)) =
@@ -43,5 +44,19 @@ class BackupTextsTest {
                 BackupTexts.NOT_SEALED,
             BackupTexts.preview(preview(10, refused = 6, byOthers = 3, devices = 2, last = LocalDate.of(2026, 10, 3)), sealed = false),
         )
+    }
+
+    @Test
+    fun `a damaged data file set aside is named, and the way back from a backup is said`() {
+        val text = BackupTexts.setAside("foodcost.db.damaged-1730000000000")
+        assertTrue("«foodcost.db.damaged-1730000000000»" in text)
+        assertTrue("چیزی پاک نشد" in text)
+        assertTrue("«بازگرداندن»" in text)
+    }
+
+    @Test
+    fun `closed periods that no longer add up are counted in Persian digits`() {
+        assertTrue(BackupTexts.closedMismatches(1).startsWith("رقم یک دورهٔ بسته "))
+        assertTrue(BackupTexts.closedMismatches(3).startsWith("رقم ۳ دورهٔ بسته "))
     }
 }

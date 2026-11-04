@@ -1,6 +1,8 @@
 package ir.foodcost.app.data
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteException
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import ir.foodcost.core.units.Dimension
@@ -13,27 +15,37 @@ import ir.foodcost.data.store.InMemoryOperationStore
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
+import java.io.RandomAccessFile
 
 /**
  * The phone's own SQLite table, which the tests of the data module cannot reach: what is stored is
  * there after a restart, a row that cannot be read is counted and mended, a row stored under an id
- * other than its own is not read, and a batch that fails part way stores nothing. It uses a
- * database file of its own, not the app's.
+ * other than its own is not read, a batch that fails part way stores nothing, a write cut short by
+ * the phone dying leaves the last whole state, a damaged file is never deleted, and a file of a
+ * newer version is neither opened nor changed. It uses database files of its own, not the app's.
  */
 @RunWith(AndroidJUnit4::class)
 class SqliteOperationStoreTest {
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
     private val name = "store-test.db"
 
+    private val copy = "store-test-crash.db"
+
     @Before
     @After
     fun clean() {
         context.deleteDatabase(name)
+        context.deleteDatabase(copy)
+        // Files a damaged database was set aside as.
+        context.getDatabasePath(name).parentFile?.listFiles()?.filter { it.name.startsWith("$name.") }?.forEach { it.delete() }
     }
 
     private fun store() = SqliteOperationStore(context, name)
@@ -137,4 +149,111 @@ class SqliteOperationStoreTest {
         assertEquals(4, after.all().size)
         after.close()
     }
+
+    @Test
+    fun aDamagedDatabaseFileIsNotDeleted() {
+        // The audit of 0.7.4 (FCA-010). A file whose header a failing write or flash chip spoiled:
+        // Android's default handling of a damaged database deletes it and starts an empty one, so
+        // everything stored would be gone without a word. The file must be kept, whatever else.
+        val first = store()
+        ledger(first)
+        first.close()
+        val file = context.getDatabasePath(name)
+        RandomAccessFile(file, "rw").use { it.seek(0); it.write(ByteArray(100) { 0x5A }) }
+        val damaged = file.readBytes()
+
+        val opened = try {
+            store()
+        } catch (e: SQLiteException) {
+            null // refusing to open is fine too
+        }
+        opened?.close()
+        val kept = file.parentFile!!.listFiles()!!.filter { it.isFile }.any { it.readBytes().contentEquals(damaged) }
+        assertTrue("The damaged database was deleted", kept)
+    }
+
+    @Test
+    fun aDatabaseFileThatCannotBeReadIsSetAsideWholeAndAnEmptyOneStarted() {
+        val first = store()
+        val stored = ledger(first).operations()
+        first.close()
+        val file = context.getDatabasePath(name)
+        RandomAccessFile(file, "rw").use { it.seek(0); it.write(ByteArray(100) { 0x5A }) }
+        val damaged = file.readBytes()
+
+        val opened = store()
+        val aside = opened.setAside
+        assertNotNull("The store did not say it set the damaged file aside", aside)
+        assertTrue(aside!!.readBytes().contentEquals(damaged))
+        assertTrue(aside.name.startsWith("$name.damaged-"))
+        assertEquals(emptyList<Operation>(), opened.all())
+        // The data comes back from a backup, into the new file.
+        opened.appendAll(stored)
+        opened.close()
+        val again = store()
+        assertNull(again.setAside)
+        assertEquals(stored, again.all())
+        again.close()
+        assertTrue("The damaged file is still kept", aside.exists())
+    }
+
+    @Test
+    fun aWriteCutShortByThePhoneDyingLeavesTheLastWholeState() {
+        val first = store()
+        val stored = ledger(first).operations()
+        first.close()
+
+        // A large write under way, enough to reach the disk before it ends, and the files as they
+        // are on the disk at that moment: what a phone that dies then leaves behind.
+        val dir = context.getDatabasePath(name).parentFile!!
+        context.openOrCreateDatabase(name, Context.MODE_PRIVATE, null).use { db ->
+            db.beginTransaction()
+            try {
+                val body = "x".repeat(2_000)
+                repeat(3_000) { i -> db.execSQL("INSERT INTO operations (id, body) VALUES (?, ?)", arrayOf("half-$i", body)) }
+                listOf("", "-journal", "-wal", "-shm").forEach { suffix ->
+                    File(dir, name + suffix).takeIf { it.exists() }?.copyTo(File(dir, copy + suffix), overwrite = true)
+                }
+            } finally {
+                db.endTransaction() // never marked successful: undone
+            }
+        }
+
+        val after = SqliteOperationStore(context, copy)
+        assertEquals(stored, after.all())
+        assertEquals(0, after.unreadable)
+        after.close()
+        // The table itself has nothing of the write either.
+        val again = store()
+        assertEquals(stored, again.all())
+        again.close()
+    }
+
+    @Test
+    fun aDatabaseOfANewerVersionIsNeitherOpenedNorChanged() {
+        // An older app put over a newer one: it must not read a table it does not know, nor touch it.
+        val first = store()
+        ledger(first)
+        first.close()
+        context.openOrCreateDatabase(name, Context.MODE_PRIVATE, null).use { it.version = 2 }
+        val before = rows()
+        try {
+            store()
+            fail("A database of a newer version was opened")
+        } catch (e: SQLiteException) {
+            // expected
+        }
+        assertEquals(before, rows())
+        assertEquals(3, before.size - 1) // the three ingredients, and the version
+    }
+
+    /** Every row of the table as it is in the file, and the file's version. */
+    private fun rows(): List<String> =
+        SQLiteDatabase.openDatabase(context.getDatabasePath(name).path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+            val rows = ArrayList<String>()
+            db.rawQuery("SELECT seq, id, body FROM operations ORDER BY seq", null).use { c ->
+                while (c.moveToNext()) rows += "${c.getLong(0)}|${c.getString(1)}|${c.getString(2)}"
+            }
+            rows + "version ${db.version}"
+        }
 }

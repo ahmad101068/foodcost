@@ -16,6 +16,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -75,6 +76,24 @@ private fun AppContent(container: AppContainer, state: LedgerState, currency: Di
         is Screen.EditIngredient -> IngredientEditScreen(screen.id?.let { IngredientId(it) }, state, today, nav, actions)
         is Screen.NewPrice -> PriceEntryScreen(IngredientId(screen.ingredientId), state, money, today, nav, actions)
         is Screen.Help -> HelpScreen(screen, container, money, nav, actions)
+    }
+
+    // A data file too damaged to read was set aside, not deleted: said until the user has read it.
+    var setAside by remember { mutableStateOf(container.setAsideToWarn()) }
+    setAside?.let { file ->
+        AlertDialog(
+            onDismissRequest = { setAside = null }, // said again next time, until it is acknowledged
+            title = { Text("پروندهٔ داده‌ها خراب بود") },
+            text = { Text(BackupTexts.setAside(file)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        container.acknowledgeSetAside()
+                        setAside = null
+                    },
+                ) { Text("فهمیدم") }
+            },
+        )
     }
 
     // Stored changes the app could not read are said as soon as they are found, and again only
