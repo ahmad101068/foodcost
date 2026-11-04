@@ -79,7 +79,7 @@ jobs:
         shell: bash
         run: |
           apk=app/build/outputs/apk/release/app-release.apk
-          echo "::notice title=APK built::$(du -k "$apk" | cut -f1) KB, version code $((GITHUB_RUN_NUMBER + 1))"
+          echo "::notice title=APK built::$(du -k "$apk" | cut -f1) KB, version $(grep -m1 'val appVersion = ' app/build.gradle.kts | cut -d'"' -f2), build $GITHUB_RUN_NUMBER"
       - name: Keep the APK in a draft release
         env:
           GH_TOKEN: ${{ github.token }}

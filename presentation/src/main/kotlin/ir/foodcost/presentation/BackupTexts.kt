@@ -68,6 +68,11 @@ object BackupTexts {
         "${Persian.digits(count)} تغییر ذخیره‌شده خوانده نشد. عددهایی که می‌بینید این تغییرها را ندارند و پشتیبانی که بسازید هم آن‌ها را نخواهد داشت. " +
             "این ردیف‌ها روی گوشی می‌مانند و پاک نمی‌شوند؛ پیش از تصمیم مهم با پشتیبانی تماس بگیرید."
 
+    /** Why a backup with changes that clash with ones here is not imported at all. */
+    fun conflicts(count: Int): String =
+        "این پشتیبان ${Persian.digits(count)} تغییر دارد که شناسه‌اش با تغییری که این‌جا هست یکی است ولی محتوایش فرق دارد. " +
+            "فایل خراب یا دست‌کاری شده است و چیزی از آن وارد نمی‌شود."
+
     /** The same in one line, for the top of the screens with figures and for a calculation sent as text. */
     fun unreadableShort(count: Int): String =
         "${Persian.digits(count)} تغییر ذخیره‌شده خوانده نشد؛ عددها ممکن است کامل نباشند."

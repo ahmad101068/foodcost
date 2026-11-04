@@ -131,8 +131,15 @@ data class ClosedPeriod(
      */
     fun saw(op: Operation): Boolean {
         if (op.at > closedAt) return false
-        val known = seen ?: return op.at.device == closedAt.device
-        return known[op.at.device]?.has(op) == true
+        val own = op.at.device == closedAt.device
+        val known = seen ?: return own
+        val s = known[op.at.device] ?: return false
+        val n = op.seq
+        if (n != null) return s.hasNumber(n)
+        // A change made before changes were numbered: the close lists exactly those it had, or,
+        // made before it listed them, is trusted only for its own device's.
+        val listed = s.unnumbered ?: return own && op.at <= s.at
+        return op.id.value in listed
     }
 }
 
@@ -146,7 +153,7 @@ enum class RejectReason {
     /** What the change points to does not exist or is already in that state. */
     NO_TARGET,
 
-    /** Something with the same id was already recorded. */
+    /** Something with the same id was already recorded, or a change with the same device and number. */
     DUPLICATE,
 
     /**
@@ -240,14 +247,27 @@ data class LedgerState(
          * Applies [operations] in [Operation.ORDER]; duplicates count once. The periods still closed
          * at the end are worked out first, from the closes and reopenings alone, so that a change
          * the close of its day had not seen stays out of that day wherever it sits in the order.
+         * Different changes with the same device and number are all refused: which one a close had
+         * cannot be told, so none of them counts, the same on every device.
          */
         fun fold(operations: Collection<Operation>): LedgerState {
             val sorted = operations.sortedWith(Operation.ORDER)
-            val closes = StateBuilder(EMPTY).apply { sorted.filter { it.change.isPeriodChange }.forEach { add(it) } }.build().closedPeriods
-            val builder = StateBuilder(EMPTY, closes)
+            val clashing = clashing(sorted)
+            val closes = StateBuilder(EMPTY, clashing = clashing)
+                .apply { sorted.filter { it.change.isPeriodChange }.forEach { add(it) } }
+                .build().closedPeriods
+            val builder = StateBuilder(EMPTY, closes, clashing)
             sorted.forEach { builder.add(it) }
             return builder.build()
         }
+
+        /** The ids of numbered changes that share their device and number with a different change. */
+        fun clashing(operations: Collection<Operation>): Set<OpId> =
+            operations.filter { it.seq != null }
+                .groupBy { it.at.device to it.seq }
+                .values
+                .filter { same -> same.distinctBy { it.id }.size > 1 }
+                .flatMapTo(HashSet()) { same -> same.map { it.id } }
     }
 }
 
@@ -258,8 +278,13 @@ internal val Change.isPeriodChange: Boolean get() = this is Change.PeriodClosed 
  * Applies operations one at a time. They must come in [Operation.ORDER]. [finalCloses] are the
  * periods still closed once every operation is applied, when they are known ahead; without them
  * the periods closed so far count, which is the same when no close or reopening comes later.
+ * [clashing] are changes that share their device and number with another, which are refused.
  */
-internal class StateBuilder(from: LedgerState, private val finalCloses: List<ClosedPeriod>? = null) {
+internal class StateBuilder(
+    from: LedgerState,
+    private val finalCloses: List<ClosedPeriod>? = null,
+    private val clashing: Set<OpId> = emptySet(),
+) {
     private val ingredients = LinkedHashMap(from.ingredients)
     private val prices = LinkedHashMap(from.prices)
     private val recipes = LinkedHashMap(from.recipes)
@@ -373,6 +398,7 @@ internal class StateBuilder(from: LedgerState, private val finalCloses: List<Clo
         if (this is Opt.Value && history.changedBy(value, from, default)) history + Dated(from, op.at, value) else history
 
     private fun rejectionFor(op: Operation): RejectReason? {
+        if (op.id in clashing) return RejectReason.DUPLICATE
         val c = op.change
         val managersOnly = c is Change.MenuPriceSet || c is Change.MenuPriceRemoved || c is Change.SettingsSaved ||
             c is Change.PeriodClosed || c is Change.PeriodReopened

@@ -55,20 +55,24 @@ data class Operation(
 }
 
 /**
- * Which changes of one device a close had: every numbered change up to [seq] except those in
- * [missing], and of the changes made before they were numbered, every one up to [at], as a device
- * that sends its whole history passes them on.
+ * Which changes of one device a close had: every numbered change up to [seq] except the numbers in
+ * the ranges [missing], and of the changes made before they were numbered, exactly those whose ids
+ * are in [unnumbered]. [at] is the device's latest clock the close had. [unnumbered] is null in
+ * closes made before it was kept, which are trusted only for their own device's unnumbered changes.
  */
-data class Seen(val at: Hlc, val seq: Long = 0, val missing: List<Long> = emptyList()) {
+data class Seen(
+    val at: Hlc,
+    val seq: Long = 0,
+    val missing: List<LongRange> = emptyList(),
+    val unnumbered: Set<String>? = null,
+) {
     init {
-        require(seq >= 0 && missing.all { it in 1..seq }) { "A close's missing numbers must be below its highest" }
+        require(seq >= 0) { "A close's highest number cannot be below 0" }
+        require(missing.all { !it.isEmpty() && it.first >= 1 && it.last <= seq }) { "A close's missing numbers must be below its highest" }
     }
 
-    /** Whether the close had [op], a change of this device recorded before it. */
-    fun has(op: Operation): Boolean {
-        val n = op.seq ?: return op.at <= at
-        return n <= seq && n !in missing
-    }
+    /** Whether the close had this device's numbered change [n]. */
+    fun hasNumber(n: Long): Boolean = n <= seq && missing.none { n in it }
 }
 
 /** One field of an update: [Keep] leaves it as it is; [Value] sets it, to null for fields that can be empty. */

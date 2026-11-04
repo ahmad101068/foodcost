@@ -103,7 +103,7 @@ class OperationCodecTest {
                 D31,
                 null,
                 seen = mapOf(
-                    "device-1" to Seen(Hlc(1_000, 3, "device-1"), seq = 12, missing = listOf(4, 9)),
+                    "device-1" to Seen(Hlc(1_000, 3, "device-1"), seq = 12, missing = listOf(4L..4L, 9L..11L), unnumbered = setOf("old-1", "old-2")),
                     "phone 2" to Seen(Hlc(900, 0, "phone 2")),
                 ),
             ),
@@ -134,19 +134,29 @@ class OperationCodecTest {
         assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":99,"operations":[]}""") }
         assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":1,"operations":[{"id":"x"}]}""") }
         assertEquals(emptyList(), Backup.read("""{"format":"foodcost-backup","version":1,"operations":[]}"""))
-        assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":5,"operations":[]}""") }
+        assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":6,"operations":[]}""") }
     }
 
     @Test
-    fun `a backup with a close that says what it had seen is version 4, which the versions before refuse rather than misread`() {
+    fun `a backup with a close that says what it had seen is version 5, which the versions before refuse rather than misread`() {
         val close = Operation(
             OpId("c"), Hlc(5, 0, "A"), Actor("u", Role.OWNER),
-            Change.PeriodClosed(D31, null, seen = mapOf("A" to Seen(Hlc(4, 0, "A"), seq = 3, missing = listOf(2)))),
+            Change.PeriodClosed(D31, null, seen = mapOf("A" to Seen(Hlc(4, 0, "A"), seq = 3, missing = listOf(2L..2L), unnumbered = emptySet()))),
             seq = 4,
         )
         val written = Backup.write(listOf(close))
-        assertEquals(4, (Json.parse(written) as JsonObject).int("version"))
+        assertEquals(5, (Json.parse(written) as JsonObject).int("version"))
         assertEquals(listOf(close), Backup.read(written))
+        // Numbered changes without a close: version 4, which 0.7.2 reads and 0.7.0 and 0.7.1 refuse.
+        val numbered = close.copy(change = Change.PeriodReopened(D1))
+        assertEquals(4, (Json.parse(Backup.write(listOf(numbered))) as JsonObject).int("version"))
+
+        // A close of 0.7.2 wrote each missing number on its own and listed no unnumbered changes.
+        val of072 = Backup.read(
+            """{"format":"foodcost-backup","version":4,"operations":[{"id":"c","at":{"wall":5,"counter":0,"device":"A"},""" +
+                """"actor":{"id":"u","role":"OWNER"},"type":"PeriodClosed","data":{"through":"2026-10-31","seen":{"A":{"wall":4,"counter":0,"seq":9,"missing":[2,5]}}}}]}""",
+        )
+        assertEquals(mapOf("A" to Seen(Hlc(4, 0, "A"), seq = 9, missing = listOf(2L..2L, 5L..5L))), (of072.single().change as Change.PeriodClosed).seen)
 
         // A close of 0.7.1 kept only the latest clock of each device: it reads as having none of
         // their numbered changes, and every change before that clock that has no number.
@@ -156,9 +166,9 @@ class OperationCodecTest {
         )
         assertEquals(mapOf("A" to Seen(Hlc(4, 0, "A"))), (older.single().change as Change.PeriodClosed).seen)
         // A missing number above the highest one is damage, and the file is refused.
-        assertFailsWith<JsonException> {
-            Backup.read(written.replace(Regex("\"missing\"\\s*:\\s*\\[2]"), "\"missing\":[7]"))
-        }
+        val damaged = written.replace("[[2,2]]", "[[2,7]]")
+        assertTrue(damaged != written)
+        assertFailsWith<JsonException> { Backup.read(damaged) }
         // Without such a close a file stays version 2, which 0.7.0 opens.
         assertEquals(2, (Json.parse(Backup.write(emptyList())) as JsonObject).int("version"))
     }

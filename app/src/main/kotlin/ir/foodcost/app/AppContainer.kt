@@ -193,13 +193,26 @@ class AppContainer(context: Context) {
         prefs.getString(KEY_CURRENCY, null)?.let { name -> DisplayCurrency.entries.firstOrNull { it.name == name } }
             ?: DisplayCurrency.TOMAN
 
-    private fun deviceId(): String = prefs.getString(KEY_DEVICE, null)
-        ?: UUID.randomUUID().toString().also { prefs.edit().putString(KEY_DEVICE, it).apply() }
+    /**
+     * This phone's id, kept in a file of its own that Android's backup and the move to a new phone
+     * leave out (res/xml/data_extraction_rules.xml): a phone restored from a backup gets an id of
+     * its own, so two phones never number their changes alike. Versions before 0.7.3 kept it with
+     * the other settings; it is moved once.
+     */
+    private fun deviceId(): String {
+        val ids = appContext.getSharedPreferences(DEVICE_FILE, Context.MODE_PRIVATE)
+        ids.getString(KEY_DEVICE, null)?.let { return it }
+        val id = prefs.getString(KEY_DEVICE, null) ?: UUID.randomUUID().toString()
+        ids.edit().putString(KEY_DEVICE, id).commit()
+        prefs.edit().remove(KEY_DEVICE).apply()
+        return id
+    }
 
     private companion object {
         const val KEY_CURRENCY = "currency"
         const val KEY_UNREADABLE_SEEN = "unreadable-seen"
         const val KEY_DEVICE = "device"
+        const val DEVICE_FILE = "device"
         const val OWNER_ID = "owner"
         const val DRAFT_FILE = "calculator-draft.json"
         const val DRAFT_PAUSE_MILLIS = 400L
