@@ -15,6 +15,8 @@ import ir.foodcost.data.store.InMemoryOperationStore
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -168,6 +170,31 @@ class SqliteOperationStoreTest {
         opened?.close()
         val kept = file.parentFile!!.listFiles()!!.filter { it.isFile }.any { it.readBytes().contentEquals(damaged) }
         assertTrue("The damaged database was deleted", kept)
+    }
+
+    @Test
+    fun aDatabaseFileThatCannotBeReadIsSetAsideWholeAndAnEmptyOneStarted() {
+        val first = store()
+        val stored = ledger(first).operations()
+        first.close()
+        val file = context.getDatabasePath(name)
+        RandomAccessFile(file, "rw").use { it.seek(0); it.write(ByteArray(100) { 0x5A }) }
+        val damaged = file.readBytes()
+
+        val opened = store()
+        val aside = opened.setAside
+        assertNotNull("The store did not say it set the damaged file aside", aside)
+        assertTrue(aside!!.readBytes().contentEquals(damaged))
+        assertTrue(aside.name.startsWith("$name.damaged-"))
+        assertEquals(emptyList<Operation>(), opened.all())
+        // The data comes back from a backup, into the new file.
+        opened.appendAll(stored)
+        opened.close()
+        val again = store()
+        assertNull(again.setAside)
+        assertEquals(stored, again.all())
+        again.close()
+        assertTrue("The damaged file is still kept", aside.exists())
     }
 
     @Test

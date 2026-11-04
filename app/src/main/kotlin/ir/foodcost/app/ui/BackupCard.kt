@@ -19,6 +19,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,6 +68,8 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
     var exportPassword by remember { mutableStateOf("") }
     var importing by remember { mutableStateOf<Importing?>(null) }
     val unreadable = container.unreadableRows
+    // Closed periods whose figures no longer add up to their record; worked out only when some period is closed.
+    val closedMismatches = container.state.collectAsState().value?.closedMismatches?.size ?: 0
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         val password = exportPassword
@@ -140,6 +143,9 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
         }
         if (unreadable > 0) {
             Text(BackupTexts.unreadable(unreadable), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
+        if (closedMismatches > 0) {
+            Text(BackupTexts.closedMismatches(closedMismatches), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         }
     }
 

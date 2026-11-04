@@ -78,6 +78,16 @@ object BackupTexts {
         "این پشتیبان رقم ${if (count == 1) "یک دورهٔ بسته" else "${Persian.digits(count)} دورهٔ بسته"} را عوض می‌کند و رقم دورهٔ بسته نباید عوض شود، " +
             "پس چیزی از آن وارد نمی‌شود. اگر این تغییرها درست‌اند، اول دوره را باز کنید."
 
+    /** Said once when the app found its data file damaged and could not read it at all. */
+    fun setAside(file: String): String =
+        "پروندهٔ داده‌های برنامه خراب شده بود و خوانده نمی‌شد. چیزی پاک نشد: همان پرونده با نام «$file» کنار گذاشته شد " +
+            "و برنامه با داده‌های خالی باز شد. داده‌ها را از آخرین پشتیبان برگردانید: «تنظیمات»، بخش «پشتیبان»، «بازگرداندن»."
+
+    /** Closed periods whose figures, worked out again, are not the official ones their close kept. */
+    fun closedMismatches(count: Int): String =
+        "رقم ${if (count == 1) "یک دورهٔ بسته" else "${Persian.digits(count)} دورهٔ بسته"} با حساب دوبارهٔ همان روزها جور نیست. " +
+            "رقم رسمی همان است که موقع بستن ثبت شد؛ تا دوره باز و دوباره بسته نشده، به حساب دوبارهٔ آن روزها تکیه نکنید."
+
     /** The same in one line, for the top of the screens with figures and for a calculation sent as text. */
     fun unreadableShort(count: Int): String =
         "${Persian.digits(count)} تغییر ذخیره‌شده خوانده نشد؛ عددها ممکن است کامل نباشند."
