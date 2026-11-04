@@ -12,10 +12,10 @@ plugins {
 // own computer; on GitHub the APK for testing is not made without it, and its signature is checked.
 val privateKeystore: File? = System.getenv("FOODCOST_KEYSTORE_FILE")?.let(::File)?.takeIf { it.isFile }
 
-val appVersion = "0.7.3"
+val appVersion = "0.7.4"
 
 // The number Android compares when an APK installs over another: the version's own number, then
-// the build's number on GitHub (0 on one's own computer). 0.7.3 is 703000 and up, so every newer
+// the build's number on GitHub (0 on one's own computer). 0.7.4 is 704000 and up, so every newer
 // version installs over every older one, wherever it was built, and no APK is ever number 1.
 // Within one version the build number counts to 999; give the next version before that.
 val appVersionCode: Int = run {

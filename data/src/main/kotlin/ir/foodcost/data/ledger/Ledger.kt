@@ -57,10 +57,15 @@ data class BackupPreview(
      * is damaged or was changed by hand, and is not imported at all.
      */
     val conflicts: Int = 0,
+    /** Closed periods whose figures the changes would move; a backup that would is not imported. */
+    val changesClosed: Int = 0,
 )
 
-/** Thrown when a backup has [count] changes with the id of another change but other content; nothing is stored. */
-class ConflictingChanges(val count: Int) : IllegalArgumentException("$count changes have the id of another change but other content")
+/** Thrown when a backup has [count] changes that clash with others, by id or by number; nothing is stored. */
+class ConflictingChanges(val count: Int) : IllegalArgumentException("$count changes clash with others by id or by number")
+
+/** Thrown when a backup would move the figures of [count] closed periods; nothing is stored. */
+class ChangesClosedPeriod(val count: Int) : IllegalArgumentException("A backup would change the figures of $count closed periods")
 
 /**
  * The app's way to read and change data. Every change becomes an [Operation] that is checked,
@@ -153,13 +158,23 @@ class Ledger(
         conflicting(operations).let { if (it > 0) throw ConflictingChanges(it) }
         val fresh = operations.distinctBy { it.id }.filter { !store.contains(it.id) }
         if (fresh.isEmpty()) return 0
+        // The result is worked out before anything is stored, and the changes are taken only if
+        // no closed period's figures move.
+        val after = withReceived(fresh)
+        changedClosed(state, after).let { if (it > 0) throw ChangesClosedPeriod(it) }
         store.appendAll(fresh)
         clock.receive(fresh.maxOf { it.at })
         // This device's own changes coming back, from a backup of it, are not numbered again.
         fresh.filter { it.at.device == clock.device }.mapNotNull { it.seq }.maxOrNull()?.let { if (it > lastSeq) lastSeq = it }
+        state = after
+        return fresh.size
+    }
+
+    /** The state with [fresh] operations added, which are not stored yet. */
+    private fun withReceived(fresh: List<Operation>): LedgerState {
         val last = state.lastAt
-        val all = store.all()
-        state = if ((last == null || fresh.all { it.at > last }) && fresh.none { it.change.isPeriodChange } &&
+        val all = store.all() + fresh
+        return if ((last == null || fresh.all { it.at > last }) && fresh.none { it.change.isPeriodChange } &&
             LedgerState.clashing(all).isEmpty()
         ) {
             StateBuilder(state).also { b -> fresh.sortedWith(Operation.ORDER).forEach { b.add(it) } }.build()
@@ -169,21 +184,43 @@ class Ledger(
             // device: apply everything again in order.
             LedgerState.fold(all)
         }
-        return fresh.size
     }
 
     /**
-     * How many of [operations] have the id of a stored change, or of another of them, but other
-     * content. A change never changes, so two with one id must be the same: a file with such a
-     * change is damaged or was changed by hand, and nothing of it is taken.
+     * How many periods closed in [after] have figures other than in [before]: worked out again for
+     * a period closed in both, or, for a close that comes with the changes, its own record. Changes
+     * from a backup never move the figures of a closed period, however they came to be allowed.
+     */
+    private fun changedClosed(before: LedgerState, after: LedgerState): Int {
+        if (after.closedPeriods.isEmpty()) return 0
+        val was = before.closedFigures()
+        val now = after.closedFigures()
+        return after.closedPeriods.count { p ->
+            val then = was[p.closedAt] ?: p.snapshot?.let { LedgerState.figures(it) } ?: return@count false
+            then != now[p.closedAt]
+        }
+    }
+
+    /**
+     * How many of [operations] clash with a stored change, or with another of them: one with the
+     * same id but other content, or a different change with the same device and number. A change
+     * never changes and a device never numbers two alike, so a file with such a change is damaged
+     * or was changed by hand, and nothing of it is taken: a change already counted is never
+     * refused afterwards because another came with its number.
      */
     private fun conflicting(operations: Collection<Operation>): Int {
         if (operations.isEmpty()) return 0
-        val stored = store.all().associateBy { it.id }
-        val first = HashMap<OpId, String>()
+        val stored = store.all()
+        val byId = stored.associateBy { it.id }
+        val byNumber = stored.filter { it.seq != null }.associateBy { it.at.device to it.seq }
+        val firstText = HashMap<OpId, String>()
+        val firstId = HashMap<Pair<String, Long?>, OpId>()
         return operations.count { op ->
             val text = canonical(op)
-            (stored[op.id]?.let(::canonical) ?: first.getOrPut(op.id) { text }) != text
+            val sameId = (byId[op.id]?.let(::canonical) ?: firstText.getOrPut(op.id) { text }) != text
+            val number = op.at.device to op.seq
+            val sameNumber = op.seq != null && (byNumber[number]?.id ?: firstId.getOrPut(number) { op.id }) != op.id
+            sameId || sameNumber
         }
     }
 
@@ -216,6 +253,7 @@ class Ledger(
             byOthers = fresh.count { it.actor.role != Role.OWNER },
             refused = (after.rejections.size - state.rejections.size).coerceAtLeast(0),
             conflicts = conflicting(operations),
+            changesClosed = if (fresh.isEmpty()) 0 else changedClosed(state, after),
         )
     }
 

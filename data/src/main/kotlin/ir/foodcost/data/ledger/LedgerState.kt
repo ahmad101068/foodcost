@@ -13,6 +13,7 @@ import ir.foodcost.core.model.RecipeKind
 import ir.foodcost.core.model.RecipeVersion
 import ir.foodcost.core.model.YieldStage
 import ir.foodcost.core.period.PeriodLock
+import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.core.pricing.PricingMethod
 import ir.foodcost.core.pricing.PricingSettings
 import ir.foodcost.core.reports.MenuSnapshot
@@ -204,6 +205,16 @@ data class LedgerState(
     /** Works out each day on the yields, sections and settings in force that day. */
     fun calculator(): FoodCostCalculator = FoodCostCalculator(catalog, costing, pricing, earlier = ::termsAt)
 
+    /**
+     * The figures of each closed period as they are worked out now, by its close: what a backup
+     * brought in must leave unchanged.
+     */
+    internal fun closedFigures(): Map<Hlc, Map<RecipeId, List<Any?>>> {
+        if (closedPeriods.isEmpty()) return emptyMap()
+        val calculator = calculator()
+        return closedPeriods.associate { p -> p.closedAt to figures(MenuSnapshot.of(calculator.menu(p.through))) }
+    }
+
     /** The last day a change to a yield, a conversion, a section, a pricing method or a setting counts from. */
     private val lastTermsDay: LocalDate? by lazy {
         val days = ArrayList<LocalDate>()
@@ -260,6 +271,16 @@ data class LedgerState(
             sorted.forEach { builder.add(it) }
             return builder.build()
         }
+
+        /**
+         * The figures of a closed period's menu that must not change: each dish with lines, by its
+         * id, with its cost, prices, food cost and status. A dish's name may change, and a dish
+         * made later, with nothing on the closed days, is not in them.
+         */
+        internal fun figures(s: MenuSnapshot): Map<RecipeId, List<Any?>> =
+            s.items.filter { it.status != PriceStatus.EMPTY }.associate {
+                it.recipeId to listOf(it.foodCostRials, it.menuPriceRials, it.suggestedPriceRials, it.foodCostPercent?.stripTrailingZeros()?.toPlainString(), it.status)
+            }
 
         /** The ids of numbered changes that share their device and number with a different change. */
         fun clashing(operations: Collection<Operation>): Set<OpId> =
