@@ -67,6 +67,9 @@ class OperationCodecTest {
             ),
             Change.RecipeSaved(dish, pricing = Opt.Value(null)),
             Change.RecipeSaved(dish, category = Opt.Value("drinks"), effectiveFrom = D31),
+            Change.RecipeSaved(dish, kind = Opt.Value(RecipeKind.PREP), effectiveFrom = D31),
+            Change.RecipeSaved(dish, kind = Opt.Value(RecipeKind.PREP), effectiveFrom = D31, kindDated = false),
+            Change.RecipeSaved(dish, name = Opt.Value("کباب"), kindDated = false),
             Change.RecipeVersionSaved(
                 dish,
                 RecipeVersion(
@@ -134,7 +137,7 @@ class OperationCodecTest {
         assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":99,"operations":[]}""") }
         assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":1,"operations":[{"id":"x"}]}""") }
         assertEquals(emptyList(), Backup.read("""{"format":"foodcost-backup","version":1,"operations":[]}"""))
-        assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":6,"operations":[]}""") }
+        assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":7,"operations":[]}""") }
     }
 
     @Test
@@ -201,6 +204,34 @@ class OperationCodecTest {
         assertTrue(text != written)
         val error = assertFailsWith<JsonException> { Backup.read(text) }
         assertTrue("y" in error.message.orEmpty())
+    }
+
+    @Test
+    fun `a kind dated by its change is version 6, which 0 7 4 refuses, and a change of before reads with its kind on every day`() {
+        fun op(change: Change) = Operation(OpId("k"), Hlc(1, 0, "A"), Actor("u", Role.OWNER), change, seq = 1)
+        val dated = op(Change.RecipeSaved(dish, kind = Opt.Value(RecipeKind.PREP), effectiveFrom = D31))
+        val written = Backup.write(listOf(dated))
+        assertEquals(6, (Json.parse(written) as JsonObject).int("version"))
+        assertEquals(listOf(dated), Backup.read(written))
+        assertTrue("\"kindDated\"" in written)
+
+        // A kind without a day counts on every day under every version: no need for 6.
+        val undated = op(Change.RecipeSaved(dish, kind = Opt.Value(RecipeKind.PREP)))
+        assertEquals(4, (Json.parse(Backup.write(listOf(undated))) as JsonObject).int("version"))
+        val nameOnly = op(Change.RecipeSaved(dish, name = Opt.Value("کباب"), effectiveFrom = D31))
+        assertEquals(4, (Json.parse(Backup.write(listOf(nameOnly))) as JsonObject).int("version"))
+
+        // The same change written by 0.7.4, with no flag: its kind counted on every day, and still does.
+        val of074 = Backup.read(
+            """{"format":"foodcost-backup","version":4,"operations":[{"id":"k","at":{"wall":1,"counter":0,"device":"A"},""" +
+                """"actor":{"id":"u","role":"OWNER"},"seq":1,"type":"RecipeSaved","data":{"id":"dish","kind":"PREP","effectiveFrom":"2026-10-31"}}]}""",
+        )
+        val change = of074.single().change as Change.RecipeSaved
+        assertFalse(change.kindDated)
+        assertEquals(D31, change.effectiveFrom)
+        // Written again it stays a change of before: the flag is not made up.
+        assertFalse("kindDated" in Backup.write(of074))
+        assertEquals(of074, Backup.read(Backup.write(of074)))
     }
 
     @Test

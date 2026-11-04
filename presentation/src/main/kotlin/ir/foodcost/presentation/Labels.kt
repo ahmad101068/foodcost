@@ -126,6 +126,7 @@ object Labels {
 
     fun rejection(reason: RejectReason): String = when (reason) {
         RejectReason.PERIOD_CLOSED -> "این تاریخ در دورهٔ بسته است و تغییر نمی‌کند."
+        RejectReason.CLOSED_FIGURES -> "این تغییر رقم‌های یک دورهٔ بسته را عوض می‌کرد و ثبت نشد."
         RejectReason.NOT_ALLOWED -> "اجازهٔ این کار را ندارید."
         RejectReason.NO_TARGET -> "موردی برای این کار پیدا نشد."
         RejectReason.DUPLICATE -> "این مورد قبلاً ثبت شده است."

@@ -105,7 +105,9 @@ class Ledger(
 
     /**
      * Checks [change] against the current state, then stores and applies it, or rejects it without
-     * storing. Inside [atomically] it is stored with the others when the block ends.
+     * storing. Inside [atomically] it is stored with the others when the block ends. The result is
+     * worked out before anything is stored, and a change that would move the figures of a closed
+     * period is refused whatever let it through, the same check a backup passes.
      */
     @Synchronized
     fun execute(change: Change, reason: String? = null): Outcome {
@@ -114,11 +116,13 @@ class Ledger(
         val builder = StateBuilder(state)
         builder.add(op)?.let { return Outcome.Rejected(op, it) }
         val batch = pending
-        if (batch != null) batch += op else store.append(op)
-        lastSeq = seq
         // A reopened period takes in the changes its close had not seen, wherever they sit in the
         // order, so everything is applied again.
-        state = if (change is Change.PeriodReopened) LedgerState.fold(store.all() + batch.orEmpty()) else builder.build()
+        val next = if (change is Change.PeriodReopened) LedgerState.fold(store.all() + batch.orEmpty() + op) else builder.build()
+        if (changedClosed(state, next) > 0) return Outcome.Rejected(op, RejectReason.CLOSED_FIGURES)
+        if (batch != null) batch += op else store.append(op)
+        lastSeq = seq
+        state = next
         return Outcome.Applied(op)
     }
 
@@ -187,17 +191,25 @@ class Ledger(
     }
 
     /**
-     * How many periods closed in [after] have figures other than in [before]: worked out again for
-     * a period closed in both, or, for a close that comes with the changes, its own record. Changes
-     * from a backup never move the figures of a closed period, however they came to be allowed.
+     * How many periods closed in [after] have figures that are neither those they had in [before]
+     * nor the official ones their close kept. Every way in passes this check before anything is
+     * stored: a change made here, a backup, a sync. A change may leave a closed period's figures
+     * as they were, or bring them back to the official ones, as a change the close had does when
+     * it returns from a backup after this phone lost it; a close that comes with the changes must
+     * match its own record. Moving them anywhere else needs the period reopened.
      */
     private fun changedClosed(before: LedgerState, after: LedgerState): Int {
         if (after.closedPeriods.isEmpty()) return 0
-        val was = before.closedFigures()
-        val now = after.closedFigures()
+        val closedBefore = before.closedPeriods.associateBy { it.closedAt }
         return after.closedPeriods.count { p ->
-            val then = was[p.closedAt] ?: p.snapshot?.let { LedgerState.figures(it) } ?: return@count false
-            then != now[p.closedAt]
+            val was = closedBefore[p.closedAt]
+            // Nothing the period's figures are worked out from changed, so neither did they.
+            if (was != null && before.inputsAt(p.through) == after.inputsAt(p.through)) return@count false
+            val figures = after.figuresOf(p)
+            val official = p.snapshot?.let { LedgerState.figures(it) }
+            val previous = was?.let { before.figuresOf(it) }
+            val allowed = figures == official || (previous != null && figures == previous) || (previous == null && official == null)
+            !allowed
         }
     }
 
@@ -343,7 +355,10 @@ class Ledger(
         return id
     }
 
-    /** Changes a recipe. A new section or pricing method counts from [effectiveFrom] on, as for [updateIngredient]. */
+    /**
+     * Changes a recipe. A new kind, section or pricing method counts from [effectiveFrom] on, as for
+     * [updateIngredient]: a dish made a preparation today is still on the menu of the days before.
+     */
     fun updateRecipe(
         id: RecipeId,
         name: Opt<String> = Opt.Keep,
