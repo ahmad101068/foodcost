@@ -5,8 +5,17 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteException
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import ir.foodcost.core.model.ComponentRef
+import ir.foodcost.core.model.PurchasePrice
+import ir.foodcost.core.model.RecipeKind
+import ir.foodcost.core.model.RecipeLine
+import ir.foodcost.core.model.RecipeVersion
+import ir.foodcost.core.reports.MenuSnapshot
 import ir.foodcost.core.units.Dimension
+import ir.foodcost.core.units.Uom
 import ir.foodcost.data.clock.HybridClock
+import ir.foodcost.data.json.Json
+import ir.foodcost.data.json.JsonObject
 import ir.foodcost.data.ledger.Ledger
 import ir.foodcost.data.ops.Actor
 import ir.foodcost.data.ops.Operation
@@ -24,6 +33,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import java.io.RandomAccessFile
+import java.math.BigDecimal
+import java.time.LocalDate
 
 /**
  * The phone's own SQLite table, which the tests of the data module cannot reach: what is stored is
@@ -256,4 +267,70 @@ class SqliteOperationStoreTest {
             }
             rows + "version ${db.version}"
         }
+
+    @Test
+    fun theLatestPriceUnreadableLeavesTheOlderOneUntilABackupBringsItBack() {
+        // The audit of 0.7.5 (R-075-01), on the phone's own table: with the row of the latest price
+        // unreadable, the cost is worked out on the price before it, a figure that looks right. The
+        // store counts the row, which every screen says, and a backup mends it and the figures.
+        val first = store()
+        val ledger = Ledger(first, HybridClock("phone"), Actor("owner", Role.OWNER))
+        val meat = ledger.createIngredient("گوشت", Dimension.MASS)
+        val day1 = LocalDate.of(2026, 10, 1)
+        val day2 = day1.plusDays(10)
+        ledger.recordPrice(PurchasePrice(meat, day1, BigDecimal.ONE, Uom.KILOGRAM, 16_000_000))
+        val latest = (ledger.recordPrice(PurchasePrice(meat, day2, BigDecimal.ONE, Uom.KILOGRAM, 32_000_000)) as Ledger.Outcome.Applied).operation
+        val dish = ledger.createRecipe("کباب", RecipeKind.MENU_ITEM)
+        val line = RecipeLine(ComponentRef.IngredientRef(meat), BigDecimal(200), Uom.GRAM)
+        ledger.saveRecipeVersion(dish, RecipeVersion(day1, batchLines = listOf(line), miscPercent = BigDecimal.ZERO))
+        val all = ledger.operations()
+        assertCost(6_400_000, ledger, dish, day2) // 200 g at 32,000 rials a gram
+        first.close()
+        damage(latest.id.value)
+
+        val damaged = store()
+        assertEquals(1, damaged.unreadable)
+        val partial = Ledger(damaged, HybridClock("phone"), Actor("owner", Role.OWNER))
+        assertCost(3_200_000, partial, dish, day2) // the price before it, 16,000 rials a gram
+        assertEquals(1, partial.receive(all))
+        assertEquals(0, damaged.unreadable)
+        assertCost(6_400_000, partial, dish, day2)
+        damaged.close()
+
+        val again = store()
+        assertEquals(0, again.unreadable)
+        assertCost(6_400_000, Ledger(again, HybridClock("phone"), Actor("owner", Role.OWNER)), dish, day2)
+        again.close()
+    }
+
+    private fun assertCost(rials: Long, ledger: Ledger, dish: ir.foodcost.core.model.RecipeId, day: LocalDate) {
+        val cost = ledger.calculator().cost(dish, day).foodCostPerPortion
+        assertEquals("cost on $day: $cost", 0, BigDecimal(rials).compareTo(cost))
+    }
+
+    @Test
+    fun rowsAsVersion074StoredThemReadWithTheFiguresItWorkedOut() {
+        // The table of 0.7.4 is this one, version 1; only the text of its rows was written by older
+        // code. Legacy074Rows has the rows 0.7.4 itself wrote and the figures it worked out.
+        store().close()
+        context.openOrCreateDatabase(name, Context.MODE_PRIVATE, null).use { db ->
+            for (body in Legacy074Rows.operations) {
+                val id = (Json.parse(body) as JsonObject).string("id")
+                db.execSQL("INSERT INTO operations (id, body) VALUES (?, ?)", arrayOf(id, body))
+            }
+        }
+        val read = store()
+        assertEquals(0, read.unreadable)
+        assertEquals(Legacy074Rows.operations.size, read.all().size)
+        val ledger = Ledger(read, HybridClock("phone"), Actor("owner", Role.OWNER))
+        for ((day, expected) in Legacy074Rows.figures) {
+            val actual = MenuSnapshot.of(ledger.calculator().menu(LocalDate.parse(day))).items.sortedBy { it.recipeId.value }.map {
+                "${it.recipeId.value}|${it.name}|${it.foodCostRials}|${it.menuPriceRials}|${it.suggestedPriceRials}|${it.foodCostPercent?.stripTrailingZeros()?.toPlainString()}|${it.status}"
+            }
+            assertEquals(day, expected, actual)
+        }
+        assertEquals(emptyList<Any>(), ledger.state.rejections)
+        assertEquals(emptyList<Any>(), ledger.state.closedMismatches)
+        read.close()
+    }
 }
