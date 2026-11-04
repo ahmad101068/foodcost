@@ -15,10 +15,16 @@ class BackupTextsTest {
     @Test
     fun `a backup that clashes with the changes here says why it is not imported`() {
         assertEquals(
-            "این پشتیبان ۲ تغییر دارد که شناسه‌اش با تغییری که این‌جا هست یکی است ولی محتوایش فرق دارد. " +
+            "این پشتیبان ۲ تغییر دارد که شناسه یا شماره‌اش با تغییر دیگری یکی است ولی خودش فرق دارد. " +
                 "فایل خراب یا دست‌کاری شده است و چیزی از آن وارد نمی‌شود.",
             BackupTexts.conflicts(2),
         )
+        assertEquals(
+            "این پشتیبان رقم یک دورهٔ بسته را عوض می‌کند و رقم دورهٔ بسته نباید عوض شود، " +
+                "پس چیزی از آن وارد نمی‌شود. اگر این تغییرها درست‌اند، اول دوره را باز کنید.",
+            BackupTexts.changesClosed(1),
+        )
+        assertEquals(true, "۳ دورهٔ بسته" in BackupTexts.changesClosed(3))
     }
 
     @Test

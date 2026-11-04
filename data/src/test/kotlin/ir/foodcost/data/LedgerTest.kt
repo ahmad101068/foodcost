@@ -20,6 +20,7 @@ import ir.foodcost.data.T.D15
 import ir.foodcost.data.T.D31
 import ir.foodcost.data.T.N2
 import ir.foodcost.data.clock.Hlc
+import ir.foodcost.data.ledger.ChangesClosedPeriod
 import ir.foodcost.data.ledger.ConflictingChanges
 import ir.foodcost.data.ledger.Ledger
 import ir.foodcost.data.ledger.LedgerState
@@ -433,24 +434,67 @@ class LedgerTest {
     }
 
     @Test
-    fun `two different changes of one phone with one number are both refused on every phone`() {
-        // The audit of 0.7.2 (FCA-021): which of the two a close had cannot be told, so neither counts.
+    fun `a change numbered like another of its phone is refused at the door, and inside both are refused alike`() {
+        // The audits of 0.7.2 and 0.7.3 (FCA-021, FCA-026): a change already counted in a closed
+        // period is never refused afterwards because another came with its number.
         val a = T.ledger("A", wall = FakeWall(1_000))
         val k = Kitchen(a)
         val b = T.ledger("B", wall = FakeWall(2_000))
         b.receive(a.operations())
-        val earlier = b.recordPrice(T.price(k.meat, D15, 24_000_000), priceId = "clash-earlier").applied()
-        val later = b.recordPrice(T.price(k.meat, D15.plusDays(10), 32_000_000), priceId = "clash-later").applied().copy(seq = earlier.seq)
-        a.receive(listOf(later))
+        val accepted = b.recordPrice(T.price(k.meat, D15, 24_000_000), priceId = "included").applied()
+        a.receive(listOf(accepted))
         a.closePeriod(D31).applied()
-        val closed = a.calculator().cost(k.kebab, D15).foodCostPerPortion
+        val stored = a.operations().size
+        val closed = a.calculator().cost(k.kebab, D31).foodCostPerPortion
+        val clash = accepted.copy(
+            id = OpId("other"),
+            at = Hlc(accepted.at.wallMillis, accepted.at.counter + 1, "B"),
+            change = Change.PriceRecorded("other", T.price(k.meat, D15, 35_000_000)),
+        )
 
-        assertTrue(a.preview(listOf(earlier)).refused >= 1)
-        a.receive(listOf(earlier))
-        val refused = a.state.rejections.filter { it.reason == RejectReason.DUPLICATE }.map { it.operation.id }.toSet()
-        assertEquals(setOf(earlier.id, later.id), refused)
-        assertEquals(0, closed.compareTo(a.calculator().cost(k.kebab, D15).foodCostPerPortion))
-        assertEquals(a.state, LedgerState.fold(a.operations().shuffled(Random(11)))) // the same whatever the order
+        assertEquals(1, a.preview(listOf(clash)).conflicts)
+        assertEquals(1, assertFailsWith<ConflictingChanges> { a.receive(listOf(clash)) }.count)
+        assertEquals(stored, a.operations().size)
+        assertEquals(0, closed.compareTo(a.calculator().cost(k.kebab, D31).foodCostPerPortion))
+        assertEquals(a.state.closedPeriods.single().snapshot, MenuSnapshot.of(a.calculator().menu(D31)))
+
+        // Two such changes already inside, from a version before the door was shut, are both
+        // refused, the same on every phone whatever the order.
+        val inside = LedgerState.fold(a.operations() + clash)
+        assertEquals(setOf(accepted.id, clash.id), inside.rejections.filter { it.reason == RejectReason.DUPLICATE }.map { it.operation.id }.toSet())
+        assertEquals(inside, LedgerState.fold((a.operations() + clash).shuffled(Random(11))))
+    }
+
+    @Test
+    fun `a backup that would move a closed period's figures is not imported at all`() {
+        // The audit of 0.7.3 (FCA-027): a close as 0.7.2 made it trusts its own phone's unnumbered
+        // changes, and a late one of them moved the closed day.
+        val live = T.ledger("A")
+        val k = Kitchen(live)
+        val closing = live.closePeriod(D31).applied()
+        val close = closing.change as Change.PeriodClosed
+        val as072 = closing.copy(change = close.copy(seen = close.seen!!.mapValues { (_, s) -> s.copy(unnumbered = null) }))
+        val a = T.ledger("A", store = InMemoryOperationStore(live.operations().dropLast(1) + as072))
+        val s = a.state.closedPeriods.single().seen!!.getValue("A")
+        val late = Operation(
+            OpId("late-own"), Hlc(s.at.wallMillis, s.at.counter - 1, "A"), Actor("A-user", Role.OWNER),
+            Change.PriceRecorded("late-own", T.price(k.meat, D15, 24_000_000)),
+        )
+        val stored = a.operations().size
+        val closed = a.calculator().cost(k.kebab, D31).foodCostPerPortion
+
+        assertEquals(1, a.preview(listOf(late)).changesClosed)
+        assertEquals(1, assertFailsWith<ChangesClosedPeriod> { a.receive(listOf(late)) }.count)
+        assertEquals(stored, a.operations().size)
+        assertEquals(0, closed.compareTo(a.calculator().cost(k.kebab, D31).foodCostPerPortion))
+
+        // A dish made after the close, with nothing on the closed days, or a dish renamed, moves nothing.
+        val other = T.ledger("B")
+        other.receive(a.operations())
+        other.createRecipe("دوغ", RecipeKind.MENU_ITEM)
+        other.updateRecipe(k.kebab, name = Opt.Value("کباب کوبیده"))
+        assertEquals(0, a.preview(other.operations()).changesClosed)
+        assertEquals(2, a.receive(other.operations()))
     }
 
     @Test

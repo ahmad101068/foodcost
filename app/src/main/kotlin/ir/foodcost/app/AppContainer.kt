@@ -196,13 +196,15 @@ class AppContainer(context: Context) {
     /**
      * This phone's id, kept in a file of its own that Android's backup and the move to a new phone
      * leave out (res/xml/data_extraction_rules.xml): a phone restored from a backup gets an id of
-     * its own, so two phones never number their changes alike. Versions before 0.7.3 kept it with
-     * the other settings; it is moved once.
+     * its own, so two phones never number their changes alike. Versions before 0.7.3 kept the id
+     * with the other settings, which an older backup brings back to every phone restored from it,
+     * so it is not taken over: without its own file, the phone makes a new id. Its earlier changes
+     * keep the id they were made under.
      */
     private fun deviceId(): String {
         val ids = appContext.getSharedPreferences(DEVICE_FILE, Context.MODE_PRIVATE)
         ids.getString(KEY_DEVICE, null)?.let { return it }
-        val id = prefs.getString(KEY_DEVICE, null) ?: UUID.randomUUID().toString()
+        val id = UUID.randomUUID().toString()
         ids.edit().putString(KEY_DEVICE, id).commit()
         prefs.edit().remove(KEY_DEVICE).apply()
         return id

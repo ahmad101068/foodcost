@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import ir.foodcost.app.AppContainer
 import ir.foodcost.data.json.JsonException
 import ir.foodcost.data.ledger.BackupPreview
+import ir.foodcost.data.ledger.ChangesClosedPeriod
 import ir.foodcost.data.ledger.ConflictingChanges
 import ir.foodcost.data.ops.Backup
 import ir.foodcost.data.ops.BackupSeal
@@ -105,6 +106,7 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
         val preview = container.previewBackup(operations)
         when {
             preview.conflicts > 0 -> actions.say(BackupTexts.conflicts(preview.conflicts))
+            preview.changesClosed > 0 -> actions.say(BackupTexts.changesClosed(preview.changesClosed))
             preview.fresh == 0 -> actions.say("این پشتیبان چیز تازه‌ای نداشت.")
             else -> importing = Importing.Review(operations, preview, sealed)
         }
@@ -197,6 +199,9 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
                                 container.receive(stage.operations)
                             } catch (e: ConflictingChanges) {
                                 actions.say(BackupTexts.conflicts(e.count))
+                                return@launch
+                            } catch (e: ChangesClosedPeriod) {
+                                actions.say(BackupTexts.changesClosed(e.count))
                                 return@launch
                             } catch (e: Exception) {
                                 actions.say("پشتیبان وارد نشد.")
