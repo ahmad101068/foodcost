@@ -24,6 +24,7 @@ import ir.foodcost.core.units.Dimension
 import ir.foodcost.core.units.Uom
 import ir.foodcost.data.clock.Hlc
 import ir.foodcost.data.json.Json
+import ir.foodcost.data.json.JsonArray
 import ir.foodcost.data.json.JsonException
 import ir.foodcost.data.json.JsonNull
 import ir.foodcost.data.json.JsonObject
@@ -135,7 +136,9 @@ object OperationCodec {
                             "wall" to s.at.wallMillis.json,
                             "counter" to s.at.counter.json,
                             "seq" to s.seq.takeIf { it > 0 }?.json,
-                            "missing" to s.missing.takeIf { it.isNotEmpty() }?.let { m -> jsonArray(m.map { it.json }) },
+                            // Each gap as [first, last], one pair however many numbers it holds.
+                            "missing" to s.missing.takeIf { it.isNotEmpty() }?.let { m -> jsonArray(m.map { jsonArray(listOf(it.first.json, it.last.json)) }) },
+                            "unnumbered" to s.unnumbered?.let { ids -> jsonArray(ids.sorted().map { it.json }) },
                         )
                     },
                 )
@@ -189,7 +192,9 @@ object OperationCodec {
                     Seen(
                         at = Hlc(s.long("wall"), s.int("counter"), device),
                         seq = s.longOrNull("seq") ?: 0,
-                        missing = if (s.has("missing")) s.array("missing").map { it.asDecimal("missing").longValueExact() } else emptyList(),
+                        // A gap is [first, last]; 0.7.2 wrote each missing number on its own.
+                        missing = if (s.has("missing")) s.array("missing").map(::gap) else emptyList(),
+                        unnumbered = if (s.has("unnumbered")) s.array("unnumbered").mapTo(HashSet()) { it.asString("unnumbered") } else null,
                     )
                 }
             } else {
@@ -198,6 +203,14 @@ object OperationCodec {
         )
         "PeriodReopened" -> Change.PeriodReopened(date(d.string("from")))
         else -> throw JsonException("Unknown operation type \"$type\"")
+    }
+
+    private fun gap(value: JsonValue): LongRange = if (value is JsonArray) {
+        val ends = value.items.map { it.asDecimal("missing").longValueExact() }
+        if (ends.size != 2) throw JsonException("A gap is its first and last number")
+        ends[0]..ends[1]
+    } else {
+        value.asDecimal("missing").longValueExact().let { it..it }
     }
 
     private fun encodeConversions(c: Conversions): JsonObject = jsonObject(
@@ -430,12 +443,13 @@ object Backup {
 
     /**
      * The newest version read. 2 since a change can say from which day it counts, 3 when a close
-     * says what it had seen, 4 since it says so by the numbers of each device's changes. A version
-     * of the app that reads only the earlier ones refuses a newer file whole rather than misread
-     * it: one before 2 would count dated changes on every day, one before 4 would let a change the
-     * close had not seen into a closed day. Older files read as they always did.
+     * says what it had seen, 4 since changes are numbered, 5 since a close lists its unnumbered
+     * changes and writes its gaps as ranges. A version of the app that reads only the earlier ones
+     * refuses a newer file whole rather than misread it: one before 2 would count dated changes on
+     * every day, one before 4 would drop the numbers, one before 5 would let a change the close had
+     * not seen into a closed day. Older files read as they always did.
      */
-    const val VERSION = 4
+    const val VERSION = 5
 
     fun write(operations: List<Operation>): String = Json.write(
         jsonObject(
@@ -453,7 +467,10 @@ object Backup {
         return root.array("operations").map { OperationCodec.decode(it.asObject("operation")) }
     }
 
-    /** The oldest version that reads [operations] right, so a file without closes still opens in 0.7.0. */
-    private fun versionFor(operations: List<Operation>): Int =
-        if (operations.any { (it.change as? Change.PeriodClosed)?.seen != null }) VERSION else 2
+    /** The oldest version that reads [operations] right, so a file of older changes still opens in 0.7.0. */
+    private fun versionFor(operations: List<Operation>): Int = when {
+        operations.any { (it.change as? Change.PeriodClosed)?.seen != null } -> 5
+        operations.any { it.seq != null } -> 4
+        else -> 2
+    }
 }

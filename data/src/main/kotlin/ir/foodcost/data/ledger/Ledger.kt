@@ -17,11 +17,13 @@ import ir.foodcost.core.reports.MenuSnapshot
 import ir.foodcost.core.units.Conversions
 import ir.foodcost.core.units.Dimension
 import ir.foodcost.data.clock.HybridClock
+import ir.foodcost.data.json.Json
 import ir.foodcost.data.ops.Actor
 import ir.foodcost.data.ops.Backup
 import ir.foodcost.data.ops.Change
 import ir.foodcost.data.ops.OpId
 import ir.foodcost.data.ops.Operation
+import ir.foodcost.data.ops.OperationCodec
 import ir.foodcost.data.ops.Opt
 import ir.foodcost.data.ops.Role
 import ir.foodcost.data.ops.Seen
@@ -50,7 +52,15 @@ data class BackupPreview(
     val byOthers: Int,
     /** New changes the rules refuse, such as a price on a closed day; they are kept but change nothing. */
     val refused: Int,
+    /**
+     * Changes with the id of a change here, or of another in the file, but other content: the file
+     * is damaged or was changed by hand, and is not imported at all.
+     */
+    val conflicts: Int = 0,
 )
+
+/** Thrown when a backup has [count] changes with the id of another change but other content; nothing is stored. */
+class ConflictingChanges(val count: Int) : IllegalArgumentException("$count changes have the id of another change but other content")
 
 /**
  * The app's way to read and change data. Every change becomes an [Operation] that is checked,
@@ -140,6 +150,7 @@ class Ledger(
     @Synchronized
     fun receive(operations: Collection<Operation>): Int {
         check(pending == null) { "Operations received are stored at once, not as part of another change" }
+        conflicting(operations).let { if (it > 0) throw ConflictingChanges(it) }
         val fresh = operations.distinctBy { it.id }.filter { !store.contains(it.id) }
         if (fresh.isEmpty()) return 0
         store.appendAll(fresh)
@@ -147,15 +158,36 @@ class Ledger(
         // This device's own changes coming back, from a backup of it, are not numbered again.
         fresh.filter { it.at.device == clock.device }.mapNotNull { it.seq }.maxOrNull()?.let { if (it > lastSeq) lastSeq = it }
         val last = state.lastAt
-        state = if ((last == null || fresh.all { it.at > last }) && fresh.none { it.change.isPeriodChange }) {
+        val all = store.all()
+        state = if ((last == null || fresh.all { it.at > last }) && fresh.none { it.change.isPeriodChange } &&
+            LedgerState.clashing(all).isEmpty()
+        ) {
             StateBuilder(state).also { b -> fresh.sortedWith(Operation.ORDER).forEach { b.add(it) } }.build()
         } else {
-            // Something older arrived late, or a close or reopening that decides which changes count
-            // on the days it covers, wherever they sit: apply everything again in order.
-            LedgerState.fold(store.all())
+            // Something older arrived late, a close or reopening that decides which changes count
+            // on the days it covers, wherever they sit, or a change numbered like another of its
+            // device: apply everything again in order.
+            LedgerState.fold(all)
         }
         return fresh.size
     }
+
+    /**
+     * How many of [operations] have the id of a stored change, or of another of them, but other
+     * content. A change never changes, so two with one id must be the same: a file with such a
+     * change is damaged or was changed by hand, and nothing of it is taken.
+     */
+    private fun conflicting(operations: Collection<Operation>): Int {
+        if (operations.isEmpty()) return 0
+        val stored = store.all().associateBy { it.id }
+        val first = HashMap<OpId, String>()
+        return operations.count { op ->
+            val text = canonical(op)
+            (stored[op.id]?.let(::canonical) ?: first.getOrPut(op.id) { text }) != text
+        }
+    }
+
+    private fun canonical(op: Operation): String = Json.write(OperationCodec.encode(op))
 
     /** Every stored operation, for syncing or backup. */
     fun operations(): List<Operation> = store.all()
@@ -183,6 +215,7 @@ class Ledger(
             otherDevices = fresh.map { it.at.device }.distinct().count { it != clock.device },
             byOthers = fresh.count { it.actor.role != Role.OWNER },
             refused = (after.rejections.size - state.rejections.size).coerceAtLeast(0),
+            conflicts = conflicting(operations),
         )
     }
 
@@ -323,14 +356,21 @@ class Ledger(
     }
 
     /**
-     * What a close made now has of one device's [ops]: the numbers it has, as the highest and those
-     * missing below it, which a change left out of a file that passed on later ones is, and for
-     * changes made before they were numbered, the latest clock.
+     * What a close made now has of one device's [ops]: the numbers it has, as the highest and the
+     * ranges missing below it, which a change left out of a file that passed on later ones is, and
+     * of the changes made before they were numbered, the exact list of their ids.
      */
     private fun seenOf(ops: List<Operation>): Seen {
-        val numbers = ops.mapNotNullTo(HashSet()) { it.seq }
-        val top = numbers.maxOrNull() ?: 0L
-        return Seen(ops.maxOf { it.at }, top, (1..top).filter { it !in numbers })
+        val numbers = ops.mapNotNull { it.seq }.distinct().sorted()
+        // The numbers missing, as ranges: a gap of any size is one range.
+        val missing = ArrayList<LongRange>()
+        var next = 1L
+        for (n in numbers) {
+            if (n > next) missing += next..(n - 1)
+            next = n + 1
+        }
+        val unnumbered = ops.filter { it.seq == null }.mapTo(sortedSetOf()) { it.id.value }
+        return Seen(ops.maxOf { it.at }, numbers.lastOrNull() ?: 0L, missing, unnumbered)
     }
 
     /** Reopens closed periods from [from] on. Managers only, and the reason is kept in the history. */

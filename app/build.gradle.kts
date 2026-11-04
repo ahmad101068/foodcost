@@ -12,6 +12,18 @@ plugins {
 // own computer; on GitHub the APK for testing is not made without it, and its signature is checked.
 val privateKeystore: File? = System.getenv("FOODCOST_KEYSTORE_FILE")?.let(::File)?.takeIf { it.isFile }
 
+val appVersion = "0.7.3"
+
+// The number Android compares when an APK installs over another: the version's own number, then
+// the build's number on GitHub (0 on one's own computer). 0.7.3 is 703000 and up, so every newer
+// version installs over every older one, wherever it was built, and no APK is ever number 1.
+// Within one version the build number counts to 999; give the next version before that.
+val appVersionCode: Int = run {
+    val (major, minor, patch) = appVersion.split(".").map(String::toInt)
+    val build = (System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 0) % 1000
+    major * 10_000_000 + minor * 100_000 + patch * 1_000 + build
+}
+
 android {
     namespace = "ir.foodcost.app"
     compileSdk = 35
@@ -20,9 +32,8 @@ android {
         applicationId = "ir.foodcost.app"
         minSdk = 26
         targetSdk = 35
-        // Every build on GitHub gets a higher number, so a new APK installs over the old one.
-        versionCode = (System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 0) + 1
-        versionName = "0.7.2"
+        versionCode = appVersionCode
+        versionName = appVersion
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
