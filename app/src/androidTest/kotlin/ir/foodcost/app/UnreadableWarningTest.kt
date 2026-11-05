@@ -118,7 +118,7 @@ class UnreadableWarningTest {
         }
         compose.onNodeWithTag("unreadable-warning").assertIsDisplayed()
         compose.waitUntil(timeoutMillis = 5_000) {
-            compose.onAllNodes(hasText("۱ تغییر ذخیره‌شده خوانده نشد", substring = true)).fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodes(hasText("داده‌های مالی ناقص یا غیرقابل تأییدند", substring = true)).fetchSemanticsNodes().isNotEmpty()
         }
     }
 
