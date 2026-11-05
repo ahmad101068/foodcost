@@ -67,7 +67,7 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
     // The password of the backup being saved, empty for none; kept only until the file is written.
     var exportPassword by remember { mutableStateOf("") }
     var importing by remember { mutableStateOf<Importing?>(null) }
-    val unreadable = container.unreadableRows
+    val unreadable = if (container.financialDataUnverified) maxOf(1, container.unreadableRows) else 0
     // Closed periods whose figures no longer add up to their record; worked out only when some period is closed.
     val closedMismatches = container.state.collectAsState().value?.closedMismatches?.size ?: 0
 
