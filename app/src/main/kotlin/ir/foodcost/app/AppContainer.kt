@@ -128,6 +128,15 @@ class AppContainer(context: Context) {
     /** Stored rows that could not be read, if any. */
     val unreadableRows: Int get() = store?.unreadable ?: 0
 
+    /** All export callers must use this guarded entry point rather than Ledger.exportBackup(). */
+    suspend fun exportVerifiedBackup(): String {
+        val l = open()
+        return withContext(Dispatchers.IO) {
+            check(unreadableRows == 0) { "Incomplete ledger cannot be exported as a valid backup" }
+            l.exportBackup()
+        }
+    }
+
     /** Unreadable rows not shown to the user yet: more than when they last said they had read the warning. */
     fun unreadableToWarn(): Int {
         val seen = prefs.getInt(KEY_UNREADABLE_SEEN, 0)
