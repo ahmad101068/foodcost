@@ -12,6 +12,7 @@ plugins {
 // own computer; on GitHub the APK for testing is not made without it, and its signature is checked.
 val privateKeystore: File? = System.getenv("FOODCOST_KEYSTORE_FILE")?.let(::File)?.takeIf { it.isFile }
 
+// R-075-01 signed candidate: validate on PR before merging to main.
 val appVersion = "0.7.6"
 
 // The number Android compares when an APK installs over another: the version's own number, then
