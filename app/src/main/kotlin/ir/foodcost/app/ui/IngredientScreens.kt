@@ -108,6 +108,7 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
             items(rows, key = { it.id.value }) { row ->
                 IngredientListItem(
                     row = row,
+                    dataUnreliable = actions.unreadableRows > 0,
                     onClick = { nav.open(Screen.Ingredient(row.id.value)) },
                     onReprice = { repricing = row },
                 )
@@ -180,15 +181,15 @@ private fun QuickPriceDialog(
 }
 
 @Composable
-private fun IngredientListItem(row: IngredientRow, onClick: () -> Unit, onReprice: () -> Unit) {
+private fun IngredientListItem(row: IngredientRow, dataUnreliable: Boolean, onClick: () -> Unit, onReprice: () -> Unit) {
     val yieldLabel = row.yieldLabel
     val price = row.unitPrice
     ListItem(
         headlineContent = { Text(row.name) },
         supportingContent = {
             Text(
-                price ?: row.priceProblem.orEmpty(),
-                color = if (price == null) MaterialTheme.colorScheme.error else Color.Unspecified,
+                (if (dataUnreliable) "قیمت غیرقابل تأیید؛ ابتدا داده‌ها را بازیابی کنید" else price ?: row.priceProblem.orEmpty()),
+                color = if (dataUnreliable || price == null) MaterialTheme.colorScheme.error else Color.Unspecified,
             )
         },
         trailingContent = {
@@ -232,7 +233,7 @@ fun IngredientScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            item { IngredientCard(detail) }
+            item { IngredientCard(detail, dataUnreliable = actions.unreadableRows > 0) }
             item { SectionTitle("سابقهٔ قیمت خرید", Modifier.padding(top = 8.dp)) }
             if (detail.prices.isEmpty()) {
                 item {
@@ -243,8 +244,12 @@ fun IngredientScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
                     )
                 }
             }
-            items(detail.prices, key = { it.priceId }) { price ->
-                PriceItem(price, onVoid = { voiding = price })
+            if (actions.unreadableRows == 0) {
+                items(detail.prices, key = { it.priceId }) { price ->
+                    PriceItem(price, onVoid = { voiding = price })
+                }
+            } else {
+                item { Text("سابقه قیمت تا زمان بازیابی داده‌ها قابل تأیید نیست.", color = MaterialTheme.colorScheme.error) }
             }
             if (detail.usedIn.isNotEmpty()) {
                 item { SectionTitle("در این دستورها به کار رفته", Modifier.padding(top = 8.dp)) }
@@ -262,7 +267,7 @@ fun IngredientScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
 }
 
 @Composable
-private fun IngredientCard(detail: IngredientDetail) {
+private fun IngredientCard(detail: IngredientDetail, dataUnreliable: Boolean) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -277,11 +282,11 @@ private fun IngredientCard(detail: IngredientDetail) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                detail.unitPrice ?: detail.priceProblem.orEmpty(),
+                (if (dataUnreliable) "قیمت غیرقابل تأیید؛ ابتدا داده‌ها را بازیابی کنید" else detail.unitPrice ?: detail.priceProblem.orEmpty()),
                 style = MaterialTheme.typography.titleLarge,
-                color = if (detail.unitPrice == null) MaterialTheme.colorScheme.error else Color.Unspecified,
+                color = if (dataUnreliable || detail.unitPrice == null) MaterialTheme.colorScheme.error else Color.Unspecified,
             )
-            detail.usableUnitPrice?.let { Text("بعد از پاک کردن: $it", style = MaterialTheme.typography.bodyMedium) }
+            if (!dataUnreliable) detail.usableUnitPrice?.let { Text("بعد از پاک کردن: $it", style = MaterialTheme.typography.bodyMedium) }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 LabeledValue("بازدهی", detail.yieldLabel, Modifier.weight(1f))
                 detail.conversionsLabel?.let { LabeledValue("تبدیل‌ها", it, Modifier.weight(1f)) }
