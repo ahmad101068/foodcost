@@ -131,6 +131,10 @@ fun CalculatorScreen(
     var focusExtra by remember { mutableStateOf<Int?>(null) }
 
     fun commit(plan: QuickPlan, current: QuickInput) {
+        if (actions.unreadableRows > 0) {
+            actions.say("ذخیره متوقف شد: اطلاعات مالی ناقص است و ابتدا باید بازیابی شود.")
+            return
+        }
         actions.run({ ledger -> QuickCalculator.save(ledger, plan, today) }) { id ->
             val saved = container.state.value?.let { QuickCalculator.open(it, id, today, money) }
             update(saved ?: current.copy(recipeId = id))
