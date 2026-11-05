@@ -19,9 +19,14 @@ mkdir -p screenshots
 for f in $(adb shell run-as "$APP" ls files/screenshots | tr -d '\r'); do
   adb exec-out run-as "$APP" cat "files/screenshots/$f" > "screenshots/$f"
 done
-adb logcat -d '*:E' > logcat.txt || true
 failed=0
 grep -qE "^OK \([0-9]+ tests?\)" walkthrough.log || failed=1
+
+# A stored change that cannot be read: the warning stays on every screen. The app reads its data
+# when it first opens, so this runs in a process of its own, on data it makes and removes itself.
+adb shell am instrument -w -e class ir.foodcost.app.UnreadableWarningTest "$APP.test/androidx.test.runner.AndroidJUnitRunner" | tee unreadable.log
+grep -qE "^OK \([0-9]+ tests?\)" unreadable.log || failed=1
+adb logcat -d '*:E' > logcat.txt || true
 
 # The release build is shrunk by R8, which the test above does not cover: it must start too.
 adb install -r app/build/outputs/apk/release/app-release.apk
