@@ -168,7 +168,14 @@ class AppContainer(context: Context) {
     suspend fun <T> change(block: (Ledger) -> T): T {
         val l = open()
         val result = try {
-            withContext(Dispatchers.IO) { l.atomically(block) }
+            withContext(Dispatchers.IO) {
+                // Never mutate a partial financial ledger. A backup restore uses receive(),
+                // which remains available to mend unreadable stored operations.
+                check(unreadableRows == 0) {
+                    "Financial data is incomplete; restore a valid backup before making changes"
+                }
+                l.atomically(block)
+            }
         } finally {
             _state.value = l.state
         }
