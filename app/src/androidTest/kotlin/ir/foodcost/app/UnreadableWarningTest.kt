@@ -97,6 +97,20 @@ class UnreadableWarningTest {
         }
     }
 
+    @Test
+    fun ingredientListAndDetailDoNotPresentStalePricesAsVerified() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            waitFor("بخشی از داده‌ها خوانده نشد")
+            click("فهمیدم")
+            click("مواد")
+            assertWarning()
+            waitFor("قیمت غیرقابل تأیید؛ ابتدا داده‌ها را بازیابی کنید")
+            click("گوشت")
+            waitFor("قیمت غیرقابل تأیید؛ ابتدا داده‌ها را بازیابی کنید")
+            waitFor("سابقه قیمت تا زمان بازیابی داده‌ها قابل تأیید نیست.")
+        }
+    }
+
     private fun assertWarning() {
         dismissSystemDialogs()
         compose.waitUntil(timeoutMillis = 15_000) {
