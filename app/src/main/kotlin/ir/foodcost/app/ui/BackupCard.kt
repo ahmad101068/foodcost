@@ -78,6 +78,7 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
             scope.launch {
                 val saved = try {
                     withContext(Dispatchers.IO) {
+                        check(container.unreadableRows == 0) { "Incomplete ledger cannot be backed up as complete" }
                         val text = container.open().exportBackup()
                         writeText(context, uri, if (password.isEmpty()) text else BackupSeal.seal(text, password.toCharArray()))
                     }
@@ -138,7 +139,7 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
             style = MaterialTheme.typography.bodyMedium,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { exporting = true }) { Text("ساخت پشتیبان") }
+            Button(onClick = { exporting = true }, enabled = unreadable == 0) { Text("ساخت پشتیبان") }
             OutlinedButton(onClick = { importLauncher.launch(arrayOf("*/*")) }) { Text("بازگرداندن") }
         }
         if (unreadable > 0) {
@@ -253,6 +254,7 @@ private fun ExportDialog(unreadable: Int, onDismiss: () -> Unit, onExport: (Stri
                         again != password -> "دو رمز یکی نیستند."
                         else -> null
                     }
+                    if (unreadable > 0) error = "داده‌ها ناقص‌اند؛ ساخت پشتیبان سالم تا بازیابی مسدود است."
                     if (error == null) onExport(password)
                 },
             ) { Text(if (password.isEmpty()) "ساخت بدون رمز" else "ساخت با رمز") }
