@@ -139,6 +139,10 @@ fun CalculatorScreen(
     }
 
     fun save(current: QuickInput) {
+        if (actions.unreadableRows > 0) {
+            actions.say("اطلاعات ذخیره‌شده ناقص است؛ پیش از ذخیره یا تأیید قیمت، پشتیبان را بازیابی کنید.")
+            return
+        }
         when (val checked = QuickCalculator.check(current, state, money, today)) {
             is Checked.Invalid -> {
                 val other = checked.errors.filterKeys { it != Field.NAME }
@@ -156,7 +160,7 @@ fun CalculatorScreen(
     }
 
     val topActions: @Composable RowScope.() -> Unit = {
-        if (result.hasLines) {
+        if (result.hasLines && actions.unreadableRows == 0) {
             IconButton(onClick = { share(context, input.dishName, QuickCalculator.shareText(input, result, money, actions.unreadableRows)) }) {
                 Icon(Icons.Filled.Share, contentDescription = "فرستادن نتیجه")
             }
@@ -187,6 +191,7 @@ fun CalculatorScreen(
                 result,
                 money,
                 compact = WindowInsets.isImeVisible,
+                dataUnreliable = actions.unreadableRows > 0,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 onExplain = { explaining = listOf(it) },
             )
@@ -340,10 +345,18 @@ fun CalculatorScreen(
  * price: the cost, the net sale, the food cost and what is left.
  */
 @Composable
-private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, modifier: Modifier = Modifier, onExplain: (String) -> Unit) {
+private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, dataUnreliable: Boolean, modifier: Modifier = Modifier, onExplain: (String) -> Unit) {
     // A figure explains itself once there is a calculation behind it.
     fun explain(id: String): (() -> Unit)? = if (id in result.explanations) ({ onExplain(id) }) else null
     DisplayPanel(modifier) {
+        if (dataUnreliable) {
+            Text(
+                "نتیجه مالی قابل تأیید نیست؛ بخشی از اطلاعات ذخیره‌شده خوانده نشده است. برای بازیابی اطلاعات به بخش پشتیبان بروید.",
+                modifier = Modifier.testTag("unverified-financial-result"),
+                color = MaterialTheme.colorScheme.error,
+            )
+            return@DisplayPanel
+        }
         val netSales = result.netSales
         val remaining = result.remaining
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
