@@ -21,7 +21,7 @@ jobs:
           sha256sum foodcost-source-audit.zip > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: FoodCost-source-audit-0.7.6
+          name: FoodCost-source-audit-0.7.7
           path: |
             foodcost-source-audit.zip
             SHA256SUMS.txt
