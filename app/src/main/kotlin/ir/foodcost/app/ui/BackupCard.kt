@@ -78,8 +78,7 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
             scope.launch {
                 val saved = try {
                     withContext(Dispatchers.IO) {
-                        check(container.unreadableRows == 0) { "Incomplete ledger cannot be backed up as complete" }
-                        val text = container.open().exportBackup()
+                        val text = container.exportVerifiedBackup()
                         writeText(context, uri, if (password.isEmpty()) text else BackupSeal.seal(text, password.toCharArray()))
                     }
                 } catch (e: Exception) {
