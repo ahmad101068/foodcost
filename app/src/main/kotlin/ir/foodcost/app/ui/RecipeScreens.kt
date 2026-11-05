@@ -43,6 +43,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import ir.foodcost.app.ui.theme.statusColors
 import ir.foodcost.core.model.ComponentRef
@@ -111,19 +112,19 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
                     }
                 }
             }
-            if (query.isBlank() && (model.needsRepricing > 0 || model.allCovered)) {
+            if (actions.unreadableRows == 0 && query.isBlank() && (model.needsRepricing > 0 || model.allCovered)) {
                 item { PriceVerdict(model.needsRepricing) }
             }
             if (model.plates.isNotEmpty()) {
                 item { SectionTitle("غذاهای منو", Modifier.padding(start = 4.dp)) }
                 items(model.plates, key = { it.recipeId.value }) { row ->
-                    PlateCard(row) { nav.open(dishScreen(state, row.recipeId, today, money)) }
+                    PlateCard(row, dataUnreliable = actions.unreadableRows > 0) { nav.open(dishScreen(state, row.recipeId, today, money)) }
                 }
             }
             if (model.preparations.isNotEmpty()) {
                 item { SectionTitle("نیمه‌آماده‌ها", Modifier.padding(start = 4.dp)) }
                 items(model.preparations, key = { it.id.value }) { row ->
-                    PreparationCard(row) { nav.open(Screen.Recipe(row.id.value)) }
+                    PreparationCard(row, dataUnreliable = actions.unreadableRows > 0) { nav.open(Screen.Recipe(row.id.value)) }
                 }
             }
         }
@@ -142,6 +143,15 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
             },
         )
     }
+}
+
+@Composable
+private fun UnverifiedFinancialData() {
+    Text(
+        "نتیجه مالی قابل تأیید نیست؛ اطلاعات ذخیره‌شده ناقص است. ابتدا پشتیبان را بازیابی کنید.",
+        modifier = Modifier.testTag("unverified-financial-result"),
+        color = MaterialTheme.colorScheme.error,
+    )
 }
 
 /** One line on top of the list: how many plates need a new price, or that none does. */
@@ -163,7 +173,7 @@ private fun PriceVerdict(needsRepricing: Int) {
 }
 
 @Composable
-private fun PlateCard(row: MenuRow, onClick: () -> Unit) {
+private fun PlateCard(row: MenuRow, dataUnreliable: Boolean, onClick: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), colors = whiteCardColors()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -173,9 +183,9 @@ private fun PlateCard(row: MenuRow, onClick: () -> Unit) {
                         Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                StatusChip(row.status, row.statusLabel)
+                if (!dataUnreliable) StatusChip(row.status, row.statusLabel)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (dataUnreliable) UnverifiedFinancialData() else Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 // The same cost as the calculator's: food, other costs and the overhead share.
                 LabeledValue("هزینهٔ هر پرس", row.cost, Modifier.weight(1f), amount = true)
                 LabeledValue("قیمت منو", row.menuPrice ?: "ثبت نشده", Modifier.weight(1f), amount = true)
@@ -186,7 +196,7 @@ private fun PlateCard(row: MenuRow, onClick: () -> Unit) {
                 row.foodCostPercent?.let { "فودکاست $it" },
                 row.raise?.let { "باید $it گران‌تر شود" },
             )
-            if (notes.isNotEmpty()) {
+            if (!dataUnreliable && notes.isNotEmpty()) {
                 Text(
                     notes.joinToString("، "),
                     style = MaterialTheme.typography.bodySmall,
@@ -198,11 +208,11 @@ private fun PlateCard(row: MenuRow, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PreparationCard(row: RecipeRow, onClick: () -> Unit) {
+private fun PreparationCard(row: RecipeRow, dataUnreliable: Boolean, onClick: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), colors = whiteCardColors()) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(row.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            LabeledValue("هزینهٔ هر پرس", row.cost, amount = true)
+            if (dataUnreliable) UnverifiedFinancialData() else LabeledValue("هزینهٔ هر پرس", row.cost, amount = true)
         }
     }
 }
@@ -236,7 +246,7 @@ fun RecipeScreen(id: RecipeId, state: LedgerState, money: MoneyFormat, today: Lo
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            item { CostCard(detail, onEditPrice = { dialog = RecipeDialog.MENU_PRICE }) }
+            item { if (actions.unreadableRows > 0) UnverifiedFinancialData() else CostCard(detail, onEditPrice = { dialog = RecipeDialog.MENU_PRICE }) }
             if (detail.issues.isNotEmpty()) {
                 item { IssuesCard(detail.issues) }
             }
