@@ -121,7 +121,7 @@ private fun UnreadableWarning(actions: AppActions) {
     if (count == 0) return
     Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth().testTag("unreadable-warning")) {
         Text(
-            BackupTexts.unreadableShort(count),
+            if (actions.unreadableRows > 0) BackupTexts.unreadableShort(count) else "داده‌های مالی قابل تأیید نیستند؛ فایل پشتیبان معتبر را بازیابی کنید.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onErrorContainer,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
