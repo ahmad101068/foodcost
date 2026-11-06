@@ -68,7 +68,7 @@ class ConflictingChanges(val count: Int) : IllegalArgumentException("$count chan
 class ChangesClosedPeriod(val count: Int) : IllegalArgumentException("A backup would change the figures of $count closed periods")
 
 /** A refused step aborts an atomic batch, even if the caller ignores its outcome. */
-class AtomicChangeRejected(val reason: RejectReason) : IllegalStateException("Atomic change rejected: $reason")
+class AtomicChangeRejected(val reason: RejectReason) : IllegalArgumentException("Atomic change rejected: $reason")
 
 /**
  * The app's way to read and change data. Every change becomes an [Operation] that is checked,
