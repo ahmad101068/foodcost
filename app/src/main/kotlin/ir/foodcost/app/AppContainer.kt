@@ -185,7 +185,7 @@ class AppContainer(context: Context) {
             withContext(Dispatchers.IO) {
                 // Never mutate a partial financial ledger. A backup restore uses receive(),
                 // which remains available to mend unreadable stored operations.
-                check(unreadableRows == 0) {
+                check(!financialDataUnverified) {
                     "Financial data is incomplete; restore a valid backup before making changes"
                 }
                 l.atomically(block)
