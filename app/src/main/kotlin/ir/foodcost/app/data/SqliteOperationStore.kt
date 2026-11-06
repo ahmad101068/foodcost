@@ -162,12 +162,29 @@ class SqliteOperationStore(context: Context, name: String = DATABASE) : Operatio
         private fun setAside(file: File): File {
             var aside = File(file.parentFile, "${file.name}.damaged-${System.currentTimeMillis()}")
             while (aside.exists()) aside = File(aside.path + "-1")
-            if (!file.renameTo(aside)) throw IOException("The damaged database ${file.name} could not be set aside")
-            for (suffix in listOf("-journal", "-wal", "-shm")) {
-                val part = File(file.path + suffix)
-                if (part.exists() && !part.renameTo(File(aside.path + suffix))) {
-                    throw IOException("The damaged database's ${part.name} could not be set aside")
+            // A failed move must never leave the main DB at its aside path while the
+            // next launch sees an absent original and silently creates an empty DB.
+            // Move sidecars first, then the main file; roll back every completed move
+            // on failure. If rollback itself fails, keep failing closed and preserve
+            // the original exception with the rollback failure attached.
+            val moved = ArrayList<Pair<File, File>>()
+            try {
+                for (suffix in listOf("-journal", "-wal", "-shm", "")) {
+                    val source = File(file.path + suffix)
+                    if (!source.exists()) continue
+                    val target = File(aside.path + suffix)
+                    if (!source.renameTo(target)) {
+                        throw IOException("The damaged database's ${source.name} could not be set aside")
+                    }
+                    moved += source to target
                 }
+            } catch (failure: IOException) {
+                for ((source, target) in moved.asReversed()) {
+                    if (!target.renameTo(source)) {
+                        failure.addSuppressed(IOException("Could not restore ${source.name} after failed quarantine"))
+                    }
+                }
+                throw failure
             }
             return aside
         }
