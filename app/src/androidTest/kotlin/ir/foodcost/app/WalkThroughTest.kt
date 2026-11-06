@@ -50,6 +50,15 @@ class WalkThroughTest {
         mkdirs()
     }
 
+    /** Every instrumented test must begin with a clean app database and settings. */
+    @org.junit.Before
+    fun resetWalkthroughState() {
+        val context = instrumentation.targetContext
+        context.deleteDatabase(ir.foodcost.app.data.SqliteOperationStore.DATABASE)
+        context.getSharedPreferences("foodcost", android.content.Context.MODE_PRIVATE).edit().clear().commit()
+        File(context.filesDir, "calculator-draft.json").delete()
+    }
+
     @Test
     fun aPlateIsCostedInTheCalculatorAndSaved() {
         try {
