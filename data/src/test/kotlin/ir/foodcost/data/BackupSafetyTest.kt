@@ -5,6 +5,7 @@ import ir.foodcost.data.T.D15
 import ir.foodcost.data.T.D31
 import ir.foodcost.data.json.Json
 import ir.foodcost.data.json.JsonException
+import ir.foodcost.data.json.asObject
 import ir.foodcost.data.ops.Backup
 import ir.foodcost.data.ops.BackupSeal
 import ir.foodcost.data.ops.OperationCodec
