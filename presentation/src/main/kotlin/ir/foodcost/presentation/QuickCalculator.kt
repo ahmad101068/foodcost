@@ -32,6 +32,7 @@ import ir.foodcost.core.units.Conversions
 import ir.foodcost.core.units.Dimension
 import ir.foodcost.core.units.UnitConverter
 import ir.foodcost.core.units.Uom
+import ir.foodcost.data.ledger.AtomicChangeRejected
 import ir.foodcost.data.ledger.Ledger
 import ir.foodcost.data.ledger.LedgerState
 import ir.foodcost.data.ledger.RejectReason
@@ -814,7 +815,11 @@ object QuickCalculator {
      * records the prices that changed, then saves the dish and its menu price. Returns the dish.
      * All of it is one change: if any step is refused, nothing of it is kept.
      */
-    fun save(ledger: Ledger, plan: QuickPlan, today: LocalDate): RecipeId = ledger.atomically { saveSteps(ledger, plan, today) }
+    fun save(ledger: Ledger, plan: QuickPlan, today: LocalDate): RecipeId = try {
+        ledger.atomically { saveSteps(ledger, plan, today) }
+    } catch (e: AtomicChangeRejected) {
+        throw QuickSaveRefused(e.reason)
+    }
 
     // One step after another; [save] runs them as one change, so a refused step undoes the rest.
     private fun saveSteps(ledger: Ledger, plan: QuickPlan, today: LocalDate): RecipeId {
