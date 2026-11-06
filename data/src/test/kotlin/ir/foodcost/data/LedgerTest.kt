@@ -228,6 +228,26 @@ class LedgerTest {
     }
 
     @Test
+    fun `a caught atomic rejection still prevents partial commit`() {
+        val store = InMemoryOperationStore()
+        val ledger = T.ledger("A", store = store)
+        val before = ledger.state
+        assertFailsWith<ir.foodcost.data.ledger.AtomicChangeRejected> {
+            ledger.atomically { l ->
+                val meat = l.createIngredient("گوشت", Dimension.MASS)
+                l.recordPrice(T.price(meat, D1, 16_000_000), "same-price").applied()
+                try {
+                    l.recordPrice(T.price(meat, D1, 16_000_000), "same-price")
+                } catch (_: ir.foodcost.data.ledger.AtomicChangeRejected) {
+                    // A caller may catch a refusal, but the transaction remains invalid.
+                }
+            }
+        }
+        assertEquals(before, ledger.state)
+        assertTrue(store.all().isEmpty())
+    }
+
+    @Test
     fun `T10 a backup restored on another phone gives the same data and the same figures`() {
         val wall = FakeWall()
         val a = T.ledger("A", Role.OWNER, wall)
