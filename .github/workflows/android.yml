@@ -110,8 +110,25 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v5
+      # The release smoke test must install the same signed APK shape as the APK job.
+      # Without signing credentials Gradle creates an unsigned release artifact, not
+      # app-release.apk, and the walk-through fails at adb install for the wrong reason.
+      - name: Configure release signing for smoke test
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.FOODCOST_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.FOODCOST_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::error title=Signing::Release smoke test requires the configured signing key"
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/foodcost.keystore"
+          echo "FOODCOST_KEYSTORE_FILE=$RUNNER_TEMP/foodcost.keystore" >> "$GITHUB_ENV"
       - name: Build the app, its test and the release build
         shell: bash
+        env:
+          FOODCOST_KEYSTORE_PASSWORD: ${{ secrets.FOODCOST_KEYSTORE_PASSWORD }}
         run: |
           set -o pipefail
           ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease --no-daemon 2>&1 | tee build.log
