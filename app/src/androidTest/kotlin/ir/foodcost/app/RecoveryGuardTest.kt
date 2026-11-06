@@ -11,6 +11,7 @@ import ir.foodcost.data.ops.Actor
 import ir.foodcost.data.ops.Role
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -31,6 +32,37 @@ class RecoveryGuardTest {
         context.deleteDatabase(SqliteOperationStore.DATABASE)
         context.deleteDatabase("recovery-test-source.db")
         prefs.edit().clear().commit()
+    }
+
+    /**
+     * Regression for corrupt SQLite quarantine: a database and all of its sidecars
+     * must be retained under the same unique suffix, never partly discarded.
+     */
+    @Test fun damagedDatabaseQuarantinePreservesMainFileAndSidecars() {
+        val dir = context.cacheDir
+        val source = java.io.File(dir, "quarantine-test-${System.nanoTime()}.db")
+        val suffixes = listOf("", "-journal", "-wal", "-shm")
+        try {
+            suffixes.forEachIndexed { index, suffix ->
+                java.io.File(source.path + suffix).writeText("test-payload-$index")
+            }
+            val method = SqliteOperationStore.Companion::class.java.getDeclaredMethod(
+                "setAside", java.io.File::class.java,
+            )
+            method.isAccessible = true
+            val aside = method.invoke(SqliteOperationStore.Companion, source) as java.io.File
+            assertTrue(aside.name.startsWith(source.name + ".damaged-"))
+            suffixes.forEachIndexed { index, suffix ->
+                assertFalse(java.io.File(source.path + suffix).exists())
+                val preserved = java.io.File(aside.path + suffix)
+                assertTrue("Missing quarantined sidecar: $suffix", preserved.exists())
+                assertEquals("test-payload-$index", preserved.readText())
+                preserved.delete()
+            }
+        } finally {
+            suffixes.forEach { java.io.File(source.path + it).delete() }
+            dir.listFiles()?.filter { it.name.startsWith(source.name + ".damaged-") }?.forEach { it.delete() }
+        }
     }
 
     @Test fun quarantinedDatabaseRejectsChangesAndExportsUntilNonemptyRestore() = runBlocking {
