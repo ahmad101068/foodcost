@@ -105,6 +105,7 @@ class Ledger(
 
     /** Operations made inside [atomically] and not stored yet. */
     private var pending: MutableList<Operation>? = null
+    private var pendingRejection: RejectReason? = null
 
     /**
      * Checks [change] against the current state, then stores and applies it, or rejects it without
@@ -118,7 +119,10 @@ class Ledger(
         val op = Operation(OpId.random(), clock.now(), actor, change, reason?.takeIf { it.isNotBlank() }, seq)
         val builder = StateBuilder(state)
         builder.add(op)?.let {
-            if (pending != null) throw AtomicChangeRejected(it)
+            if (pending != null) {
+                pendingRejection = it
+                throw AtomicChangeRejected(it)
+            }
             return Outcome.Rejected(op, it)
         }
         val batch = pending
@@ -126,7 +130,10 @@ class Ledger(
         // order, so everything is applied again.
         val next = if (change is Change.PeriodReopened) LedgerState.fold(store.all() + batch.orEmpty() + op) else builder.build()
         if (changedClosed(state, next) > 0) {
-            if (pending != null) throw AtomicChangeRejected(RejectReason.CLOSED_FIGURES)
+            if (pending != null) {
+                pendingRejection = RejectReason.CLOSED_FIGURES
+                throw AtomicChangeRejected(RejectReason.CLOSED_FIGURES)
+            }
             return Outcome.Rejected(op, RejectReason.CLOSED_FIGURES)
         }
         if (batch != null) batch += op else store.append(op)
@@ -139,7 +146,7 @@ class Ledger(
      * Runs [block] as one change of several steps, such as a dish saved with its new ingredients and
      * prices: what it makes is stored in one write when it returns, and nothing of it is stored if it
      * throws, so a step refused half way leaves no part behind. While it runs, [state] shows each step.
-     * A step that comes back [Outcome.Rejected] throws nothing by itself; throw to undo the rest.
+     * Any rejected step aborts the batch, even if its exception is caught inside the block.
      */
     @Synchronized
     fun <T> atomically(block: (Ledger) -> T): T {
@@ -148,8 +155,10 @@ class Ledger(
         val seqBefore = lastSeq
         val batch = ArrayList<Operation>()
         pending = batch
+        pendingRejection = null
         try {
             val result = block(this)
+            pendingRejection?.let { throw AtomicChangeRejected(it) }
             if (batch.isNotEmpty()) store.appendAll(batch)
             return result
         } catch (e: Throwable) {
@@ -158,6 +167,7 @@ class Ledger(
             throw e
         } finally {
             pending = null
+            pendingRejection = null
         }
     }
 
