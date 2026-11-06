@@ -37,7 +37,7 @@ jobs:
       - name: Test and build signed release APK
         env:
           FOODCOST_KEYSTORE_PASSWORD: ${{ secrets.FOODCOST_KEYSTORE_PASSWORD }}
-        run: ./gradlew :presentation:test :app:assembleRelease --no-daemon
+        run: ./gradlew :core:test :data:test :presentation:test :app:assembleRelease --no-daemon
       - name: Verify signing certificate
         shell: bash
         run: |
