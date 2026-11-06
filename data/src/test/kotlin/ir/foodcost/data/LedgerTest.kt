@@ -211,6 +211,22 @@ class LedgerTest {
     }
 
     @Test
+    fun `a rejected atomic step rolls back earlier accepted changes without caller checking outcome`() {
+        val store = InMemoryOperationStore()
+        val ledger = T.ledger("A", store = store)
+        val before = ledger.state
+        assertFailsWith<ir.foodcost.data.ledger.AtomicChangeRejected> {
+            ledger.atomically { l ->
+                l.createIngredient("گوشت", Dimension.MASS)
+                // An invalid blank ingredient name is rejected by the central state builder.
+                l.createIngredient(" ", Dimension.MASS)
+            }
+        }
+        assertEquals(before, ledger.state)
+        assertTrue(store.all().isEmpty())
+    }
+
+    @Test
     fun `T10 a backup restored on another phone gives the same data and the same figures`() {
         val wall = FakeWall()
         val a = T.ledger("A", Role.OWNER, wall)
