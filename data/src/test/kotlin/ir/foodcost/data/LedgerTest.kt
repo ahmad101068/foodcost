@@ -218,8 +218,9 @@ class LedgerTest {
         assertFailsWith<ir.foodcost.data.ledger.AtomicChangeRejected> {
             ledger.atomically { l ->
                 l.createIngredient("گوشت", Dimension.MASS)
-                // The price targets an ingredient that does not exist; ignore the outcome.
-                l.recordPrice(T.price(ir.foodcost.core.model.IngredientId("missing"), D1, 16_000_000))
+                // A second price with the same ID is rejected; ignore its outcome.
+                l.recordPrice(T.price(l.state.ingredients.keys.first(), D1, 16_000_000), "duplicate-price").applied()
+                l.recordPrice(T.price(l.state.ingredients.keys.first(), D1, 16_000_000), "duplicate-price")
             }
         }
         assertEquals(before, ledger.state)
