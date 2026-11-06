@@ -46,7 +46,7 @@ jobs:
           grep -qi "72c370e72612b453844e3a8c5d02d5ebc89c918f1ab68a56e22e4623309a8b22" "$RUNNER_TEMP/certificate.txt"
       - uses: actions/upload-artifact@v4
         with:
-          name: FoodCost-0.7.7-signed-candidate
+          name: FoodCost-0.7.8-signed-candidate
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
