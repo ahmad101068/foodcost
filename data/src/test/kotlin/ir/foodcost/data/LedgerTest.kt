@@ -218,8 +218,8 @@ class LedgerTest {
         assertFailsWith<ir.foodcost.data.ledger.AtomicChangeRejected> {
             ledger.atomically { l ->
                 l.createIngredient("گوشت", Dimension.MASS)
-                // An invalid blank ingredient name is rejected by the central state builder.
-                l.createIngredient(" ", Dimension.MASS)
+                // The price targets an ingredient that does not exist; ignore the outcome.
+                l.recordPrice(T.price(ir.foodcost.core.model.IngredientId("missing"), D1, 16_000_000))
             }
         }
         assertEquals(before, ledger.state)
