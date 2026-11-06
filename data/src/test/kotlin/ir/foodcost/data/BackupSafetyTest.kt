@@ -63,7 +63,7 @@ class BackupSafetyTest {
         assertFailsWith<BackupSeal.WrongPassword> { BackupSeal.open(changed, "سیب ۱۴۰۵".toCharArray()) }
         assertFailsWith<JsonException> { BackupSeal.open(plain, "سیب ۱۴۰۵".toCharArray()) }
         // A malformed envelope must be rejected before the cryptographic operation.
-        val salt = Regex("\\"salt\\":\\"([^\\"]+)\\"").find(sealed)!!.groupValues[1]
+        val salt = Json.parse(sealed).asObject("backup").string("salt")
         val shortSalt = java.util.Base64.getEncoder().encodeToString(ByteArray(1))
         assertFailsWith<JsonException> {
             BackupSeal.open(sealed.replace(salt, shortSalt), "سیب ۱۴۰۵".toCharArray())
