@@ -34,7 +34,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-boot-timeout: 600
-          script: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace
+          script: |\n            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.foodcost.app.data.SqliteOperationStoreTest --no-daemon --stacktrace\n            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.foodcost.app.UnreadableWarningTest --no-daemon --stacktrace\n            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.foodcost.app.WalkThroughTest --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
         if: always()
         with:
