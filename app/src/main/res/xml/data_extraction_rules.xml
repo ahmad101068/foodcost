@@ -1,14 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    Android's own backup and the move to a new phone take everything, the data above all, but the
-    phone's id: two phones with one id would number their changes alike. A phone restored from a
-    backup gets an id of its own, and its new changes are numbered from 1 under it.
--->
+<!-- Never restore financial data implicitly from Android cloud backup or device transfer. -->
 <data-extraction-rules>
     <cloud-backup>
-        <exclude domain="sharedpref" path="device.xml" />
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
     </cloud-backup>
     <device-transfer>
-        <exclude domain="sharedpref" path="device.xml" />
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
     </device-transfer>
 </data-extraction-rules>
