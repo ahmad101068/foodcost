@@ -67,6 +67,9 @@ class ConflictingChanges(val count: Int) : IllegalArgumentException("$count chan
 /** Thrown when a backup would move the figures of [count] closed periods; nothing is stored. */
 class ChangesClosedPeriod(val count: Int) : IllegalArgumentException("A backup would change the figures of $count closed periods")
 
+/** A refused step aborts an atomic batch, even if the caller ignores its outcome. */
+class AtomicChangeRejected(val reason: RejectReason) : IllegalStateException("Atomic change rejected: $reason")
+
 /**
  * The app's way to read and change data. Every change becomes an [Operation] that is checked,
  * stored and applied; nothing is ever overwritten, so the log doubles as history and backup.
@@ -114,12 +117,18 @@ class Ledger(
         val seq = lastSeq + 1 // a change refused takes no number
         val op = Operation(OpId.random(), clock.now(), actor, change, reason?.takeIf { it.isNotBlank() }, seq)
         val builder = StateBuilder(state)
-        builder.add(op)?.let { return Outcome.Rejected(op, it) }
+        builder.add(op)?.let {
+            if (pending != null) throw AtomicChangeRejected(it)
+            return Outcome.Rejected(op, it)
+        }
         val batch = pending
         // A reopened period takes in the changes its close had not seen, wherever they sit in the
         // order, so everything is applied again.
         val next = if (change is Change.PeriodReopened) LedgerState.fold(store.all() + batch.orEmpty() + op) else builder.build()
-        if (changedClosed(state, next) > 0) return Outcome.Rejected(op, RejectReason.CLOSED_FIGURES)
+        if (changedClosed(state, next) > 0) {
+            if (pending != null) throw AtomicChangeRejected(RejectReason.CLOSED_FIGURES)
+            return Outcome.Rejected(op, RejectReason.CLOSED_FIGURES)
+        }
         if (batch != null) batch += op else store.append(op)
         lastSeq = seq
         state = next
