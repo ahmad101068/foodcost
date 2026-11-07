@@ -5,6 +5,7 @@ import ir.foodcost.data.T.D15
 import ir.foodcost.data.T.D31
 import ir.foodcost.data.json.Json
 import ir.foodcost.data.json.JsonException
+import ir.foodcost.data.json.asObject
 import ir.foodcost.data.ops.Backup
 import ir.foodcost.data.ops.BackupSeal
 import ir.foodcost.data.ops.OperationCodec
@@ -62,6 +63,17 @@ class BackupSafetyTest {
         val changed = sealed.replace(data, data.substring(0, 10) + flipped + data.substring(11))
         assertFailsWith<BackupSeal.WrongPassword> { BackupSeal.open(changed, "سیب ۱۴۰۵".toCharArray()) }
         assertFailsWith<JsonException> { BackupSeal.open(plain, "سیب ۱۴۰۵".toCharArray()) }
+        // A malformed envelope must be rejected before the cryptographic operation.
+        val salt = Json.parse(sealed).asObject("backup").string("salt")
+        val shortSalt = java.util.Base64.getEncoder().encodeToString(ByteArray(1))
+        assertFailsWith<JsonException> {
+            BackupSeal.open(sealed.replace(salt, shortSalt), "سیب ۱۴۰۵".toCharArray())
+        }
+        val shortData = java.util.Base64.getEncoder().encodeToString(ByteArray(3))
+        assertFailsWith<JsonException> {
+            BackupSeal.open(sealed.replace(data, shortData), "سیب ۱۴۰۵".toCharArray())
+        }
+
         assertFailsWith<IllegalArgumentException> { BackupSeal.seal(plain, CharArray(0)) }
 
         // Opened, it is an ordinary backup: imported on another phone it gives the same data.

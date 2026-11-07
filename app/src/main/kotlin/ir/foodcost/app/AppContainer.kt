@@ -128,6 +128,18 @@ class AppContainer(context: Context) {
     /** Stored rows that could not be read, if any. */
     val unreadableRows: Int get() = store?.unreadable ?: 0
 
+    /** Remains unsafe after a whole damaged database is set aside, even with zero unreadable rows. */
+    val financialDataUnverified: Boolean get() = unreadableRows > 0 || prefs.getBoolean(KEY_RECOVERY_REQUIRED, false)
+
+    /** All export callers must use this guarded entry point rather than Ledger.exportBackup(). */
+    suspend fun exportVerifiedBackup(): String {
+        val l = open()
+        return withContext(Dispatchers.IO) {
+            check(!financialDataUnverified) { "Incomplete ledger cannot be exported as a valid backup" }
+            l.exportBackup()
+        }
+    }
+
     /** Unreadable rows not shown to the user yet: more than when they last said they had read the warning. */
     fun unreadableToWarn(): Int {
         val seen = prefs.getInt(KEY_UNREADABLE_SEEN, 0)
@@ -153,7 +165,9 @@ class AppContainer(context: Context) {
             val s = SqliteOperationStore(appContext)
             store = s
             // A damaged file set aside is said until the user has read it, even if the app closes first.
-            s.setAside?.let { prefs.edit().putString(KEY_SET_ASIDE, it.name).commit() }
+            s.setAside?.let {
+                prefs.edit().putString(KEY_SET_ASIDE, it.name).putBoolean(KEY_RECOVERY_REQUIRED, true).commit()
+            }
             Ledger(s, HybridClock(deviceId()), Actor(OWNER_ID, Role.OWNER))
         }.also {
             ledger = it
@@ -168,7 +182,14 @@ class AppContainer(context: Context) {
     suspend fun <T> change(block: (Ledger) -> T): T {
         val l = open()
         val result = try {
-            withContext(Dispatchers.IO) { l.atomically(block) }
+            withContext(Dispatchers.IO) {
+                // Never mutate a partial financial ledger. A backup restore uses receive(),
+                // which remains available to mend unreadable stored operations.
+                check(!financialDataUnverified) {
+                    "Financial data is incomplete; restore a valid backup before making changes"
+                }
+                l.atomically(block)
+            }
         } finally {
             _state.value = l.state
         }
@@ -186,6 +207,9 @@ class AppContainer(context: Context) {
         val l = open()
         val added = withContext(Dispatchers.IO) { l.receive(operations) }
         _state.value = l.state
+        // Only a nonempty imported backup can replace a database set aside as unreadable.
+        // The user must still verify that this backup contains their expected historical data.
+        if (added > 0 && unreadableRows == 0) prefs.edit().putBoolean(KEY_RECOVERY_REQUIRED, false).commit()
         return added
     }
 
@@ -223,6 +247,7 @@ class AppContainer(context: Context) {
         const val KEY_CURRENCY = "currency"
         const val KEY_UNREADABLE_SEEN = "unreadable-seen"
         const val KEY_SET_ASIDE = "damaged-database-set-aside"
+        const val KEY_RECOVERY_REQUIRED = "financial-recovery-required"
         const val KEY_DEVICE = "device"
         const val DEVICE_FILE = "device"
         const val OWNER_ID = "owner"

@@ -5,7 +5,8 @@ import android.os.ParcelFileDescriptor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.test.core.app.ActivityScenario
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -42,7 +43,7 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class WalkThroughTest {
     @get:Rule
-    val rule = createAndroidComposeRule<MainActivity>()
+    val rule = createEmptyComposeRule()
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val shots = File(instrumentation.targetContext.filesDir, "screenshots").apply {
@@ -50,13 +51,24 @@ class WalkThroughTest {
         mkdirs()
     }
 
+    /** Every instrumented test must begin with a clean app database and settings. */
+    @org.junit.Before
+    fun resetWalkthroughState() {
+        val context = instrumentation.targetContext
+        context.deleteDatabase(ir.foodcost.app.data.SqliteOperationStore.DATABASE)
+        context.getSharedPreferences("foodcost", android.content.Context.MODE_PRIVATE).edit().clear().commit()
+        File(context.filesDir, "calculator-draft.json").delete()
+    }
+
     @Test
     fun aPlateIsCostedInTheCalculatorAndSaved() {
-        try {
-            walk()
-        } catch (e: Throwable) {
-            shot("99-failure")
-            throw e
+        ActivityScenario.launch(MainActivity::class.java).use {
+            try {
+                walk()
+            } catch (e: Throwable) {
+                shot("99-failure")
+                throw e
+            }
         }
     }
 

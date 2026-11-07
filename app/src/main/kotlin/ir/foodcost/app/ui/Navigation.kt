@@ -163,7 +163,7 @@ class AppActions(
     private var message: Job? = null
 
     /** Stored changes that could not be read; the figures on every screen are without them. */
-    val unreadableRows: Int get() = container.unreadableRows
+    val unreadableRows: Int get() = if (container.financialDataUnverified) maxOf(1, container.unreadableRows) else 0
 
     /** Runs [change] off the main thread. If it is refused, says why; otherwise passes its result to [onDone]. */
     fun <T> run(change: (Ledger) -> T, onDone: (T) -> Unit = {}) {

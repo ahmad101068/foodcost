@@ -67,7 +67,7 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
     // The password of the backup being saved, empty for none; kept only until the file is written.
     var exportPassword by remember { mutableStateOf("") }
     var importing by remember { mutableStateOf<Importing?>(null) }
-    val unreadable = container.unreadableRows
+    val unreadable = if (container.financialDataUnverified) maxOf(1, container.unreadableRows) else 0
     // Closed periods whose figures no longer add up to their record; worked out only when some period is closed.
     val closedMismatches = container.state.collectAsState().value?.closedMismatches?.size ?: 0
 
@@ -78,7 +78,7 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
             scope.launch {
                 val saved = try {
                     withContext(Dispatchers.IO) {
-                        val text = container.open().exportBackup()
+                        val text = container.exportVerifiedBackup()
                         writeText(context, uri, if (password.isEmpty()) text else BackupSeal.seal(text, password.toCharArray()))
                     }
                 } catch (e: Exception) {
@@ -138,7 +138,7 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
             style = MaterialTheme.typography.bodyMedium,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { exporting = true }) { Text("ساخت پشتیبان") }
+            Button(onClick = { exporting = true }, enabled = unreadable == 0) { Text("ساخت پشتیبان") }
             OutlinedButton(onClick = { importLauncher.launch(arrayOf("*/*")) }) { Text("بازگرداندن") }
         }
         if (unreadable > 0) {
@@ -253,6 +253,7 @@ private fun ExportDialog(unreadable: Int, onDismiss: () -> Unit, onExport: (Stri
                         again != password -> "دو رمز یکی نیستند."
                         else -> null
                     }
+                    if (unreadable > 0) error = "داده‌ها ناقص‌اند؛ ساخت پشتیبان سالم تا بازیابی مسدود است."
                     if (error == null) onExport(password)
                 },
             ) { Text(if (password.isEmpty()) "ساخت بدون رمز" else "ساخت با رمز") }

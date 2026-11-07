@@ -1,6 +1,7 @@
 package ir.foodcost.app
 
 import android.content.Context
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -79,7 +80,7 @@ class UnreadableWarningTest {
     }
 
     @Test
-    fun everyScreenSaysTheFiguresMayBeIncompleteAfterTheWarningIsRead() {
+    fun everyScreenBlocksUnverifiedFinancialResultsAfterWarningAcknowledgement() {
         ActivityScenario.launch(MainActivity::class.java).use {
             waitFor("بخشی از داده‌ها خوانده نشد")
             click("فهمیدم")
@@ -88,10 +89,25 @@ class UnreadableWarningTest {
             assertWarning()
             click("کباب آزمون")
             assertWarning()
-            // Costed on the price before the unreadable one: 200 g at 1,600,000 toman a kilo.
+            // The latest unreadable price must never lead to a stale confirmed amount.
             compose.waitUntil(timeoutMillis = 15_000) {
-                compose.onAllNodes(hasTestTag("cost") and hasText("۳۲۰٬۰۰۰", substring = true)).fetchSemanticsNodes().isNotEmpty()
+                compose.onAllNodes(hasTestTag("unverified-financial-result")).fetchSemanticsNodes().isNotEmpty()
             }
+            compose.onAllNodes(hasTestTag("cost")).assertCountEquals(0)
+        }
+    }
+
+    @Test
+    fun ingredientListAndDetailDoNotPresentStalePricesAsVerified() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            waitFor("بخشی از داده‌ها خوانده نشد")
+            click("فهمیدم")
+            click("مواد")
+            assertWarning()
+            waitFor("قیمت غیرقابل تأیید؛ ابتدا داده‌ها را بازیابی کنید")
+            click("گوشت")
+            waitFor("قیمت غیرقابل تأیید؛ ابتدا داده‌ها را بازیابی کنید")
+            waitFor("سابقه قیمت تا زمان بازیابی داده‌ها قابل تأیید نیست.")
         }
     }
 
@@ -102,7 +118,7 @@ class UnreadableWarningTest {
         }
         compose.onNodeWithTag("unreadable-warning").assertIsDisplayed()
         compose.waitUntil(timeoutMillis = 5_000) {
-            compose.onAllNodes(hasText("۱ تغییر ذخیره‌شده خوانده نشد", substring = true)).fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodes(hasText("داده‌های مالی ناقص یا غیرقابل تأییدند", substring = true)).fetchSemanticsNodes().isNotEmpty()
         }
     }
 

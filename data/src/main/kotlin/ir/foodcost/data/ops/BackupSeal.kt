@@ -74,7 +74,9 @@ object BackupSeal {
             throw JsonException("A sealed backup's parts are not Base64")
         }
         val (salt, iv, data) = parts
+        if (salt.size != SALT_BYTES) throw JsonException("A sealed backup's salt has ${salt.size} bytes")
         if (iv.size != IV_BYTES) throw JsonException("A sealed backup's nonce has ${iv.size} bytes")
+        if (data.size < TAG_BITS / 8) throw JsonException("A sealed backup's encrypted data is too short")
         val cipher = cipher(Cipher.DECRYPT_MODE, password, salt, iterations, iv)
         val plain = try {
             cipher.doFinal(data)

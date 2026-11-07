@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The same as data_extraction_rules.xml, for Android 11 and before: everything but the phone's id. -->
+<!-- Financial data is exported only through FoodCost's explicit, user-controlled backup. -->
 <full-backup-content>
-    <exclude domain="sharedpref" path="device.xml" />
+    <exclude domain="root" path="." />
+    <exclude domain="file" path="." />
+    <exclude domain="database" path="." />
+    <exclude domain="sharedpref" path="." />
+    <exclude domain="external" path="." />
 </full-backup-content>
