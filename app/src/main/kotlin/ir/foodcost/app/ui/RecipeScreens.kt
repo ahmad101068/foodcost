@@ -448,7 +448,7 @@ fun RecipeHeaderDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (input.kind == RecipeKind.PLATE) {
+                if (input.kind == RecipeKind.MENU_ITEM) {
                     androidx.compose.foundation.layout.Box {
                         OutlinedButton(
                             onClick = { sectionMenuExpanded = true },
