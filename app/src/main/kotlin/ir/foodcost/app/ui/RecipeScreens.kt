@@ -86,6 +86,7 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
     var query by rememberSaveable { mutableStateOf("") }
     var creating by rememberSaveable { mutableStateOf(false) }
     var creatingBase by rememberSaveable { mutableStateOf(false) }
+    var deleteTarget by remember { mutableStateOf<Pair<RecipeId, String>?>(null) }
     val model = remember(state, money, today, query) { DishesScreen.build(state, today, money, query) }
     TabScaffold(
         title = "غذاها",
@@ -126,7 +127,12 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
             if (model.plates.isNotEmpty()) {
                 item { SectionTitle("غذاهای منو", Modifier.padding(start = 4.dp)) }
                 items(model.plates, key = { it.recipeId.value }) { row ->
-                    PlateCard(row, dataUnreliable = actions.unreadableRows > 0) { nav.open(dishScreen(state, row.recipeId, today, money)) }
+                    PlateCard(
+                        row,
+                        dataUnreliable = actions.unreadableRows > 0,
+                        onClick = { nav.open(dishScreen(state, row.recipeId, today, money)) },
+                        onDelete = { deleteTarget = row.recipeId to row.name },
+                    )
                 }
             }
             if (model.preparations.isNotEmpty()) {
@@ -136,6 +142,19 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
                 }
             }
         }
+    }
+    deleteTarget?.let { (recipeId, name) ->
+        ConfirmDialog(
+            title = "حذف «$name»؟",
+            text = "این غذا از فهرست فعال حذف می‌شود. سوابق قبلی برای صحت اطلاعات مالی حفظ خواهند شد.",
+            confirm = "حذف غذا",
+            onConfirm = {
+                actions.run({ it.updateRecipe(recipeId, archived = Opt.Value(true)) }) {
+                    deleteTarget = null
+                }
+            },
+            onDismiss = { deleteTarget = null },
+        )
     }
     if (creating) {
         RecipeHeaderDialog(
@@ -195,7 +214,7 @@ private fun PriceVerdict(needsRepricing: Int) {
 }
 
 @Composable
-private fun PlateCard(row: MenuRow, dataUnreliable: Boolean, onClick: () -> Unit) {
+private fun PlateCard(row: MenuRow, dataUnreliable: Boolean, onClick: () -> Unit, onDelete: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), colors = whiteCardColors()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -204,6 +223,9 @@ private fun PlateCard(row: MenuRow, dataUnreliable: Boolean, onClick: () -> Unit
                     listOfNotNull(row.kindLabel, row.category).joinToString("، ").ifEmpty { null }?.let {
                         Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                }
+                IconButton(onClick = onDelete, modifier = Modifier.testTag("delete-dish-${row.recipeId.value}")) {
+                    Icon(Icons.Filled.Delete, contentDescription = "حذف ${row.name}", tint = MaterialTheme.colorScheme.error)
                 }
                 if (!dataUnreliable) StatusChip(row.status, row.statusLabel)
             }
