@@ -57,6 +57,95 @@ class QuickCalculatorTest {
     private fun <T> valid(checked: Checked<T>): T = assertIs<Checked.Valid<T>>(checked).value
 
     @Test
+    fun `percentage and fixed discounts produce identical sale metrics`() {
+        val ledger = ledger()
+        val baseline = koobideh("630000")
+        val percent = QuickCalculator.compute(baseline.copy(discountMode = "percent", discountValue = "10"), ledger.state, toman, today)
+        val fixed = QuickCalculator.compute(baseline.copy(discountMode = "fixed", discountValue = "63000"), ledger.state, toman, today)
+        assertEquals(percent.netSales, fixed.netSales)
+        assertEquals(percent.foodCostPercent, fixed.foodCostPercent)
+        assertEquals(percent.remaining, fixed.remaining)
+        assertEquals(percent.margin, fixed.margin)
+        assertEquals(percent.markup, fixed.markup)
+        assertEquals(percent.maxCost, fixed.maxCost)
+        assertEquals(5670000L, percent.menuRials)
+        assertEquals("۵۱۵٬۴۵۵ تومان", percent.netSales)
+        assertEquals("۷۰٫۶٪", percent.foodCostPercent)
+    }
+
+    @Test
+    fun `invalid discounts cannot be saved or produce a sale`() {
+        val ledger = ledger()
+        val base = koobideh("630000")
+        for ((mode, amount) in listOf(
+            "percent" to "101", "percent" to "-1", "percent" to "100",
+            "percent" to "abc", "fixed" to "630001", "fixed" to "-10",
+            "fixed" to "630000", "fixed" to "abc",
+        )) {
+            val input = base.copy(discountMode = mode, discountValue = amount)
+            assertNull(QuickCalculator.compute(input, ledger.state, toman, today).netSales, "$mode $amount")
+            assertIs<Checked.Invalid>(QuickCalculator.check(input, ledger.state, toman, today), "$mode $amount")
+        }
+    }
+
+    @Test
+    fun `percentage and fixed discounts produce identical financial figures`() {
+        val state = ledger().state
+        val percent = QuickCalculator.compute(koobideh("630000").copy(discountMode = "percent", discountValue = "10"), state, toman, today)
+        val fixed = QuickCalculator.compute(koobideh("630000").copy(discountMode = "fixed", discountValue = "63000"), state, toman, today)
+        val original = QuickCalculator.compute(koobideh("630000"), state, toman, today)
+        assertEquals(percent.netSales, fixed.netSales)
+        assertEquals(percent.foodCostPercent, fixed.foodCostPercent)
+        assertEquals(percent.remaining, fixed.remaining)
+        assertEquals(percent.margin, fixed.margin)
+        assertEquals(percent.markup, fixed.markup)
+        assertEquals(percent.maxCost, fixed.maxCost)
+        assertEquals(percent.status, fixed.status)
+        assertEquals(567_0000L, percent.menuRials)
+        assertEquals(original.costPerPortion, percent.costPerPortion)
+        assertEquals(original.totalCost, percent.totalCost)
+        assertTrue(percent.remainingRials!! < original.remainingRials!!)
+        assertTrue(percent.foodCostValue!! > original.foodCostValue!!)
+        assertEquals("۵۱۵٬۴۵۵ تومان", percent.netSales)
+    }
+
+    @Test
+    fun `discount boundary values reject negatives, excessive values and malformed numbers on save`() {
+        val state = ledger().state
+        val base = koobideh("630000")
+        val bad = listOf(
+            base.copy(discountMode = "percent", discountValue = "-1"),
+            base.copy(discountMode = "percent", discountValue = "100"),
+            base.copy(discountMode = "percent", discountValue = "101"),
+            base.copy(discountMode = "percent", discountValue = "abc"),
+            base.copy(discountMode = "fixed", discountValue = "-1"),
+            base.copy(discountMode = "fixed", discountValue = "630000"),
+            base.copy(discountMode = "fixed", discountValue = "700000"),
+            base.copy(discountMode = "fixed", discountValue = "abc"),
+            base.copy(discountMode = "unknown", discountValue = "10"),
+        )
+        bad.forEach { input ->
+            assertIs<Checked.Invalid>(QuickCalculator.check(input, state, toman, today))
+            assertNull(QuickCalculator.compute(input, state, toman, today).netSales)
+        }
+        val zero = QuickCalculator.compute(base.copy(discountMode = "percent", discountValue = "0"), state, toman, today)
+        assertEquals(QuickCalculator.compute(base, state, toman, today).netSales, zero.netSales)
+    }
+
+    @Test
+    fun `discount is a what-if sale adjustment and never silently rewrites the saved menu price`() {
+        val ledger = ledger()
+        val input = koobideh("630000").copy(discountMode = "percent", discountValue = "10")
+        val id = QuickCalculator.save(ledger, valid(QuickCalculator.check(input, ledger.state, toman, today)), today)
+        val opened = assertNotNull(QuickCalculator.open(ledger.state, id, today, toman))
+        assertEquals("630000", opened.menuPrice)
+        assertEquals("", opened.discountValue)
+        assertEquals("percent", opened.discountMode)
+        assertEquals("630000", input.menuPrice)
+        assertEquals("10", input.discountValue)
+    }
+
+    @Test
     fun `the owner's koobideh costs 364,105 toman a portion and should sell for 1,150,000`() {
         val result = QuickCalculator.compute(koobideh(), ledger().state, toman, today)
         assertEquals(

@@ -225,6 +225,48 @@ fun CalculatorScreen(
                             imeAction = ImeAction.Done,
                         )
                     }
+                    Row(
+                        Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("تخفیف فروش", style = MaterialTheme.typography.labelMedium)
+                        FilterChip(
+                            selected = input.discountMode == "percent",
+                            onClick = { update(input.copy(discountMode = "percent", discountValue = "")) },
+                            label = { Text("درصدی") },
+                            modifier = Modifier.testTag("discount-percent-mode"),
+                        )
+                        FilterChip(
+                            selected = input.discountMode == "fixed",
+                            onClick = { update(input.copy(discountMode = "fixed", discountValue = "")) },
+                            label = { Text("مبلغ ثابت") },
+                            modifier = Modifier.testTag("discount-fixed-mode"),
+                        )
+                    }
+                    TextInput(
+                        value = input.discountValue,
+                        onValueChange = { update(input.copy(discountValue = it)) },
+                        label = if (input.discountMode == "percent") "درصد تخفیف (۰ تا ۱۰۰)" else "تخفیف هر پرس",
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
+                            .testTag("discount-value"),
+                        number = true,
+                        suffix = if (input.discountMode == "percent") "%" else money.unit,
+                        imeAction = ImeAction.Done,
+                    )
+                    val discountInvalid = input.discountValue.isNotBlank() &&
+                        (if (input.discountMode == "percent") {
+                            ir.foodcost.presentation.Numbers.parse(input.discountValue)?.let {
+                                it < java.math.BigDecimal.ZERO || it >= java.math.BigDecimal(100)
+                            } != false
+                        } else {
+                            money.parse(input.discountValue)?.let { it < 0 || it >= (money.parse(input.menuPrice) ?: 0) } != false
+                        })
+                    if (discountInvalid) {
+                        Text("تخفیف نامعتبر است؛ درصد باید بین صفر و صد و مبلغ حداکثر برابر قیمت فروش باشد.",
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(horizontal = 12.dp).testTag("discount-error"))
+                    }
                     val sections = QuickCalculator.categories(state, input)
                     if (sections.isNotEmpty()) {
                         SectionChips(sections, input.category, Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
@@ -363,6 +405,16 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
         }
         val netSales = result.netSales
         val remaining = result.remaining
+        val originalPrice = result.originalMenuRials
+        val effectivePrice = result.menuRials
+        if (result.discountApplied && originalPrice != null && effectivePrice != null) {
+            Text(
+                "قیمت منو: ${money.full(originalPrice)}  |  تخفیف: ${money.full(result.discountRials ?: 0L)}  |  قیمت پس از تخفیف: ${money.full(effectivePrice)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("discount-summary"),
+            )
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Figure("هزینهٔ هر پرس", result.totalCost, money, Modifier.weight(1.1f).testTag("cost"), isResult = true, onExplain = explain(Glossary.COST))
             if (netSales != null) {
