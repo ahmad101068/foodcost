@@ -405,6 +405,7 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
         }
         val netSales = result.netSales
         val remaining = result.remaining
+        val grossProfit = result.grossProfit
         val originalPrice = result.originalMenuRials
         val effectivePrice = result.menuRials
         if (result.discountApplied && originalPrice != null && effectivePrice != null) {
@@ -423,13 +424,13 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
                 Figure(result.suggestedLabel, result.suggested ?: "—", money, Modifier.weight(1f).testTag("suggested"), onExplain = explain(Glossary.SUGGESTED))
             }
         }
-        if (netSales != null && result.grossProfit != null) {
+        if (netSales != null && grossProfit != null) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Figure("فودکاست", result.foodCostPercent ?: "—", money, Modifier.weight(1.1f).testTag("food-cost"), onExplain = explain(Glossary.FOOD_COST))
                 // Gross profit excludes other costs; the remaining after those costs is shown separately.
                 Figure(
                     if (result.grossProfitNegative) "زیان ناخالص" else "سود ناخالص",
-                    result.grossProfit,
+                    grossProfit,
                     money,
                     Modifier.weight(1f).testTag("remaining"),
                     onExplain = explain(Glossary.REMAINING),
@@ -439,14 +440,6 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
         if (netSales != null && remaining != null && result.otherCosts != null) {
             Text(
                 "مانده پس از سایر هزینه‌های ثبت‌شده: $remaining",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag("after-other-costs"),
-            )
-        }
-        if (netSales != null && remaining != null && result.otherCosts != null) {
-            Text(
-                "مانده پس از هزینه‌های جانبی: $remaining",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag("after-other-costs"),
