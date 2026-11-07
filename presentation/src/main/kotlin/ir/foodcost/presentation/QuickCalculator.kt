@@ -320,19 +320,20 @@ object QuickCalculator {
             pricing = savedDish?.pricing,
         )
         val menuRials = money.parse(input.menuPrice)?.takeIf { it > 0 }
-        val discount = if (input.discountValue.isBlank()) java.math.BigDecimal.ZERO else
-            if (input.discountMode == "percent") {
-                Numbers.parse(input.discountValue)?.takeIf {
-                    it >= java.math.BigDecimal.ZERO && it <= java.math.BigDecimal(100)
-                }?.let { percent ->
-                    menuRials?.let { java.math.BigDecimal(it).multiply(percent)
-                        .divide(java.math.BigDecimal(100), 0, java.math.RoundingMode.HALF_UP) }
-                }
-            } else money.parse(input.discountValue)?.takeIf { it >= 0 }?.let { java.math.BigDecimal(it) }
+        val discount = when {
+            input.discountValue.isBlank() -> BigDecimal.ZERO
+            input.discountMode == "percent" -> Numbers.parse(input.discountValue)
+                ?.takeIf { it >= BigDecimal.ZERO && it < BigDecimal(100) }
+                ?.let { percent -> menuRials?.let { price ->
+                    BigDecimal(price).multiply(percent)
+                        .divide(BigDecimal(100), 0, java.math.RoundingMode.HALF_UP)
+                } }
+            input.discountMode == "fixed" -> money.parse(input.discountValue)
+                ?.takeIf { it >= 0 }?.let { BigDecimal(it) }
+            else -> null
+        }
         val discountedMenuRials = if (discount != null && menuRials != null &&
-            discount < java.math.BigDecimal(menuRials)) {
-            java.math.BigDecimal(menuRials).subtract(discount).longValueExact()
-        } else null
+            discount < BigDecimal(menuRials)) BigDecimal(menuRials).subtract(discount).longValueExact() else null
         val calculator = FoodCostCalculator(
             Catalog(ingredients, prices, listOf(recipe), listOfNotNull(discountedMenuRials?.let { MenuPrice(QUICK, today, it) })),
             state.costing,
