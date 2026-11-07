@@ -172,6 +172,10 @@ data class QuickResult(
     val discountRials: Long? = null,
     val foodCostValue: BigDecimal? = null,
     val remainingRials: BigDecimal? = null,
+    /** Net sale minus food ingredients, before other entered costs. */
+    val grossProfit: String? = null,
+    val grossProfitNegative: Boolean = false,
+    val grossProfitRials: BigDecimal? = null,
     /**
      * The calculation behind each figure, with this dish's own numbers, by glossary term:
      * «۳۶۴٬۱۰۵ ÷ ۵۷۲٬۷۲۷ × ۱۰۰ = ۶۳٫۶٪» for the food cost.
@@ -414,6 +418,9 @@ object QuickCalculator {
             discountRials = discount?.longValueExact(),
             foodCostValue = sale?.foodCostPercent,
             remainingRials = sale?.remaining,
+            grossProfit = sale?.let { signed(it.netSales - cost.foodCostPerPortion, money) },
+            grossProfitNegative = sale != null && (sale.netSales - cost.foodCostPerPortion).signum() < 0,
+            grossProfitRials = sale?.let { it.netSales - cost.foodCostPerPortion },
             explanations = if (hasLines) explanations(cost.foodCostPerPortion, other, sale, s, maxCost, discountedMenuRials, state.pricing.vatFactor, money) else emptyMap(),
             provisional = hasLines && (problems.isNotEmpty() || extraResults.any { it.problem != null }),
             leftOut = if (!hasLines) {
