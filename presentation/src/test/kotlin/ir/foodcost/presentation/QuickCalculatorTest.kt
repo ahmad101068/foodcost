@@ -146,6 +146,18 @@ class QuickCalculatorTest {
     }
 
     @Test
+    fun `gross profit excludes other costs while remaining deducts them`() {
+        val input = koobideh("630000").plusExtra(QuickExtra("دستمزد", "20000"))
+        val result = QuickCalculator.compute(input, ledger().state, toman, today)
+        assertEquals("۳۶۴٬۱۰۵ تومان", result.costPerPortion)
+        assertEquals("۳۸۴٬۱۰۵ تومان", result.totalCost)
+        assertEquals("\u200E+۲۰۸٬۶۲۲ تومان", result.grossProfit)
+        assertEquals("\u200E+۱۸۸٬۶۲۲ تومان", result.remaining)
+        assertEquals(java.math.BigDecimal("200000"), result.grossProfitRials!! - result.remainingRials!!)
+        assertFalse(result.grossProfitNegative)
+    }
+
+    @Test
     fun `the owner's koobideh costs 364,105 toman a portion and should sell for 1,150,000`() {
         val result = QuickCalculator.compute(koobideh(), ledger().state, toman, today)
         assertEquals(
