@@ -236,6 +236,12 @@ fun RecipeScreen(id: RecipeId, state: LedgerState, money: MoneyFormat, today: Lo
             IconButton(onClick = { dialog = RecipeDialog.HEADER }) {
                 Icon(Icons.Filled.Edit, contentDescription = "ویرایش دستور")
             }
+            IconButton(
+                onClick = { dialog = RecipeDialog.ARCHIVE },
+                modifier = Modifier.testTag("delete-recipe"),
+            ) {
+                Icon(Icons.Filled.Delete, contentDescription = "حذف غذا", tint = MaterialTheme.colorScheme.error)
+            }
         },
         floatingActionButton = {
             AddButton("افزودن ماده", onClick = { nav.open(Screen.Line(id.value, null, null)) })
@@ -304,7 +310,7 @@ fun RecipeScreen(id: RecipeId, state: LedgerState, money: MoneyFormat, today: Lo
         )
         RecipeDialog.ARCHIVE -> ConfirmDialog(
             title = "حذف «${detail.name}»؟",
-            text = "این دستور از فهرست‌ها و منو برداشته می‌شود. سابقه‌اش در پشتیبان می‌ماند.",
+            text = "این غذا از فهرست غذاها و منو حذف می‌شود. اطلاعات تاریخی برای حفظ صحت سوابق مالی باقی می‌ماند.",
             confirm = "حذف",
             onConfirm = {
                 actions.run({ it.updateRecipe(id, archived = Opt.Value(true)) }) {
