@@ -444,6 +444,14 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
                 modifier = Modifier.testTag("after-other-costs"),
             )
         }
+        if (netSales != null && remaining != null && result.otherCosts != null) {
+            Text(
+                "مانده پس از هزینه‌های جانبی: $remaining",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("after-other-costs"),
+            )
+        }
         if (!compact) {
             HorizontalDivider()
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
