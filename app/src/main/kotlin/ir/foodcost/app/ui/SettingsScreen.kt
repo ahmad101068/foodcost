@@ -181,14 +181,16 @@ fun SettingsScreen(
                             Icon(Icons.Filled.Close, contentDescription = "حذف بخش")
                         }
                     }
-                }
-                input.categories.forEachIndexed { i, category ->
                     Text("روش قیمت‌گذاری «${category.name.ifBlank { "بخش جدید" }}»", style = MaterialTheme.typography.labelMedium)
                     Segmented(MethodChoice.entries, category.method, { methodName(it) }) { chosen ->
-                        // Do not silently reinterpret a percentage on a different cost basis.
-                        input = input.withCategory(i, category.copy(method = chosen, percent = "", basis = CostBasis.FOOD_COST))
+                        if (chosen != category.method) {
+                            input = input.withCategory(i, category.copy(method = chosen, percent = "", basis = CostBasis.FOOD_COST))
+                        }
                     }
-                    if (category.method != MethodChoice.FOOD_COST) {
+                    if (category.method == MethodChoice.FOOD_COST) {
+                        Text("مبنای فودکاست هدف: فقط هزینه مواد اولیه", style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        Text("مبنای محاسبه درصد", style = MaterialTheme.typography.labelMedium)
                         Segmented(CostBasis.entries, category.basis, { basisName(it) }) { chosen ->
                             input = input.withCategory(i, category.copy(basis = chosen))
                         }
