@@ -167,6 +167,9 @@ data class QuickResult(
     /** The figures as numbers, for comparing a dish before and after a change; null when not shown. */
     val totalCostRials: BigDecimal? = null,
     val menuRials: Long? = null,
+    val discountApplied: Boolean = false,
+    val originalMenuRials: Long? = null,
+    val discountRials: Long? = null,
     val foodCostValue: BigDecimal? = null,
     val remainingRials: BigDecimal? = null,
     /**
@@ -406,6 +409,9 @@ object QuickCalculator {
             channels = if (sale == null) emptyList() else channels(pricer, cost, sale, extras, state.pricing.online.isSet, money),
             totalCostRials = if (hasLines) cost.foodCostPerPortion + other else null,
             menuRials = discountedMenuRials,
+            discountApplied = discount != null && discount.signum() > 0,
+            originalMenuRials = menuRials,
+            discountRials = discount?.longValueExact(),
             foodCostValue = sale?.foodCostPercent,
             remainingRials = sale?.remaining,
             explanations = if (hasLines) explanations(cost.foodCostPerPortion, other, sale, s, maxCost, discountedMenuRials, state.pricing.vatFactor, money) else emptyMap(),
@@ -825,7 +831,7 @@ object QuickCalculator {
         appendLine("بهای مواد هر پرس: ${result.costPerPortion}، ${result.miscNote}")
         result.otherCosts?.let { appendLine("هزینهٔ هر پرس با هزینه‌های دیگر: ${result.totalCost}") }
         result.suggested?.let { appendLine("${result.suggestedLabel}: $it، ${result.method}") }
-        result.menuRials?.let { appendLine("قیمت منو: ${money.full(it)}، ${result.statusLabel}") }
+        result.menuRials?.let { appendLine("${if (result.discountApplied) "قیمت پس از تخفیف" else "قیمت منو"}: ${money.full(it)}، ${result.statusLabel}") }
         result.netSales?.let { appendLine("فروش خالص: $it") }
         result.foodCostPercent?.let { appendLine("فودکاست: $it") }
         result.remaining?.let { appendLine("${if (result.remainingNegative) "کسری هر پرس" else "مانده هر پرس"}: $it") }
