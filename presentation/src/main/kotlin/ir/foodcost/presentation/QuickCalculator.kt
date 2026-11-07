@@ -330,11 +330,11 @@ object QuickCalculator {
                 }
             } else money.parse(input.discountValue)?.takeIf { it >= 0 }?.let { java.math.BigDecimal(it) }
         val discountedMenuRials = if (discount != null && menuRials != null &&
-            discount <= java.math.BigDecimal(menuRials)) {
+            discount < java.math.BigDecimal(menuRials)) {
             java.math.BigDecimal(menuRials).subtract(discount).longValueExact()
         } else null
         val calculator = FoodCostCalculator(
-            Catalog(ingredients, prices, listOf(recipe), listOfNotNull(menuRials?.let { MenuPrice(QUICK, today, it) })),
+            Catalog(ingredients, prices, listOf(recipe), listOfNotNull(discountedMenuRials?.let { MenuPrice(QUICK, today, it) })),
             state.costing,
             state.pricing,
         )
@@ -407,7 +407,7 @@ object QuickCalculator {
             menuRials = discountedMenuRials,
             foodCostValue = sale?.foodCostPercent,
             remainingRials = sale?.remaining,
-            explanations = if (hasLines) explanations(cost.foodCostPerPortion, other, sale, s, maxCost, menuRials, state.pricing.vatFactor, money) else emptyMap(),
+            explanations = if (hasLines) explanations(cost.foodCostPerPortion, other, sale, s, maxCost, discountedMenuRials, state.pricing.vatFactor, money) else emptyMap(),
             provisional = hasLines && (problems.isNotEmpty() || extraResults.any { it.problem != null }),
             leftOut = if (!hasLines) {
                 emptyList()
@@ -712,6 +712,17 @@ object QuickCalculator {
         val portions = p.decimal(input.portions.ifBlank { "1" }, Field.PORTIONS, "تعداد پرس باید بیشتر از صفر باشد.") { it.signum() > 0 }
         val menu = if (input.menuPrice.isBlank()) null else money.parse(input.menuPrice)
         if (input.menuPrice.isNotBlank() && (menu == null || menu <= 0)) p.add(Field.AMOUNT, "قیمت منو درست نیست.")
+        if (input.discountValue.isNotBlank()) {
+            val percent = Numbers.parse(input.discountValue)
+            val fixed = money.parse(input.discountValue)
+            when (input.discountMode) {
+                "percent" -> if (percent == null || percent < BigDecimal.ZERO || percent >= BigDecimal(100))
+                    p.add(Field.AMOUNT, "درصد تخفیف باید از صفر تا کمتر از صد باشد.")
+                "fixed" -> if (fixed == null || fixed < 0 || menu == null || fixed >= menu)
+                    p.add(Field.AMOUNT, "مبلغ تخفیف باید کمتر از قیمت منو باشد.")
+                else -> p.add(Field.AMOUNT, "نوع تخفیف معتبر نیست.")
+            }
+        }
         // A new calculation saved over a dish on the menu keeps that dish's section unless one is chosen.
         val category = input.category?.trim()?.ifEmpty { null } ?: namesake?.let { state.recipes[it]?.category }
         return p.result { QuickPlan(name, rows, portions!!, menu, editing ?: namesake, input.miscPercent, extras, category) }
