@@ -179,9 +179,8 @@ class WalkThroughTest {
         back()
 
         click("غذاها")
-        click("دستور تازه")
+        click("دستور پایه (برای ترکیبات مشترک)")
         type("نام", "چلو")
-        click(Labels.kind(RecipeKind.PREP))
         click("ذخیره")
         click("افزودن ماده")
         click("برنج")
