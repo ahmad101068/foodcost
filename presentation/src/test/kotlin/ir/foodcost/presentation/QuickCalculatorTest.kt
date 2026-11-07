@@ -153,7 +153,7 @@ class QuickCalculatorTest {
         assertEquals("۳۸۴٬۱۰۵ تومان", result.totalCost)
         assertEquals("\u200E+۲۰۸٬۶۲۲ تومان", result.grossProfit)
         assertEquals("\u200E+۱۸۸٬۶۲۲ تومان", result.remaining)
-        assertEquals(java.math.BigDecimal("200000"), result.grossProfitRials!! - result.remainingRials!!)
+        assertEquals(0, java.math.BigDecimal("200000").compareTo(result.grossProfitRials!! - result.remainingRials!!))
         assertFalse(result.grossProfitNegative)
     }
 
