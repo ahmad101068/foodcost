@@ -256,7 +256,7 @@ fun CalculatorScreen(
                     )
                     val discountInvalid = input.discountValue.isNotBlank() &&
                         (if (input.discountMode == "percent") {
-                            ir.foodcost.core.units.Numbers.parse(input.discountValue)?.let {
+                            ir.foodcost.presentation.Numbers.parse(input.discountValue)?.let {
                                 it < java.math.BigDecimal.ZERO || it > java.math.BigDecimal(100)
                             } != false
                         } else {
