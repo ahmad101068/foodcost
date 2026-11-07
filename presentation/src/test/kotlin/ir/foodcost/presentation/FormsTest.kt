@@ -182,8 +182,8 @@ class FormsTest {
         assertEquals("نام بخش را بنویسید.", error(input.withCategory(1, CategoryTargetInput("", "30"))))
         assertEquals(emptyMap(), valid(input.withoutCategory(0).check(PricingSettings(), CostingRules(), toman)).pricing.methodByCategory)
 
-        // A section stored as a margin or markup shows as its food cost target.
+        // A section stored as a margin retains its actual method and percentage.
         val margin = PricingSettings(methodByCategory = mapOf("نوشیدنی سرد" to PricingMethod.TargetMargin(BigDecimal(75))))
-        assertEquals(listOf(CategoryTargetInput("نوشیدنی سرد", "25")), SettingsInput.of(margin, CostingRules(), toman).categories)
+        assertEquals(listOf(CategoryTargetInput("نوشیدنی سرد", "75", MethodChoice.MARGIN)), SettingsInput.of(margin, CostingRules(), toman).categories)
     }
 }
