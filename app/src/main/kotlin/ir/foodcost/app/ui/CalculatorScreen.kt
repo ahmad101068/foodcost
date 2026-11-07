@@ -257,10 +257,10 @@ fun CalculatorScreen(
                     val discountInvalid = input.discountValue.isNotBlank() &&
                         (if (input.discountMode == "percent") {
                             ir.foodcost.presentation.Numbers.parse(input.discountValue)?.let {
-                                it < java.math.BigDecimal.ZERO || it > java.math.BigDecimal(100)
+                                it < java.math.BigDecimal.ZERO || it >= java.math.BigDecimal(100)
                             } != false
                         } else {
-                            money.parse(input.discountValue)?.let { it < 0 || it > (money.parse(input.menuPrice) ?: 0) } != false
+                            money.parse(input.discountValue)?.let { it < 0 || it >= (money.parse(input.menuPrice) ?: 0) } != false
                         })
                     if (discountInvalid) {
                         Text("تخفیف نامعتبر است؛ درصد باید بین صفر و صد و مبلغ حداکثر برابر قیمت فروش باشد.",
@@ -405,6 +405,14 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
         }
         val netSales = result.netSales
         val remaining = result.remaining
+        if (result.discountApplied && result.originalMenuRials != null && result.menuRials != null) {
+            Text(
+                "قیمت منو: ${money.full(result.originalMenuRials)}  |  تخفیف: ${money.full(result.discountRials ?: 0L)}  |  قیمت پس از تخفیف: ${money.full(result.menuRials)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("discount-summary"),
+            )
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Figure("هزینهٔ هر پرس", result.totalCost, money, Modifier.weight(1.1f).testTag("cost"), isResult = true, onExplain = explain(Glossary.COST))
             if (netSales != null) {
