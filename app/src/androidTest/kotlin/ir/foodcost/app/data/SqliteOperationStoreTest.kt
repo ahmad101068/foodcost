@@ -134,6 +134,44 @@ class SqliteOperationStoreTest {
     }
 
     @Test
+    fun conflictingIdsWithinOneBatchRejectEverythingAndSurviveRestart() {
+        val first = store()
+        val original = elsewhere()
+        val conflict = original.copy(reason = "different content under the same id")
+        try {
+            first.appendAll(listOf(original, conflict))
+            fail("Conflicting ids were silently accepted")
+        } catch (e: IllegalStateException) {
+            // expected: neither operation was stored
+        }
+        assertFalse(first.contains(original.id))
+        assertTrue(first.all().isEmpty())
+        first.close()
+        val again = store()
+        assertTrue(again.all().isEmpty())
+        again.close()
+    }
+
+    @Test
+    fun conflictingIdAlreadyStoredIsRejectedWithoutChangingTheOriginal() {
+        val first = store()
+        val original = elsewhere()
+        first.append(original)
+        try {
+            first.append(original.copy(reason = "tampered duplicate"))
+            fail("A conflicting stored id was accepted")
+        } catch (e: IllegalStateException) {
+            // expected
+        }
+        first.append(original) // identical replay is idempotent
+        assertEquals(listOf(original), first.all())
+        first.close()
+        val again = store()
+        assertEquals(listOf(original), again.all())
+        again.close()
+    }
+
+    @Test
     fun aBatchThatFailsPartWayStoresNothing() {
         val first = store()
         val ledger = ledger(first)

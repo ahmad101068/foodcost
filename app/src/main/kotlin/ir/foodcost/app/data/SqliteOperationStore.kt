@@ -77,7 +77,16 @@ class SqliteOperationStore(context: Context, name: String = DATABASE) : Operatio
      */
     @Synchronized
     override fun appendAll(operations: Collection<Operation>) {
-        val fresh = operations.filter { it.id !in cache }.distinctBy { it.id }
+        // Never silently discard a different operation that reuses an existing id.
+        // Reject the entire batch before touching SQLite or the in-memory cache.
+        val byId = LinkedHashMap<OpId, Operation>()
+        for (op in operations) {
+            val previous = byId.putIfAbsent(op.id, op)
+            check(previous == null || previous == op) { "Conflicting operation id ${op.id.value} in batch" }
+            val stored = cache[op.id]
+            check(stored == null || stored == op) { "Conflicting operation id ${op.id.value} already stored" }
+        }
+        val fresh = byId.values.filter { it.id !in cache }
         if (fresh.isEmpty()) return
         val mended = ArrayList<String>()
         val db = helper.writableDatabase
