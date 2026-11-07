@@ -85,13 +85,14 @@ import java.time.LocalDate
 fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav: Navigator, actions: AppActions) {
     var query by rememberSaveable { mutableStateOf("") }
     var creating by rememberSaveable { mutableStateOf(false) }
+    var creatingBase by rememberSaveable { mutableStateOf(false) }
     val model = remember(state, money, today, query) { DishesScreen.build(state, today, money, query) }
     TabScaffold(
         title = "غذاها",
         nav = nav,
         actions = actions,
         floatingActionButton = {
-            AddButton("دستور تازه", onClick = { creating = true })
+            AddButton("افزودن غذا", onClick = { creating = true })
         },
     ) { padding ->
         LazyColumn(
@@ -100,6 +101,11 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item { SearchField(query, { query = it }, "جستجوی غذا") }
+            item {
+                TextButton(onClick = { creatingBase = true }) {
+                    Text("دستور پایه (برای ترکیبات مشترک)")
+                }
+            }
             if (model.isEmpty) {
                 item {
                     if (query.isBlank()) {
@@ -124,7 +130,7 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
                 }
             }
             if (model.preparations.isNotEmpty()) {
-                item { SectionTitle("نیمه‌آماده‌ها", Modifier.padding(start = 4.dp)) }
+                item { SectionTitle("دستورهای پایه", Modifier.padding(start = 4.dp)) }
                 items(model.preparations, key = { it.id.value }) { row ->
                     PreparationCard(row, dataUnreliable = actions.unreadableRows > 0) { nav.open(Screen.Recipe(row.id.value)) }
                 }
@@ -133,13 +139,27 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
     }
     if (creating) {
         RecipeHeaderDialog(
-            title = "دستور تازه",
-            initial = RecipeInput(),
+            title = "افزودن غذا",
+            initial = RecipeInput(kind = RecipeKind.MENU_ITEM),
             sections = state.pricing.methodByCategory.keys.toList(),
             onDismiss = { creating = false },
             onSave = { input ->
                 actions.run({ it.createRecipe(input.name, input.kind, input.categoryOrNull) }) { id ->
                     creating = false
+                    nav.open(Screen.Recipe(id.value))
+                }
+            },
+        )
+    }
+    if (creatingBase) {
+        RecipeHeaderDialog(
+            title = "دستور پایه",
+            initial = RecipeInput(kind = RecipeKind.PREP),
+            sections = state.pricing.methodByCategory.keys.toList(),
+            onDismiss = { creatingBase = false },
+            onSave = { input ->
+                actions.run({ it.createRecipe(input.name, RecipeKind.PREP, null) }) { id ->
+                    creatingBase = false
                     nav.open(Screen.Recipe(id.value))
                 }
             },
@@ -442,12 +462,11 @@ fun RecipeHeaderDialog(
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 TextInput(input.name, { input = input.copy(name = it) }, "نام", error = errors[Field.NAME])
-                ChoiceChips(RecipeKind.entries, input.kind, { Labels.kind(it) }) { input = input.copy(kind = it) }
-                Text(
-                    Labels.kindHint(input.kind),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                if (initial.kind == RecipeKind.EVENT_PACKAGE) {
+                    Text("پکیج قدیمی؛ برای حفظ سازگاری اطلاعات قبلی قابل ویرایش است.")
+                } else if (initial.kind == RecipeKind.PREP) {
+                    Text("دستور پایه برای ترکیباتی است که در چند غذا استفاده می‌شوند.")
+                }
                 if (input.kind == RecipeKind.MENU_ITEM) {
                     androidx.compose.foundation.layout.Box {
                         OutlinedButton(
