@@ -63,6 +63,8 @@ data class QuickInput(
     val rows: List<QuickRow> = listOf(QuickRow()),
     val portions: String = "1",
     val menuPrice: String = "",
+    val discountMode: String = "percent",
+    val discountValue: String = "",
     val recipeId: RecipeId? = null,
     /** The saved dish's own share for salt and spices; null takes the default. */
     val miscPercent: BigDecimal? = null,
@@ -318,6 +320,19 @@ object QuickCalculator {
             pricing = savedDish?.pricing,
         )
         val menuRials = money.parse(input.menuPrice)?.takeIf { it > 0 }
+        val discount = if (input.discountValue.isBlank()) java.math.BigDecimal.ZERO else
+            if (input.discountMode == "percent") {
+                Numbers.parse(input.discountValue)?.takeIf {
+                    it >= java.math.BigDecimal.ZERO && it <= java.math.BigDecimal(100)
+                }?.let { percent ->
+                    menuRials?.let { java.math.BigDecimal(it).multiply(percent)
+                        .divide(java.math.BigDecimal(100), 0, java.math.RoundingMode.HALF_UP) }
+                }
+            } else money.parse(input.discountValue)?.takeIf { it >= 0 }?.let { java.math.BigDecimal(it) }
+        val discountedMenuRials = if (discount != null && menuRials != null &&
+            discount <= java.math.BigDecimal(menuRials)) {
+            java.math.BigDecimal(menuRials).subtract(discount).longValueExact()
+        } else null
         val calculator = FoodCostCalculator(
             Catalog(ingredients, prices, listOf(recipe), listOfNotNull(menuRials?.let { MenuPrice(QUICK, today, it) })),
             state.costing,
@@ -351,8 +366,8 @@ object QuickCalculator {
         val s = evaluation.suggestion
         val pricer = calculator.pricer
         val other = pricer.otherCosts(cost, SalesChannel.DINE_IN)
-        val sale = menuRials?.takeIf { hasLines }?.let { pricer.sale(cost, SalesChannel.DINE_IN, it) }
-        val maxCost = menuRials?.takeIf { hasLines }?.let { pricer.maxCost(recipe, it) }
+        val sale = discountedMenuRials?.takeIf { hasLines }?.let { pricer.sale(cost, SalesChannel.DINE_IN, it) }
+        val maxCost = discountedMenuRials?.takeIf { hasLines }?.let { pricer.maxCost(recipe, it) }
         val overhead = state.pricing.overhead?.perPortion?.takeIf { it.signum() > 0 && recipe.kind != RecipeKind.PREP }
         // «فودکاست هدف ۲۰٪ برای نوشیدنی گرم» when the dish's section has a target of its own.
         val section = recipe.category?.takeIf { recipe.pricing == null && it in state.pricing.methodByCategory }
@@ -389,7 +404,7 @@ object QuickCalculator {
             extras = extraResults,
             channels = if (sale == null) emptyList() else channels(pricer, cost, sale, extras, state.pricing.online.isSet, money),
             totalCostRials = if (hasLines) cost.foodCostPerPortion + other else null,
-            menuRials = menuRials,
+            menuRials = discountedMenuRials,
             foodCostValue = sale?.foodCostPercent,
             remainingRials = sale?.remaining,
             explanations = if (hasLines) explanations(cost.foodCostPerPortion, other, sale, s, maxCost, menuRials, state.pricing.vatFactor, money) else emptyMap(),
