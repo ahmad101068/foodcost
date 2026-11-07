@@ -423,18 +423,26 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
                 Figure(result.suggestedLabel, result.suggested ?: "—", money, Modifier.weight(1f).testTag("suggested"), onExplain = explain(Glossary.SUGGESTED))
             }
         }
-        if (netSales != null && remaining != null) {
+        if (netSales != null && result.grossProfit != null) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Figure("فودکاست", result.foodCostPercent ?: "—", money, Modifier.weight(1.1f).testTag("food-cost"), onExplain = explain(Glossary.FOOD_COST))
-                // Not profit: only the costs entered are taken off. The label and sign say which way it went.
+                // Gross profit excludes other costs; the remaining after those costs is shown separately.
                 Figure(
-                    if (result.remainingNegative) "زیان ناخالص" else "سود ناخالص",
-                    remaining,
+                    if (result.grossProfitNegative) "زیان ناخالص" else "سود ناخالص",
+                    result.grossProfit,
                     money,
                     Modifier.weight(1f).testTag("remaining"),
                     onExplain = explain(Glossary.REMAINING),
                 )
             }
+        }
+        if (netSales != null && remaining != null && result.otherCosts != null) {
+            Text(
+                "مانده پس از سایر هزینه‌های ثبت‌شده: $remaining",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("after-other-costs"),
+            )
         }
         if (!compact) {
             HorizontalDivider()
