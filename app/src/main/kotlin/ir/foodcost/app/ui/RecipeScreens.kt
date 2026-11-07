@@ -25,6 +25,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -433,6 +435,7 @@ fun RecipeHeaderDialog(
 ) {
     var input by remember { mutableStateOf(initial) }
     var errors by remember { mutableStateOf(emptyMap<Field, String>()) }
+    var sectionMenuExpanded by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -445,9 +448,43 @@ fun RecipeHeaderDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                TextInput(input.category, { input = input.copy(category = it) }, "بخش منو (اختیاری)")
-                if (sections.isNotEmpty()) {
-                    ChoiceChips(sections, input.category.trim(), { it }) { input = input.copy(category = it) }
+                if (input.kind == RecipeKind.PLATE) {
+                    androidx.compose.foundation.layout.Box {
+                        OutlinedButton(
+                            onClick = { sectionMenuExpanded = true },
+                            modifier = Modifier.fillMaxWidth().testTag("recipe-menu-section"),
+                        ) {
+                            Text("بخش منو: " + input.category.ifBlank { "بدون بخش" })
+                        }
+                        DropdownMenu(
+                            expanded = sectionMenuExpanded,
+                            onDismissRequest = { sectionMenuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("بدون بخش") },
+                                onClick = {
+                                    input = input.copy(category = "")
+                                    sectionMenuExpanded = false
+                                },
+                            )
+                            sections.distinct().sorted().forEach { section ->
+                                DropdownMenuItem(
+                                    text = { Text(section) },
+                                    onClick = {
+                                        input = input.copy(category = section)
+                                        sectionMenuExpanded = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    if (sections.isEmpty()) {
+                        Text(
+                            "ابتدا در تنظیمات، فودکاست هدف یک بخش منو را ثبت کنید.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 if (onArchive != null) {
