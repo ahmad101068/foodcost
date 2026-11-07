@@ -405,9 +405,11 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
         }
         val netSales = result.netSales
         val remaining = result.remaining
-        if (result.discountApplied && result.originalMenuRials != null && result.menuRials != null) {
+        val originalPrice = result.originalMenuRials
+        val effectivePrice = result.menuRials
+        if (result.discountApplied && originalPrice != null && effectivePrice != null) {
             Text(
-                "قیمت منو: ${money.full(result.originalMenuRials)}  |  تخفیف: ${money.full(result.discountRials ?: 0L)}  |  قیمت پس از تخفیف: ${money.full(result.menuRials)}",
+                "قیمت منو: ${money.full(originalPrice)}  |  تخفیف: ${money.full(result.discountRials ?: 0L)}  |  قیمت پس از تخفیف: ${money.full(effectivePrice)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag("discount-summary"),
