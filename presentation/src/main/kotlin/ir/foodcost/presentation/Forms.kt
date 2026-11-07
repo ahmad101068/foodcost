@@ -272,7 +272,13 @@ fun checkMenuPrice(text: String, money: MoneyFormat): Checked<Long> {
 enum class MethodChoice { FOOD_COST, MARGIN, MARKUP }
 
 /** A menu section with a food cost target of its own, as typed: drinks usually aim lower than plates. */
-data class CategoryTargetInput(val name: String = "", val percent: String = "") {
+data class CategoryTargetInput(
+    val name: String = "",
+    val percent: String = "",
+    val method: MethodChoice = MethodChoice.FOOD_COST,
+    val basis: CostBasis = CostBasis.FOOD_COST,
+    val useGeneral: Boolean = false,
+) {
     val isBlank: Boolean get() = name.isBlank() && percent.isBlank()
 }
 
@@ -362,12 +368,21 @@ data class SettingsInput(
             if (category.isBlank) return@forEach
             val name = category.name.trim()
             val target = Numbers.parse(category.percent)
+            val validTarget = when (category.method) {
+                MethodChoice.FOOD_COST -> target != null && target.signum() > 0 && target < HUNDRED
+                MethodChoice.MARGIN -> target != null && target.signum() >= 0 && target < HUNDRED
+                MethodChoice.MARKUP -> target != null && target.signum() >= 0
+            }
             when {
                 name.isEmpty() -> p.add(Field.CATEGORY, "نام بخش را بنویسید.")
                 !seen.add(Persian.searchKey(name)) -> p.add(Field.CATEGORY, "بخش «$name» دو بار آمده است.")
-                target == null || target.signum() <= 0 || target >= HUNDRED ->
-                    p.add(Field.CATEGORY, "فودکاست هدف «$name» باید بیشتر از ۰ و کمتر از ۱۰۰ باشد.")
-                else -> byCategory[name] = PricingMethod.TargetFoodCost(target)
+                category.useGeneral -> Unit
+                !validTarget -> p.add(Field.CATEGORY, "درصد روش قیمت‌گذاری «$name» معتبر نیست.")
+                else -> byCategory[name] = when (category.method) {
+                    MethodChoice.FOOD_COST -> PricingMethod.TargetFoodCost(target!!)
+                    MethodChoice.MARGIN -> PricingMethod.TargetMargin(target!!, category.basis)
+                    MethodChoice.MARKUP -> PricingMethod.Markup(target!!, category.basis)
+                }
             }
         }
         return p.result {
@@ -507,7 +522,24 @@ data class SettingsInput(
                 onlineDiscount = percentOrBlank(pricing.online.discountPercent),
                 onlineUplift = percentOrBlank(pricing.online.priceUpliftPercent),
                 categories = pricing.methodByCategory.map { (name, method) ->
-                    CategoryTargetInput(name, foodCostTarget(method)?.let { Numbers.editable(it) }.orEmpty())
+                    CategoryTargetInput(
+                        name = name,
+                        percent = Numbers.editable(when (method) {
+                            is PricingMethod.TargetFoodCost -> method.percent
+                            is PricingMethod.TargetMargin -> method.percent
+                            is PricingMethod.Markup -> method.percent
+                        }),
+                        method = when (method) {
+                            is PricingMethod.TargetFoodCost -> MethodChoice.FOOD_COST
+                            is PricingMethod.TargetMargin -> MethodChoice.MARGIN
+                            is PricingMethod.Markup -> MethodChoice.MARKUP
+                        },
+                        basis = when (method) {
+                            is PricingMethod.TargetFoodCost -> CostBasis.FOOD_COST
+                            is PricingMethod.TargetMargin -> method.basis
+                            is PricingMethod.Markup -> method.basis
+                        },
+                    )
                 },
             )
         }
