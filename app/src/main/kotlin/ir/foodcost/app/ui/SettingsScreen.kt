@@ -154,9 +154,9 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsCard("فودکاست هدف هر بخش منو") {
+            SettingsCard("قیمت‌گذاری اختصاصی بخش‌های منو") {
                 Text(
-                    "برای بخش‌هایی که فودکاستشان با بقیه فرق دارد؛ نوشیدنی‌ها معمولاً فودکاست کمتری از غذا دارند. بخش هر غذا در ماشین‌حساب انتخاب می‌شود و غذای بی‌بخش با قیمت‌گذاری بالا حساب می‌شود.",
+                    "هر بخش می‌تواند فودکاست هدف، حاشیه سود یا مارک‌آپ مخصوص داشته باشد. برای غذای بدون بخش، تنظیمات عمومی بالا اعمال می‌شود.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 input.categories.forEachIndexed { i, category ->
@@ -171,7 +171,7 @@ fun SettingsScreen(
                         TextInput(
                             value = category.percent,
                             onValueChange = { input = input.withCategory(i, category.copy(percent = it)) },
-                            label = "فودکاست هدف",
+                            label = methodName(category.method),
                             modifier = Modifier.weight(1f).focusRequester(categoryPercent(i)).testTag("category-$i-percent"),
                             number = true,
                             suffix = "٪",
@@ -179,6 +179,18 @@ fun SettingsScreen(
                         )
                         IconButton(onClick = { input = input.withoutCategory(i) }) {
                             Icon(Icons.Filled.Close, contentDescription = "حذف بخش")
+                        }
+                    }
+                }
+                input.categories.forEachIndexed { i, category ->
+                    Text("روش قیمت‌گذاری «${category.name.ifBlank { "بخش جدید" }}»", style = MaterialTheme.typography.labelMedium)
+                    Segmented(MethodChoice.entries, category.method, { methodName(it) }) { chosen ->
+                        // Do not silently reinterpret a percentage on a different cost basis.
+                        input = input.withCategory(i, category.copy(method = chosen, percent = "", basis = CostBasis.FOOD_COST))
+                    }
+                    if (category.method != MethodChoice.FOOD_COST) {
+                        Segmented(CostBasis.entries, category.basis, { basisName(it) }) { chosen ->
+                            input = input.withCategory(i, category.copy(basis = chosen))
                         }
                     }
                 }
