@@ -377,7 +377,7 @@ data class SettingsInput(
                 name.isEmpty() -> p.add(Field.CATEGORY, "نام بخش را بنویسید.")
                 !seen.add(Persian.searchKey(name)) -> p.add(Field.CATEGORY, "بخش «$name» دو بار آمده است.")
                 category.useGeneral -> Unit
-                !validTarget -> p.add(Field.CATEGORY, "درصد روش قیمت‌گذاری «$name» معتبر نیست.")
+                !validTarget -> p.add(Field.CATEGORY, if (category.method == MethodChoice.FOOD_COST) "فودکاست هدف «$name» باید بیشتر از ۰ و کمتر از ۱۰۰ باشد." else "درصد روش قیمت‌گذاری «$name» معتبر نیست.")
                 else -> byCategory[name] = when (category.method) {
                     MethodChoice.FOOD_COST -> PricingMethod.TargetFoodCost(target!!)
                     MethodChoice.MARGIN -> PricingMethod.TargetMargin(target!!, category.basis)
