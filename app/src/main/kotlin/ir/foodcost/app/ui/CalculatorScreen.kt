@@ -416,7 +416,7 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Figure("هزینهٔ هر پرس", result.totalCost, money, Modifier.weight(1.1f).testTag("cost"), isResult = true, onExplain = explain(Glossary.COST))
+            Figure("هزینه مواد اولیه هر پرس", result.costPerPortion, money, Modifier.weight(1.1f).testTag("cost"), isResult = true, onExplain = explain(Glossary.COST))
             if (netSales != null) {
                 Figure("فروش خالص", netSales, money, Modifier.weight(1f).testTag("net-sales"), onExplain = explain(Glossary.NET_SALES))
             } else {
@@ -428,7 +428,7 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
                 Figure("فودکاست", result.foodCostPercent ?: "—", money, Modifier.weight(1.1f).testTag("food-cost"), onExplain = explain(Glossary.FOOD_COST))
                 // Not profit: only the costs entered are taken off. The label and sign say which way it went.
                 Figure(
-                    if (result.remainingNegative) "کسری هر پرس" else "مانده هر پرس",
+                    if (result.remainingNegative) "زیان ناخالص" else "سود ناخالص",
                     remaining,
                     money,
                     Modifier.weight(1f).testTag("remaining"),
