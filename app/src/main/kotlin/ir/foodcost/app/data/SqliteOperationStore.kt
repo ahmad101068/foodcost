@@ -7,6 +7,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteDatabaseCorruptException
 import android.database.sqlite.SQLiteOpenHelper
 import ir.foodcost.data.json.Json
+import ir.foodcost.data.ops.Backup
 import ir.foodcost.data.ops.OpId
 import ir.foodcost.data.ops.Operation
 import ir.foodcost.data.ops.OperationCodec
@@ -32,13 +33,22 @@ class SqliteOperationStore(context: Context, name: String = DATABASE) : Operatio
     /** The damaged database file this store found when it opened and set aside, or null. */
     val setAside: File?
 
-    // The ids of rows that could not be read. They stay in the table and are left out of the data,
-    // until the same operation arrives again, from a backup, and its row is mended with it.
-    private val unreadableIds = HashSet<String>()
+    // The rows that could not be read, by the id they are stored under, with their stored text. They
+    // stay in the table and are left out of the data, until the same operation arrives again, from a
+    // backup, and its row is mended with it.
+    private val unreadableRows = LinkedHashMap<String, String>()
 
     /** Rows that could not be read. They stay in the table and are left out of the data. */
     val unreadable: Int
-        @Synchronized get() = unreadableIds.size
+        @Synchronized get() = unreadableRows.size
+
+    /** The ids of the rows that could not be read. */
+    val unreadableIds: Set<String>
+        @Synchronized get() = unreadableRows.keys.toSet()
+
+    /** The rows that could not be read, each as it is stored, for an emergency backup to carry. */
+    @Synchronized
+    fun unreadableText(): List<Backup.Unreadable> = unreadableRows.map { (id, text) -> Backup.Unreadable(id, text) }
 
     init {
         var aside: File? = null
@@ -56,7 +66,7 @@ class SqliteOperationStore(context: Context, name: String = DATABASE) : Operatio
         val read = StoredRows.readRows(rows.asSequence().map { (seq, id, body) -> StoredRows.Row(seq, id, body) })
         read.operations.forEach { cache[it.id] = it }
         val unreadableSeqs = read.unreadable.toHashSet()
-        rows.filter { it.first in unreadableSeqs }.mapTo(unreadableIds) { it.second }
+        rows.filter { it.first in unreadableSeqs }.forEach { (_, id, body) -> unreadableRows[id] = body }
     }
 
     @Synchronized
@@ -99,7 +109,7 @@ class SqliteOperationStore(context: Context, name: String = DATABASE) : Operatio
                 values.put("body", Json.write(OperationCodec.encode(op)))
                 if (db.insertWithOnConflict(TABLE, null, values, SQLiteDatabase.CONFLICT_IGNORE) != -1L) continue
                 // The id is in the table already.
-                check(id in unreadableIds) { "Operation $id is stored but was not read" }
+                check(id in unreadableRows) { "Operation $id is stored but was not read" }
                 values.remove("id")
                 check(db.update(TABLE, values, "id = ?", arrayOf(id)) == 1) { "The unreadable row of $id was not mended" }
                 mended += id
@@ -109,7 +119,7 @@ class SqliteOperationStore(context: Context, name: String = DATABASE) : Operatio
             db.endTransaction()
         }
         for (op in fresh) cache[op.id] = op
-        unreadableIds.removeAll(mended.toSet())
+        mended.forEach { unreadableRows.remove(it) }
     }
 
     /** Closes the database, for tests that open the same file again. */
@@ -196,6 +206,15 @@ class SqliteOperationStore(context: Context, name: String = DATABASE) : Operatio
                 throw failure
             }
             return aside
+        }
+
+        /**
+         * The damaged files set aside beside the database named [name], with their journal files,
+         * in the order they were set aside: kept on the phone until the user saves them elsewhere.
+         */
+        fun damagedFiles(context: Context, name: String = DATABASE): List<File> {
+            val dir = context.getDatabasePath(name).parentFile ?: return emptyList()
+            return dir.listFiles { f -> f.isFile && f.name.startsWith("$name.damaged-") }.orEmpty().sortedBy { it.name }
         }
     }
 }

@@ -72,10 +72,15 @@ fun SettingsScreen(
     var focusCategory by remember { mutableStateOf<Pair<Int, Boolean>?>(null) }
 
     TabScaffold(title = "تنظیمات", nav = nav, actions = actions) { padding ->
+        // While the data waits for the user's choice, or a backup is due, the backup card comes first:
+        // that is what the line on top of the screens leads here for.
+        val backupFirst = !actions.integrity.verified || actions.backupReminder != null
         Column(
             Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            if (backupFirst) BackupCard(container, today, actions)
+
             SettingsCard("راهنما") {
                 Text(
                     "معنی واژه‌هایی مثل فودکاست، مارجین، مارک‌آپ و بهای تمام‌شده، و راهنمای کار با برنامه.",
@@ -156,7 +161,8 @@ fun SettingsScreen(
 
             SettingsCard("قیمت‌گذاری اختصاصی بخش‌های منو") {
                 Text(
-                    "هر بخش می‌تواند فودکاست هدف، حاشیه سود یا مارک‌آپ مخصوص داشته باشد. برای غذای بدون بخش، تنظیمات عمومی بالا اعمال می‌شود.",
+                    "بخش‌های منو را اینجا بسازید تا غذاها را در آن‌ها بگذارید. هر بخش می‌تواند فودکاست هدف، حاشیهٔ سود یا مارک‌آپ مخصوص داشته باشد، " +
+                        "یا مثل بقیه با روش عمومی بالا قیمت بخورد. برای غذای بدون بخش هم روش عمومی بالا اعمال می‌شود.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 input.categories.forEachIndexed { i, category ->
@@ -168,31 +174,45 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1.4f).focusRequester(categoryName(i)).testTag("category-$i-name"),
                             imeAction = ImeAction.Next,
                         )
-                        TextInput(
-                            value = category.percent,
-                            onValueChange = { input = input.withCategory(i, category.copy(percent = it)) },
-                            label = methodName(category.method),
-                            modifier = Modifier.weight(1f).focusRequester(categoryPercent(i)).testTag("category-$i-percent"),
-                            number = true,
-                            suffix = "٪",
-                            imeAction = ImeAction.Done,
-                        )
+                        if (!category.useGeneral) {
+                            TextInput(
+                                value = category.percent,
+                                onValueChange = { input = input.withCategory(i, category.copy(percent = it)) },
+                                label = methodName(category.method),
+                                modifier = Modifier.weight(1f).focusRequester(categoryPercent(i)).testTag("category-$i-percent"),
+                                number = true,
+                                suffix = "٪",
+                                imeAction = ImeAction.Done,
+                            )
+                        }
                         IconButton(onClick = { input = input.withoutCategory(i) }) {
                             Icon(Icons.Filled.Close, contentDescription = "حذف بخش")
                         }
                     }
                     Text("روش قیمت‌گذاری «${category.name.ifBlank { "بخش جدید" }}»", style = MaterialTheme.typography.labelMedium)
-                    Segmented(MethodChoice.entries, category.method, { methodName(it) }) { chosen ->
-                        if (chosen != category.method) {
-                            input = input.withCategory(i, category.copy(method = chosen, percent = "", basis = CostBasis.FOOD_COST))
+                    // null: priced like the rest, with the general method above.
+                    val methods: List<MethodChoice?> = listOf(null) + MethodChoice.entries
+                    ChoiceChips(methods, category.method.takeIf { !category.useGeneral }, { it?.let(::methodName) ?: "روش عمومی" }) { chosen ->
+                        val next = when {
+                            chosen == null -> category.copy(useGeneral = true)
+                            category.useGeneral || chosen != category.method ->
+                                category.copy(useGeneral = false, method = chosen, percent = "", basis = CostBasis.FOOD_COST)
+                            else -> category
                         }
+                        if (next != category) input = input.withCategory(i, next)
                     }
-                    if (category.method == MethodChoice.FOOD_COST) {
-                        Text("مبنای فودکاست هدف: فقط هزینه مواد اولیه", style = MaterialTheme.typography.bodySmall)
-                    } else {
-                        Text("مبنای محاسبه درصد", style = MaterialTheme.typography.labelMedium)
-                        Segmented(CostBasis.entries, category.basis, { basisName(it) }) { chosen ->
-                            input = input.withCategory(i, category.copy(basis = chosen))
+                    when {
+                        category.useGeneral -> Text(
+                            "این بخش مثل بقیهٔ غذاها با روش عمومی بالا قیمت می‌خورد و برای دسته‌بندی غذاهاست.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        category.method == MethodChoice.FOOD_COST ->
+                            Text("مبنای فودکاست هدف: فقط هزینهٔ مواد اولیه", style = MaterialTheme.typography.bodySmall)
+                        else -> {
+                            Text("مبنای محاسبه درصد", style = MaterialTheme.typography.labelMedium)
+                            Segmented(CostBasis.entries, category.basis, { basisName(it) }) { chosen ->
+                                input = input.withCategory(i, category.copy(basis = chosen))
+                            }
                         }
                     }
                 }
@@ -309,7 +329,7 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("ذخیرهٔ قیمت‌گذاری") }
 
-            BackupCard(container, today, actions)
+            if (!backupFirst) BackupCard(container, today, actions)
 
             SettingsCard("دربارهٔ برنامه") {
                 Text("فودکاست، نسخهٔ ${Persian.digits(versionLabel(context))}", style = MaterialTheme.typography.bodyMedium)

@@ -9,8 +9,12 @@ import ir.foodcost.data.ledger.BackupPreview
 import ir.foodcost.data.ledger.Ledger
 import ir.foodcost.data.ledger.LedgerState
 import ir.foodcost.data.ops.Actor
+import ir.foodcost.data.ops.Backup
 import ir.foodcost.data.ops.Operation
 import ir.foodcost.data.ops.Role
+import ir.foodcost.presentation.BackupReminder
+import ir.foodcost.presentation.DataIntegrity
+import ir.foodcost.presentation.DataNotVerified
 import ir.foodcost.presentation.Days
 import ir.foodcost.presentation.QuickDrafts
 import ir.foodcost.presentation.QuickInput
@@ -30,6 +34,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZonedDateTime
 import java.util.UUID
@@ -61,6 +66,22 @@ class AppContainer(context: Context) {
      * screen and at midnight, so a phone left on overnight dates the next day's prices right.
      */
     val today: StateFlow<LocalDate> = _today.asStateFlow()
+
+    // Declared before the work started below, which reads them.
+    private val _integrity = MutableStateFlow(DataIntegrity())
+
+    /** Whether the stored data was read whole: while it was not, no figure is shown and nothing is recorded. */
+    val integrity: StateFlow<DataIntegrity> = _integrity.asStateFlow()
+
+    private val _backupReminder = MutableStateFlow<String?>(null)
+
+    /** What to say about making a backup, or null: Android's own backup leaves this app's data out. */
+    val backupReminder: StateFlow<String?> = _backupReminder.asStateFlow()
+
+    private val _lastBackup = MutableStateFlow(prefs.getLong(KEY_LAST_BACKUP_AT, 0L).takeIf { it > 0 }?.let(Instant::ofEpochMilli))
+
+    /** When the last backup was saved on this phone, or null for never. */
+    val lastBackup: StateFlow<Instant?> = _lastBackup.asStateFlow()
 
     // Written whole or not at all: a write cut short, by a full phone or the app being closed,
     // leaves the last whole draft, never half of one.
@@ -94,6 +115,7 @@ class AppContainer(context: Context) {
     /** Reads the date again, as the app comes back to the screen, perhaps on another day. */
     fun refreshToday() {
         _today.value = LocalDate.now()
+        publishReminder()
     }
 
     /** Writes the calculation now, as the app leaves the screen and may be closed. */
@@ -125,19 +147,85 @@ class AppContainer(context: Context) {
         }
     }
 
-    /** Stored rows that could not be read, if any. */
-    val unreadableRows: Int get() = store?.unreadable ?: 0
+    /** Stored rows that could not be read and that the user has not chosen to go on without. */
+    val unreadableRows: Int get() = (store?.unreadableIds.orEmpty() - acceptedUnreadable()).size
 
-    /** Remains unsafe after a whole damaged database is set aside, even with zero unreadable rows. */
-    val financialDataUnverified: Boolean get() = unreadableRows > 0 || prefs.getBoolean(KEY_RECOVERY_REQUIRED, false)
+    // Rows the user chose to go on without: left out of the figures, kept in the table as they are.
+    private fun acceptedUnreadable(): Set<String> = prefs.getStringSet(KEY_UNREADABLE_ACCEPTED, null).orEmpty()
+
+    // A damaged database was set aside and the app opened empty; it stays so until a backup is
+    // brought back or the user chooses to start empty.
+    private val recoveryRequired: Boolean get() = prefs.getBoolean(KEY_RECOVERY_REQUIRED, false)
+
+    /** Unsafe while rows are not read or a damaged database was set aside, until the user chooses what to do. */
+    val financialDataUnverified: Boolean get() = unreadableRows > 0 || recoveryRequired
+
+    private fun publishIntegrity() {
+        _integrity.value = DataIntegrity(unreadable = unreadableRows, setAside = recoveryRequired)
+    }
 
     /** All export callers must use this guarded entry point rather than Ledger.exportBackup(). */
     suspend fun exportVerifiedBackup(): String {
         val l = open()
         return withContext(Dispatchers.IO) {
-            check(!financialDataUnverified) { "Incomplete ledger cannot be exported as a valid backup" }
+            if (financialDataUnverified) throw DataNotVerified()
             l.exportBackup()
         }
+    }
+
+    /**
+     * An emergency backup, made whatever state the data is in: every operation that was read and,
+     * as text, every row that was not, so nothing on the phone is lost. Bringing it back says what
+     * it lacks, and versions before this one do not open it.
+     */
+    suspend fun exportEmergencyBackup(): String {
+        val l = open()
+        return withContext(Dispatchers.IO) { Backup.write(l.operations(), store?.unreadableText().orEmpty()) }
+    }
+
+    /** Every stored row that could not be read, the ones the user chose to go on without included. */
+    val unreadableRowsKept: Int get() = store?.unreadable ?: 0
+
+    /** True when some stored rows are not read, so the backup that keeps everything is an emergency one. */
+    val hasUnreadableRows: Boolean get() = unreadableRowsKept > 0
+
+    /** The damaged database files set aside on this phone, to save elsewhere for a closer look. */
+    fun damagedFiles(): List<File> = SqliteOperationStore.damagedFiles(appContext)
+
+    /**
+     * The user's choice to go on without what could not be read: rows not read stay in the table as
+     * they are and out of the figures, a damaged file set aside stays where it is, and changes and
+     * backups open again. A backup that brings those rows back still mends them.
+     */
+    fun continueWithoutUnreadable() {
+        prefs.edit()
+            .putStringSet(KEY_UNREADABLE_ACCEPTED, HashSet(acceptedUnreadable() + store?.unreadableIds.orEmpty()))
+            .putBoolean(KEY_RECOVERY_REQUIRED, false)
+            .putInt(KEY_UNREADABLE_SEEN, 0)
+            .commit()
+        publishIntegrity()
+        publishReminder()
+    }
+
+    /** Notes a backup just saved, of every change stored now, for the reminder and the backup card. */
+    fun backupSaved() {
+        val stored = ledger?.operations()?.size ?: return
+        val now = Instant.now()
+        prefs.edit().putLong(KEY_LAST_BACKUP_AT, now.toEpochMilli()).putInt(KEY_LAST_BACKUP_OPS, stored).apply()
+        _lastBackup.value = now
+        publishReminder()
+    }
+
+    /** Puts the reminder off for a few days. */
+    fun snoozeBackupReminder() {
+        prefs.edit().putLong(KEY_REMINDER_SNOOZED_UNTIL, BackupReminder.snooze(Instant.now()).toEpochMilli()).apply()
+        publishReminder()
+    }
+
+    private fun publishReminder() {
+        val stored = ledger?.operations()?.size ?: return
+        val snoozed = prefs.getLong(KEY_REMINDER_SNOOZED_UNTIL, 0L).takeIf { it > 0 }?.let(Instant::ofEpochMilli)
+        _backupReminder.value = BackupReminder.due(stored, prefs.getInt(KEY_LAST_BACKUP_OPS, 0), _lastBackup.value, snoozed, Instant.now())
     }
 
     /** Unreadable rows not shown to the user yet: more than when they last said they had read the warning. */
@@ -168,10 +256,15 @@ class AppContainer(context: Context) {
             s.setAside?.let {
                 prefs.edit().putString(KEY_SET_ASIDE, it.name).putBoolean(KEY_RECOVERY_REQUIRED, true).commit()
             }
+            // Rows chosen to go without that a backup has mended since are no longer kept apart.
+            val accepted = acceptedUnreadable()
+            if (accepted.isNotEmpty()) prefs.edit().putStringSet(KEY_UNREADABLE_ACCEPTED, HashSet(accepted intersect s.unreadableIds)).commit()
             Ledger(s, HybridClock(deviceId()), Actor(OWNER_ID, Role.OWNER))
         }.also {
             ledger = it
             _state.value = it.state
+            publishIntegrity()
+            publishReminder()
         }
     }
 
@@ -183,15 +276,14 @@ class AppContainer(context: Context) {
         val l = open()
         val result = try {
             withContext(Dispatchers.IO) {
-                // Never mutate a partial financial ledger. A backup restore uses receive(),
-                // which remains available to mend unreadable stored operations.
-                check(!financialDataUnverified) {
-                    "Financial data is incomplete; restore a valid backup before making changes"
-                }
+                // Never change a ledger that was not read whole, until the user chooses what to do.
+                // A backup restore uses receive(), which remains available to mend unreadable rows.
+                if (financialDataUnverified) throw DataNotVerified()
                 l.atomically(block)
             }
         } finally {
             _state.value = l.state
+            publishReminder()
         }
         return result
     }
@@ -210,6 +302,8 @@ class AppContainer(context: Context) {
         // Only a nonempty imported backup can replace a database set aside as unreadable.
         // The user must still verify that this backup contains their expected historical data.
         if (added > 0 && unreadableRows == 0) prefs.edit().putBoolean(KEY_RECOVERY_REQUIRED, false).commit()
+        publishIntegrity()
+        publishReminder()
         return added
     }
 
@@ -227,12 +321,13 @@ class AppContainer(context: Context) {
             ?: DisplayCurrency.TOMAN
 
     /**
-     * This phone's id, kept in a file of its own that Android's backup and the move to a new phone
-     * leave out (res/xml/data_extraction_rules.xml): a phone restored from a backup gets an id of
-     * its own, so two phones never number their changes alike. Versions before 0.7.3 kept the id
-     * with the other settings, which an older backup brings back to every phone restored from it,
-     * so it is not taken over: without its own file, the phone makes a new id. Its earlier changes
-     * keep the id they were made under.
+     * This phone's id, kept in a file of its own. Android's backup and the move to a new phone leave
+     * all of the app's data out since 0.7.8 (res/xml/data_extraction_rules.xml), this file too, so a
+     * phone that gets the data back from the app's own backup has an id of its own, and two phones
+     * never number their changes alike. Versions before 0.7.3 kept the id with the other settings,
+     * which an older Android backup could bring back to every phone restored from it, so it is not
+     * taken over: without its own file, the phone makes a new id. Its earlier changes keep the id
+     * they were made under.
      */
     private fun deviceId(): String {
         val ids = appContext.getSharedPreferences(DEVICE_FILE, Context.MODE_PRIVATE)
@@ -248,6 +343,10 @@ class AppContainer(context: Context) {
         const val KEY_UNREADABLE_SEEN = "unreadable-seen"
         const val KEY_SET_ASIDE = "damaged-database-set-aside"
         const val KEY_RECOVERY_REQUIRED = "financial-recovery-required"
+        const val KEY_UNREADABLE_ACCEPTED = "unreadable-accepted"
+        const val KEY_LAST_BACKUP_AT = "last-backup-at"
+        const val KEY_LAST_BACKUP_OPS = "last-backup-operations"
+        const val KEY_REMINDER_SNOOZED_UNTIL = "backup-reminder-snoozed-until"
         const val KEY_DEVICE = "device"
         const val DEVICE_FILE = "device"
         const val OWNER_ID = "owner"

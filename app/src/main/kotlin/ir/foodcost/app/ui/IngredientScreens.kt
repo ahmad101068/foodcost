@@ -59,6 +59,7 @@ import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.core.units.Dimension
 import ir.foodcost.data.ledger.LedgerState
 import ir.foodcost.data.ops.Opt
+import ir.foodcost.presentation.BackupTexts
 import ir.foodcost.presentation.Checked
 import ir.foodcost.presentation.Field
 import ir.foodcost.presentation.IngredientDetail
@@ -188,7 +189,7 @@ private fun IngredientListItem(row: IngredientRow, dataUnreliable: Boolean, onCl
         headlineContent = { Text(row.name) },
         supportingContent = {
             Text(
-                (if (dataUnreliable) "قیمت غیرقابل تأیید؛ ابتدا داده‌ها را بازیابی کنید" else price ?: row.priceProblem.orEmpty()),
+                (if (dataUnreliable) BackupTexts.UNVERIFIED_PRICE else price ?: row.priceProblem.orEmpty()),
                 color = if (dataUnreliable || price == null) MaterialTheme.colorScheme.error else Color.Unspecified,
             )
         },
@@ -249,7 +250,7 @@ fun IngredientScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
                     PriceItem(price, onVoid = { voiding = price })
                 }
             } else {
-                item { Text("سابقه قیمت تا زمان بازیابی داده‌ها قابل تأیید نیست.", color = MaterialTheme.colorScheme.error) }
+                item { Text(BackupTexts.UNVERIFIED_HISTORY, color = MaterialTheme.colorScheme.error) }
             }
             if (detail.usedIn.isNotEmpty()) {
                 item { SectionTitle("در این دستورها به کار رفته", Modifier.padding(top = 8.dp)) }
@@ -282,7 +283,7 @@ private fun IngredientCard(detail: IngredientDetail, dataUnreliable: Boolean) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                (if (dataUnreliable) "قیمت غیرقابل تأیید؛ ابتدا داده‌ها را بازیابی کنید" else detail.unitPrice ?: detail.priceProblem.orEmpty()),
+                (if (dataUnreliable) BackupTexts.UNVERIFIED_PRICE else detail.unitPrice ?: detail.priceProblem.orEmpty()),
                 style = MaterialTheme.typography.titleLarge,
                 color = if (dataUnreliable || detail.unitPrice == null) MaterialTheme.colorScheme.error else Color.Unspecified,
             )

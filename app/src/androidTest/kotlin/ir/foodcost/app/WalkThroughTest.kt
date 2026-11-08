@@ -98,7 +98,7 @@ class WalkThroughTest {
         rule.onNodeWithTag("menu-price").performImeAction()
         waitForFigure("net-sales", "۵۷۲٬۷۲۷")
         waitForFigure("food-cost", "۶۳٫۶٪")
-        waitForFigure("remaining", "۲۰۸٬۶۲۲")
+        waitForFigure("gross-profit", "۲۰۸٬۶۲۲")
         waitFor("زیر قیمت")
         shot("03-under-priced")
 
@@ -119,7 +119,7 @@ class WalkThroughTest {
         rule.onNodeWithTag("extra-0-amount").performImeAction()
         waitFor("بیرون‌بر")
         waitForPart("۱۹۳٬۶۲۲")
-        waitForFigure("remaining", "۲۰۸٬۶۲۲") // the box is not used at the table
+        waitForFigure("gross-profit", "۲۰۸٬۶۲۲") // the box is not used at the table
         show("channel-remaining")
         shot("06-takeaway")
 
