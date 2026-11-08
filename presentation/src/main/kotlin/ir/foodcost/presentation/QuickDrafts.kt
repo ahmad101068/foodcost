@@ -38,6 +38,8 @@ object QuickDrafts {
             ),
             "portions" to input.portions.json,
             "menuPrice" to input.menuPrice.json,
+            "discountMode" to input.discountMode.json,
+            "discountValue" to input.discountValue.json,
             "recipeId" to input.recipeId?.value?.json,
             "miscPercent" to input.miscPercent?.json,
             "extras" to jsonArray(
@@ -71,9 +73,9 @@ object QuickDrafts {
     }
 
     /**
-     * The same calculation with its amounts in [to] instead of [from]: the prices, the menu price
-     * and the other costs, so a change of currency leaves every figure as it was. Anything that does
-     * not read as an amount is left as typed.
+     * The same calculation with its amounts in [to] instead of [from]: the prices, the menu price,
+     * the other costs and a discount given as an amount, so a change of currency leaves every figure
+     * as it was. Anything that does not read as an amount is left as typed.
      */
     fun convert(input: QuickInput, from: DisplayCurrency, to: DisplayCurrency): QuickInput {
         if (from == to) return input
@@ -84,6 +86,7 @@ object QuickDrafts {
             rows = input.rows.map { it.copy(price = amount(it.price)) },
             menuPrice = amount(input.menuPrice),
             extras = input.extras.map { it.copy(amount = amount(it.amount)) },
+            discountValue = if (input.discountMode == QuickInput.FIXED) amount(input.discountValue) else input.discountValue,
         )
     }
 
@@ -108,6 +111,9 @@ object QuickDrafts {
             rows = if (rows.lastOrNull()?.isBlank == true) rows else rows + QuickRow(),
             portions = o.string("portions"),
             menuPrice = o.string("menuPrice"),
+            // Drafts made before the discount was kept have none.
+            discountMode = o.stringOrNull("discountMode")?.takeIf { it == QuickInput.PERCENT || it == QuickInput.FIXED } ?: QuickInput.PERCENT,
+            discountValue = o.stringOrNull("discountValue").orEmpty(),
             recipeId = o.stringOrNull("recipeId")?.let { RecipeId(it) },
             miscPercent = o.decimalOrNull("miscPercent"),
             extras = extras,

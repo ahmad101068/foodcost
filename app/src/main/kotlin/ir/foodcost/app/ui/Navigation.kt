@@ -5,8 +5,11 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -15,11 +18,12 @@ import ir.foodcost.core.costing.Section
 import ir.foodcost.core.model.RecipeId
 import ir.foodcost.data.ledger.Ledger
 import ir.foodcost.data.ledger.LedgerState
+import ir.foodcost.presentation.DataIntegrity
 import ir.foodcost.presentation.Labels
 import ir.foodcost.presentation.MoneyFormat
 import ir.foodcost.presentation.QuickCalculator
-import ir.foodcost.presentation.QuickSaveRefused
 import java.time.LocalDate
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -162,22 +166,39 @@ class AppActions(
 ) {
     private var message: Job? = null
 
-    /** Stored changes that could not be read; the figures on every screen are without them. */
-    val unreadableRows: Int get() = if (container.financialDataUnverified) maxOf(1, container.unreadableRows) else 0
+    // Kept as state the screens read, so they change as soon as the data is read whole again or the
+    // user chooses to go on without the part that was not, and the reminder as soon as a backup is saved.
+    private var integrityNow by mutableStateOf(container.integrity.value)
+    private var reminderNow by mutableStateOf(container.backupReminder.value)
+
+    init {
+        scope.launch { container.integrity.collect { integrityNow = it } }
+        scope.launch { container.backupReminder.collect { reminderNow = it } }
+    }
+
+    /** Whether the stored data was read whole; while it was not, no figure is shown and nothing is recorded. */
+    val integrity: DataIntegrity get() = integrityNow
+
+    /** Above zero while the data was not read whole and the user has not chosen what to do. */
+    val unreadableRows: Int get() = integrityNow.let { if (it.verified) 0 else maxOf(1, it.unreadable) }
+
+    /** What to say about making a backup, while the data was read whole; null for nothing. */
+    val backupReminder: String? get() = reminderNow.takeIf { integrityNow.verified }
+
+    /** Puts the backup reminder off for a few days. */
+    fun snoozeBackupReminder() = container.snoozeBackupReminder()
 
     /** Runs [change] off the main thread. If it is refused, says why; otherwise passes its result to [onDone]. */
     fun <T> run(change: (Ledger) -> T, onDone: (T) -> Unit = {}) {
         scope.launch {
             val result = try {
                 container.change(change)
-            } catch (e: QuickSaveRefused) {
-                say(Labels.rejection(e.reason))
-                return@launch
-            } catch (e: IllegalArgumentException) {
-                say("این مقدار پذیرفته نشد.")
-                return@launch
-            } catch (e: IllegalStateException) {
-                say("این کار انجام نشد.")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: RuntimeException) {
+                // Which rule refused it, if one did: a step refused inside the one change the app
+                // makes is an exception, not a result.
+                say(Labels.failure(e))
                 return@launch
             }
             if (result is Ledger.Outcome.Rejected) {

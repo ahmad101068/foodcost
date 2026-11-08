@@ -110,25 +110,19 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v5
-      # The release smoke test must install the same signed APK shape as the APK job.
-      # Without signing credentials Gradle creates an unsigned release artifact, not
-      # app-release.apk, and the walk-through fails at adb install for the wrong reason.
-      - name: Configure release signing for smoke test
+      # The release build is only started on the emulator here, which any key does for, and
+      # Gradle makes no release APK without one. So it is signed with a throwaway key made for this
+      # run alone: the app's own key stays in the apk job, the only one that needs it.
+      - name: Make a throwaway key for the release build's start
         shell: bash
-        env:
-          KEYSTORE_B64: ${{ secrets.FOODCOST_KEYSTORE_B64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.FOODCOST_KEYSTORE_PASSWORD }}
         run: |
-          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
-            echo "::error title=Signing::Release smoke test requires the configured signing key"
-            exit 1
-          fi
-          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/foodcost.keystore"
-          echo "FOODCOST_KEYSTORE_FILE=$RUNNER_TEMP/foodcost.keystore" >> "$GITHUB_ENV"
+          pass=$(openssl rand -hex 16)
+          keytool -genkeypair -keystore "$RUNNER_TEMP/throwaway.p12" -storetype PKCS12 -alias foodcost \
+            -keyalg RSA -keysize 2048 -validity 2 -storepass "$pass" -keypass "$pass" -dname "CN=throwaway" > /dev/null
+          echo "FOODCOST_KEYSTORE_FILE=$RUNNER_TEMP/throwaway.p12" >> "$GITHUB_ENV"
+          echo "FOODCOST_KEYSTORE_PASSWORD=$pass" >> "$GITHUB_ENV"
       - name: Build the app, its test and the release build
         shell: bash
-        env:
-          FOODCOST_KEYSTORE_PASSWORD: ${{ secrets.FOODCOST_KEYSTORE_PASSWORD }}
         run: |
           set -o pipefail
           ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease --no-daemon 2>&1 | tee build.log
@@ -155,7 +149,7 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          lines=$( { grep -E "^e: |error:|What went wrong|FAILED" build.log; grep -E "FAILURES|Exception|Error|expected|Caused by|at ir\.foodcost|Tests run" walkthrough.log unreadable.log; grep -E "FATAL|AndroidRuntime|ir\.foodcost" logcat.txt; } 2>/dev/null | head -90 || true)
+          lines=$( { grep -E "^e: |error:|What went wrong|FAILED" build.log; grep -E "FAILURES|Exception|Error|expected|Caused by|at ir\.foodcost|Tests run" walkthrough.log unreadable.log recovery.log; grep -E "FATAL|AndroidRuntime|ir\.foodcost" logcat.txt; } 2>/dev/null | head -90 || true)
           message=$(printf '%s' "$lines" | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}')
           echo "::error title=Walk-through failed::${message}"
       - name: Publish the screenshots

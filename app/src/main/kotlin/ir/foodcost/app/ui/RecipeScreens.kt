@@ -57,6 +57,7 @@ import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.core.units.Uom
 import ir.foodcost.data.ledger.LedgerState
 import ir.foodcost.data.ops.Opt
+import ir.foodcost.presentation.BackupTexts
 import ir.foodcost.presentation.Batch
 import ir.foodcost.presentation.Checked
 import ir.foodcost.presentation.ComponentChoice
@@ -74,6 +75,7 @@ import ir.foodcost.presentation.RecipeEdits
 import ir.foodcost.presentation.RecipeInput
 import ir.foodcost.presentation.RecipeRow
 import ir.foodcost.presentation.RecipeScreens
+import ir.foodcost.presentation.Sections
 import ir.foodcost.presentation.checkMenuPrice
 import java.time.LocalDate
 
@@ -160,7 +162,7 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
         RecipeHeaderDialog(
             title = "افزودن غذا",
             initial = RecipeInput(kind = RecipeKind.MENU_ITEM),
-            sections = state.pricing.methodByCategory.keys.toList(),
+            sections = Sections.of(state),
             onDismiss = { creating = false },
             onSave = { input ->
                 actions.run({ it.createRecipe(input.name, input.kind, input.categoryOrNull) }) { id ->
@@ -174,7 +176,7 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
         RecipeHeaderDialog(
             title = "دستور پایه",
             initial = RecipeInput(kind = RecipeKind.PREP),
-            sections = state.pricing.methodByCategory.keys.toList(),
+            sections = Sections.of(state),
             onDismiss = { creatingBase = false },
             onSave = { input ->
                 actions.run({ it.createRecipe(input.name, RecipeKind.PREP, null) }) { id ->
@@ -189,7 +191,7 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
 @Composable
 private fun UnverifiedFinancialData() {
     Text(
-        "نتیجه مالی قابل تأیید نیست؛ اطلاعات ذخیره‌شده ناقص است. ابتدا پشتیبان را بازیابی کنید.",
+        BackupTexts.UNVERIFIED_RESULT,
         modifier = Modifier.testTag("unverified-financial-result"),
         color = MaterialTheme.colorScheme.error,
     )
@@ -230,13 +232,13 @@ private fun PlateCard(row: MenuRow, dataUnreliable: Boolean, onClick: () -> Unit
                 if (!dataUnreliable) StatusChip(row.status, row.statusLabel)
             }
             if (dataUnreliable) UnverifiedFinancialData() else Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                // The same cost as the calculator's: food, other costs and the overhead share.
-                LabeledValue("هزینهٔ هر پرس", row.cost, Modifier.weight(1f), amount = true)
+                // The same figure as on top of the calculator: the food alone; with other costs, the whole cost below.
+                LabeledValue("هزینهٔ مواد اولیه هر پرس", row.foodCost, Modifier.weight(1f), amount = true)
                 LabeledValue("قیمت منو", row.menuPrice ?: "ثبت نشده", Modifier.weight(1f), amount = true)
                 LabeledValue("پیشنهادی", row.suggestedPrice, Modifier.weight(1f), emphasized = row.raise != null, amount = true)
             }
             val notes = listOfNotNull(
-                row.otherCosts?.let { "بهای مواد ${row.foodCost}" },
+                row.otherCosts?.let { "بهای تمام‌شده ${row.cost}" },
                 row.foodCostPercent?.let { "فودکاست $it" },
                 row.raise?.let { "باید $it گران‌تر شود" },
             )
@@ -256,7 +258,7 @@ private fun PreparationCard(row: RecipeRow, dataUnreliable: Boolean, onClick: ()
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), colors = whiteCardColors()) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(row.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            if (dataUnreliable) UnverifiedFinancialData() else LabeledValue("هزینهٔ هر پرس", row.cost, amount = true)
+            if (dataUnreliable) UnverifiedFinancialData() else LabeledValue("هزینهٔ مواد اولیه هر پرس", row.cost, amount = true)
         }
     }
 }
@@ -336,7 +338,7 @@ fun RecipeScreen(id: RecipeId, state: LedgerState, money: MoneyFormat, today: Lo
         RecipeDialog.HEADER -> RecipeHeaderDialog(
             title = "ویرایش دستور",
             initial = detail.header,
-            sections = state.pricing.methodByCategory.keys.toList(),
+            sections = Sections.of(state),
             note = "نوع و بخش منوی تازه از امروز حساب می‌شوند؛ عددهای روزهای قبل همان می‌مانند.",
             onDismiss = { dialog = null },
             onSave = { input ->
@@ -397,13 +399,13 @@ private fun CostCard(detail: RecipeDetail, onEditPrice: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                // As on the calculator: food, other costs and the overhead share; the food alone below when they differ.
-                Text("هزینهٔ هر پرس", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                AmountText(detail.pricing?.totalCost ?: detail.costPerPortion, MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+                // As on top of the calculator: the food alone; with other costs, the whole cost below.
+                Text("هزینهٔ مواد اولیه هر پرس", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                AmountText(detail.costPerPortion, MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
             }
             if (detail.kind != RecipeKind.PREP) StatusChip(detail.status, detail.statusLabel)
         }
-        if (detail.pricing?.totalCost != null) LabeledValue("بهای مواد", detail.costPerPortion, amount = true)
+        detail.pricing?.totalCost?.let { LabeledValue("بهای تمام‌شده", it, amount = true) }
         detail.batchCost?.let { LabeledValue("کل دستور", it, amount = true) }
         detail.outputLabel?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
         detail.pricing?.let { pricing ->
@@ -415,6 +417,7 @@ private fun CostCard(detail: RecipeDetail, onEditPrice: () -> Unit) {
             val notes = listOfNotNull(
                 pricing.method,
                 pricing.foodCostPercent?.let { "فودکاست با قیمت فعلی $it" },
+                pricing.grossProfit?.let { "سود ناخالص با قیمت فعلی $it" },
                 pricing.raise?.let { "باید $it گران‌تر شود" },
             )
             Text(
@@ -470,7 +473,7 @@ fun RecipeHeaderDialog(
     onDismiss: () -> Unit,
     onSave: (RecipeInput) -> Unit,
     onArchive: (() -> Unit)? = null,
-    /** The sections with a food cost target of their own in the settings, offered with one tap. */
+    /** The menu sections of the settings, and any other a dish is already in, offered to choose from. */
     sections: List<String> = emptyList(),
     /** Said under the fields, such as from which day a change counts. */
     note: String? = null,
@@ -484,9 +487,15 @@ fun RecipeHeaderDialog(
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 TextInput(input.name, { input = input.copy(name = it) }, "نام", error = errors[Field.NAME])
-                if (initial.kind == RecipeKind.EVENT_PACKAGE) {
+                // A dish being edited can become a base recipe and back; the change counts from today,
+                // as the note below says. A new one gets its kind from the button it was made with.
+                if (onArchive != null) {
+                    val kinds = listOf(RecipeKind.MENU_ITEM, RecipeKind.PREP) + listOfNotNull(RecipeKind.EVENT_PACKAGE.takeIf { initial.kind == it })
+                    ChoiceChips(kinds, input.kind, { Labels.kind(it) }, Modifier.testTag("recipe-kind")) { input = input.copy(kind = it) }
+                }
+                if (input.kind == RecipeKind.EVENT_PACKAGE) {
                     Text("پکیج قدیمی؛ برای حفظ سازگاری اطلاعات قبلی قابل ویرایش است.")
-                } else if (initial.kind == RecipeKind.PREP) {
+                } else if (input.kind == RecipeKind.PREP) {
                     Text("دستور پایه برای ترکیباتی است که در چند غذا استفاده می‌شوند.")
                 }
                 if (input.kind == RecipeKind.MENU_ITEM) {
@@ -508,7 +517,8 @@ fun RecipeHeaderDialog(
                                     sectionMenuExpanded = false
                                 },
                             )
-                            sections.distinct().sorted().forEach { section ->
+                            // In the settings' order, then the sections only dishes are in.
+                            sections.distinct().forEach { section ->
                                 DropdownMenuItem(
                                     text = { Text(section) },
                                     onClick = {
@@ -521,7 +531,7 @@ fun RecipeHeaderDialog(
                     }
                     if (sections.isEmpty()) {
                         Text(
-                            "ابتدا در تنظیمات، فودکاست هدف یک بخش منو را ثبت کنید.",
+                            "بخش‌های منو را در «تنظیمات»، بخش «قیمت‌گذاری اختصاصی بخش‌های منو» بسازید؛ بخشی که روش خودش را ندارد با روش عمومی قیمت می‌خورد.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -722,7 +732,7 @@ private fun ComponentPicker(
                 items(ingredients, key = { keyOf(it.ref) }) { choice -> ChoiceItem(choice) { onPick(choice) } }
             }
             if (recipes.isNotEmpty()) {
-                item(key = "recipes") { SectionTitle("دستورها و نیمه‌آماده‌ها", Modifier.padding(top = 12.dp)) }
+                item(key = "recipes") { SectionTitle("دستورهای پایه و غذاها", Modifier.padding(top = 12.dp)) }
                 items(recipes, key = { keyOf(it.ref) }) { choice -> ChoiceItem(choice) { onPick(choice) } }
             }
         }

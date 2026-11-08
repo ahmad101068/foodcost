@@ -93,11 +93,20 @@ private fun AppContent(container: AppContainer, state: LedgerState, currency: Di
                     },
                 ) { Text("فهمیدم") }
             },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        container.acknowledgeSetAside()
+                        setAside = null
+                        nav.tab(Tab.SETTINGS)
+                    },
+                ) { Text("دیدن راه‌ها") }
+            },
         )
     }
 
     // Stored changes the app could not read are said as soon as they are found, and again only
-    // when there are more of them: the figures on every screen are without them.
+    // when there are more of them: until the user chooses what to do, no figure is shown.
     var unreadable by remember { mutableIntStateOf(container.unreadableToWarn()) }
     if (unreadable > 0) {
         AlertDialog(
@@ -111,6 +120,15 @@ private fun AppContent(container: AppContainer, state: LedgerState, currency: Di
                         unreadable = 0
                     },
                 ) { Text("فهمیدم") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        container.acknowledgeUnreadable()
+                        unreadable = 0
+                        nav.tab(Tab.SETTINGS)
+                    },
+                ) { Text("دیدن راه‌ها") }
             },
         )
     }

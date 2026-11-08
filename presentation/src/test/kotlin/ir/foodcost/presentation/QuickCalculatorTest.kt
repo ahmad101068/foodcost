@@ -484,10 +484,10 @@ class QuickCalculatorTest {
         assertEquals("چلوکباب کوبیده", review.name)
         assertEquals(
             listOf(
-                QuickChange("هزینهٔ هر پرس", "۳۶۴٬۱۰۵", "۳۹۰٬۳۷۰", "‎+۷٫۲٪", worse = true),
+                QuickChange("هزینهٔ مواد اولیه هر پرس", "۳۶۴٬۱۰۵", "۳۹۰٬۳۷۰", "‎+۷٫۲٪", worse = true),
                 QuickChange("قیمت پیشنهادی", "۱٬۱۵۰٬۰۰۰", "۱٬۲۳۰٬۰۰۰", "‎+۷٪", worse = true),
                 QuickChange("فودکاست", "۶۳٫۶٪", "۶۸٫۲٪", null, worse = true),
-                QuickChange("مانده هر پرس", "‎+۲۰۸٬۶۲۲", "‎+۱۸۲٬۳۵۷", null, worse = true),
+                QuickChange("سود ناخالص", "‎+۲۰۸٬۶۲۲", "‎+۱۸۲٬۳۵۷", null, worse = true),
             ),
             review.changes,
         )
@@ -497,12 +497,103 @@ class QuickCalculatorTest {
         // A raise of the menu price alone is good news, and says so.
         val raised = opened.copy(menuPrice = "1200000")
         val raise = QuickCalculator.review(raised, valid(QuickCalculator.check(raised, ledger.state, toman, today)), ledger.state, toman, today)
-        assertEquals(listOf("قیمت منو", "فودکاست", "مانده هر پرس"), raise.changes.map { it.label })
+        assertEquals(listOf("قیمت منو", "فودکاست", "سود ناخالص"), raise.changes.map { it.label })
         assertEquals(listOf(false, false, false), raise.changes.map { it.worse })
 
         // A new dish of new ingredients changes nothing already saved.
         val fresh = QuickInput(dishName = "املت").withRow(0, QuickRow("تخم‌مرغ", "10000", "2", Uom.PIECE))
         assertTrue(QuickCalculator.review(fresh, valid(QuickCalculator.check(fresh, ledger.state, toman, today)), ledger.state, toman, today).isEmpty)
+    }
+
+    @Test
+    fun `a fixed discount is converted with the currency and kept in the draft`() {
+        // The audit of 0.7.8: 63,000 toman became 63,000 rials after a switch to rials, and a draft
+        // read back after the app was closed had lost the discount.
+        val rial = MoneyFormat(DisplayCurrency.RIAL)
+        val draft = koobideh("630000").copy(discountMode = QuickInput.FIXED, discountValue = "63000")
+        val inRials = QuickDrafts.convert(draft, DisplayCurrency.TOMAN, DisplayCurrency.RIAL)
+        assertEquals("630000", inRials.discountValue)
+        val before = QuickCalculator.compute(draft, ledger().state, toman, today)
+        val after = QuickCalculator.compute(inRials, ledger().state, rial, today)
+        assertEquals(630_000L, before.discountRials)
+        assertEquals(before.discountRials, after.discountRials)
+        assertEquals(before.foodCostPercent, after.foodCostPercent)
+        assertEquals(before.grossProfitRials, after.grossProfitRials)
+        // A percent is not money: it stays as typed.
+        val percent = koobideh("630000").copy(discountMode = QuickInput.PERCENT, discountValue = "10")
+        assertEquals("10", QuickDrafts.convert(percent, DisplayCurrency.TOMAN, DisplayCurrency.RIAL).discountValue)
+        // The draft keeps it, in the currency of the day it is read in.
+        assertEquals(draft, QuickDrafts.decode(QuickDrafts.encode(draft, DisplayCurrency.TOMAN), DisplayCurrency.TOMAN))
+        assertEquals(inRials, QuickDrafts.decode(QuickDrafts.encode(draft, DisplayCurrency.TOMAN), DisplayCurrency.RIAL))
+        // A draft kept before the discount was comes back without one.
+        val older = QuickDrafts.encode(draft, DisplayCurrency.TOMAN).replace(",\"discountMode\":\"fixed\",\"discountValue\":\"63000\"", "")
+        assertTrue("discount" !in older)
+        assertEquals(draft.copy(discountMode = QuickInput.PERCENT, discountValue = ""), QuickDrafts.decode(older, DisplayCurrency.TOMAN))
+    }
+
+    @Test
+    fun `the calculator's discount lowers the restaurant's own sale but not the online price, which has its own terms`() {
+        val ledger = ledger()
+        ledger.saveSettings(ledger.state.costing, ledger.state.pricing.copy(online = OnlineTerms(BigDecimal(20), BigDecimal(10), BigDecimal(15))))
+        val plain = QuickCalculator.compute(koobideh("630000"), ledger.state, toman, today)
+        val discounted = QuickCalculator.compute(koobideh("630000").copy(discountValue = "10"), ledger.state, toman, today)
+        // Eaten in at 567,000 toman.
+        assertEquals("۵۶۷٬۰۰۰ تومان", discounted.channels.first().price)
+        // Online at 730,000, as without the discount: the platform's own 10% is in the settings.
+        assertEquals("۷۳۰٬۰۰۰ تومان", discounted.channels.last().price)
+        assertEquals(plain.channels.last().price, discounted.channels.last().price)
+        assertEquals(plain.channels.last().remaining, discounted.channels.last().remaining)
+    }
+
+    @Test
+    fun `a discount is not saved, so the look before saving shows the dish without it`() {
+        val ledger = ledger()
+        val id = QuickCalculator.save(ledger, valid(QuickCalculator.check(koobideh("630000"), ledger.state, toman, today)), today)
+        val opened = assertNotNull(QuickCalculator.open(ledger.state, id, today, toman))
+        val discounted = opened.copy(discountValue = "10")
+        // Nothing saved changes: the menu price stays 630,000 and so does every figure saved.
+        val review = QuickCalculator.review(discounted, valid(QuickCalculator.check(discounted, ledger.state, toman, today)), ledger.state, toman, today)
+        assertTrue(review.isEmpty, review.toString())
+        QuickCalculator.save(ledger, valid(QuickCalculator.check(discounted, ledger.state, toman, today)), today)
+        assertEquals("630000", assertNotNull(QuickCalculator.open(ledger.state, id, today, toman)).menuPrice)
+    }
+
+    @Test
+    fun `one discount rule for the line under the field, the check before saving and the figures`() {
+        fun problem(mode: String, value: String, menu: String = "630000") =
+            QuickCalculator.discountProblem(koobideh(menu).copy(discountMode = mode, discountValue = value), toman)
+        assertNull(problem(QuickInput.PERCENT, ""))
+        assertNull(problem(QuickInput.PERCENT, "0"))
+        assertNull(problem(QuickInput.PERCENT, "99.5"))
+        assertEquals("درصد تخفیف باید از صفر تا کمتر از صد باشد.", problem(QuickInput.PERCENT, "100"))
+        assertNull(problem(QuickInput.FIXED, "629999"))
+        assertEquals("مبلغ تخفیف باید کمتر از قیمت منو باشد.", problem(QuickInput.FIXED, "630000"))
+        assertEquals("برای تخفیف مبلغی، اول قیمت منو را بنویسید.", problem(QuickInput.FIXED, "1000", menu = ""))
+        assertEquals("مبلغ تخفیف درست نیست.", problem(QuickInput.FIXED, "abc"))
+        assertEquals("نوع تخفیف معتبر نیست.", problem("other", "10"))
+        // The check before saving says the same, and the figures leave the sale out.
+        val bad = koobideh("630000").copy(discountValue = "100")
+        assertEquals("درصد تخفیف باید از صفر تا کمتر از صد باشد.", assertIs<Checked.Invalid>(QuickCalculator.check(bad, ledger().state, toman, today)).errors[Field.DISCOUNT])
+        assertNull(QuickCalculator.compute(bad, ledger().state, toman, today).netSales)
+    }
+
+    @Test
+    fun `a dish can go in any section of the settings, with a method of its own or the general one, or one already in use`() {
+        val ledger = ledger()
+        ledger.saveSettings(
+            ledger.state.costing,
+            ledger.state.pricing.copy(
+                methodByCategory = mapOf("نوشیدنی سرد" to PricingMethod.TargetFoodCost(BigDecimal(20))),
+                generalSections = listOf("پیش‌غذا"),
+            ),
+        )
+        ledger.createRecipe("سالاد قدیمی", RecipeKind.MENU_ITEM, category = "main")
+        assertEquals(listOf("نوشیدنی سرد", "پیش‌غذا", "main"), Sections.of(ledger.state))
+        assertEquals(listOf("نوشیدنی سرد", "پیش‌غذا", "main"), QuickCalculator.categories(ledger.state, QuickInput()))
+        // A dish in a section priced with the general method is priced as one in none.
+        val inGeneral = QuickCalculator.compute(koobideh().copy(category = "پیش‌غذا"), ledger.state, toman, today)
+        val inNone = QuickCalculator.compute(koobideh(), ledger.state, toman, today)
+        assertEquals(inNone.suggestedRials, inGeneral.suggestedRials)
     }
 
     @Test
@@ -521,15 +612,30 @@ class QuickCalculatorTest {
             هزینه‌های دیگر هر پرس:
             • ظرف و بسته‌بندی (فقط بیرون‌بر و آنلاین): ۱۵٬۰۰۰ تومان
 
-            بهای مواد هر پرس: ۳۶۴٬۱۰۵ تومان، با ۳٪ برای نمک، ادویه و روغن
+            هزینهٔ مواد اولیه هر پرس: ۳۶۴٬۱۰۵ تومان، با ۳٪ برای نمک، ادویه و روغن
             قیمت پیشنهادی: ۱٬۱۵۰٬۰۰۰ تومان، فودکاست هدف ۳۵٪
             قیمت منو: ۶۳۰٬۰۰۰ تومان، زیر قیمت
             فروش خالص: ۵۷۲٬۷۲۷ تومان
             فودکاست: ۶۳٫۶٪
-            مانده هر پرس: ‎+۲۰۸٬۶۲۲ تومان
+            سود ناخالص: ‎+۲۰۸٬۶۲۲ تومان
             """.trimIndent(),
             QuickCalculator.shareText(input, result, toman),
         )
+    }
+
+    @Test
+    fun `the text sent says the figures under the display's names, with a discount and other costs`() {
+        val input = koobideh("630000").plusExtra(QuickExtra("دستمزد", "20000")).copy(discountValue = "10")
+        val result = QuickCalculator.compute(input, ledger().state, toman, today)
+        val text = QuickCalculator.shareText(input, result, toman)
+        assertTrue("هزینهٔ مواد اولیه هر پرس: ۳۶۴٬۱۰۵ تومان" in text, text)
+        assertTrue("بهای تمام‌شده با هزینه‌های دیگر: ۳۸۴٬۱۰۵ تومان" in text, text)
+        assertTrue("قیمت منو: ۶۳۰٬۰۰۰ تومان\nتخفیف: ۶۳٬۰۰۰ تومان\nقیمت پس از تخفیف: ۵۶۷٬۰۰۰ تومان" in text, text)
+        assertTrue("سود ناخالص: ${result.grossProfit}" in text, text)
+        assertTrue("مانده پس از هزینه‌های دیگر: ${result.remaining}" in text, text)
+        // 567,000 ÷ 1.1 = 515,455 net; less 364,105 of food, 151,350; less 20,000 more, 131,350.
+        assertEquals("\u200E+۱۵۱٬۳۵۰ تومان", result.grossProfit)
+        assertEquals("\u200E+۱۳۱٬۳۵۰ تومان", result.remaining)
     }
 
     @Test

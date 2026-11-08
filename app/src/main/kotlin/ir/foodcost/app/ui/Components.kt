@@ -1,5 +1,6 @@
 package ir.foodcost.app.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -89,7 +90,8 @@ fun TabScaffold(
         topBar = {
             Column {
                 TopAppBar(title = { Text(title) }, actions = topActions)
-                UnreadableWarning(actions)
+                UnreadableWarning(actions, nav)
+                BackupReminderLine(actions, nav)
             }
         },
         bottomBar = {
@@ -112,20 +114,44 @@ fun TabScaffold(
 }
 
 /**
- * A line under the title on every screen while stored changes could not be read: the figures are
- * without them, so none of them is shown as if it were complete.
+ * A line under the title on every screen while the stored data was not read whole: no figure is
+ * shown and nothing is recorded until the user chooses what to do, which a tap on it leads to.
  */
 @Composable
-private fun UnreadableWarning(actions: AppActions) {
+private fun UnreadableWarning(actions: AppActions, nav: Navigator) {
     val count = actions.unreadableRows
     if (count == 0) return
-    Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth().testTag("unreadable-warning")) {
+    Surface(
+        color = MaterialTheme.colorScheme.errorContainer,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClickLabel = "دیدن راه‌ها در پشتیبان") { nav.tab(Tab.SETTINGS) }
+            .testTag("unreadable-warning"),
+    ) {
         Text(
-            "داده‌های مالی ناقص یا غیرقابل تأییدند؛ تا بازیابی پشتیبان معتبر، محاسبات و ذخیره‌سازی مسدود است.",
+            BackupTexts.LOCKED_BANNER,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onErrorContainer,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
         )
+    }
+}
+
+/**
+ * A line under the title of the tabs when a backup is due: Android's own backup leaves this app's
+ * data out, so after the app is removed or the phone changed, the data comes back only from one.
+ */
+@Composable
+private fun BackupReminderLine(actions: AppActions, nav: Navigator) {
+    val text = actions.backupReminder ?: return
+    Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth().testTag("backup-reminder")) {
+        Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 6.dp)) {
+            Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+            Row(Modifier.align(Alignment.End)) {
+                TextButton(onClick = { actions.snoozeBackupReminder() }) { Text("بعداً") }
+                TextButton(onClick = { nav.tab(Tab.SETTINGS) }) { Text("رفتن به پشتیبان") }
+            }
+        }
     }
 }
 
@@ -151,7 +177,7 @@ fun DetailScaffold(
                     },
                     actions = topActions,
                 )
-                UnreadableWarning(actions)
+                UnreadableWarning(actions, nav)
             }
         },
         floatingActionButton = floatingActionButton,
@@ -477,7 +503,7 @@ fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
 fun ConfirmDialog(title: String, text: String, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onConfirm) { Text(confirm) } },
+        confirmButton = { TextButton(onClick = onConfirm, modifier = Modifier.testTag("confirm")) { Text(confirm) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } },
         title = { Text(title) },
         text = { Text(text) },

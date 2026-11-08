@@ -245,7 +245,7 @@ class ScreensTest {
         assertEquals(setOf("برنج طارم", "گوشت چرخ‌کرده"), forChelow.map { it.name }.toSet())
         val forKebab = RecipeScreens.choices(k.state, k.kebab, D1, toman)
         val chelow = forKebab.single { it.ref == ComponentRef.RecipeRef(k.chelow) }
-        assertEquals("نیمه‌آماده، هر پرس ۷۰٬۴۰۸ تومان", chelow.detail)
+        assertEquals("دستور پایه، هر پرس ۷۰٬۴۰۸ تومان", chelow.detail)
         assertEquals(listOf(Uom.PORTION), chelow.units)
         val rice = forKebab.single { it.ref == ComponentRef.IngredientRef(k.rice) }
         assertTrue(rice.hasWaste)

@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -28,6 +29,7 @@ import ir.foodcost.data.clock.HybridClock
 import ir.foodcost.data.ledger.Ledger
 import ir.foodcost.data.ops.Actor
 import ir.foodcost.data.ops.Role
+import ir.foodcost.presentation.BackupTexts
 import java.io.File
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -38,12 +40,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The audit of 0.7.5 (R-075-01): while a stored change cannot be read, the figures are without it,
- * so every screen says they may be incomplete, and goes on saying it after the warning the app
- * opens with has been read. Here the latest price of the meat cannot be read: the dish is costed on
- * the price before it, and the line is there on the calculator, the dishes and the dish.
+ * The audit of 0.7.5 (R-075-01): while a stored change cannot be read, the figures would be without
+ * it, so no figure is shown and every screen says why, after the warning the app opens with has been
+ * read too. The audit of 0.7.8: that must not be a dead end, so the user can go on without the part
+ * not read, and the figures come back without it. Here the latest price of the meat cannot be read.
  *
- * The app reads its data once, when it first opens: this test runs in a process of its own
+ * The app reads its data once, when it first opens: each test runs in a process of its own
  * (scripts/walkthrough.sh), on data of its own in the app's file, which it removes after.
  */
 @RunWith(AndroidJUnit4::class)
@@ -104,10 +106,36 @@ class UnreadableWarningTest {
             click("فهمیدم")
             click("مواد")
             assertWarning()
-            waitFor("قیمت غیرقابل تأیید؛ ابتدا داده‌ها را بازیابی کنید")
+            waitFor(BackupTexts.UNVERIFIED_PRICE)
             click("گوشت")
-            waitFor("قیمت غیرقابل تأیید؛ ابتدا داده‌ها را بازیابی کنید")
-            waitFor("سابقه قیمت تا زمان بازیابی داده‌ها قابل تأیید نیست.")
+            waitFor(BackupTexts.UNVERIFIED_PRICE)
+            waitFor(BackupTexts.UNVERIFIED_HISTORY)
+        }
+    }
+
+    @Test
+    fun goingOnWithoutTheUnreadablePriceShowsTheFiguresWithoutIt() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            waitFor("بخشی از داده‌ها خوانده نشد")
+            // The warning leads to the ways on: the backup card, first in the settings.
+            click("دیدن راه‌ها")
+            dismissSystemDialogs()
+            waitForTag("locked-ways")
+            compose.onNodeWithTag("emergency-backup").assertIsDisplayed()
+            clickTag("continue-without")
+            waitFor("ادامه بدون تغییرهای خوانده‌نشده؟")
+            clickTag("confirm")
+            // Open again: the line on top is gone, and the dish is costed on the price before the
+            // one not read, 200 g at 1,600,000 toman a kilo.
+            compose.waitUntil(timeoutMillis = 15_000) {
+                compose.onAllNodes(hasTestTag("unreadable-warning")).fetchSemanticsNodes().isEmpty()
+            }
+            click("غذاها")
+            click("کباب آزمون")
+            compose.waitUntil(timeoutMillis = 15_000) {
+                compose.onAllNodes(hasTestTag("cost") and hasText("۳۲۰٬۰۰۰", substring = true)).fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onAllNodes(hasTestTag("unverified-financial-result")).assertCountEquals(0)
         }
     }
 
@@ -120,6 +148,23 @@ class UnreadableWarningTest {
         compose.waitUntil(timeoutMillis = 5_000) {
             compose.onAllNodes(hasText("داده‌های مالی ناقص یا غیرقابل تأییدند", substring = true)).fetchSemanticsNodes().isNotEmpty()
         }
+    }
+
+    private fun waitForTag(tag: String) {
+        dismissSystemDialogs()
+        compose.waitUntil(timeoutMillis = 15_000) { compose.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    private fun clickTag(tag: String) {
+        waitForTag(tag)
+        val node = compose.onNodeWithTag(tag)
+        try {
+            node.performScrollTo()
+        } catch (e: AssertionError) {
+            // Not inside a scrolling column, such as a dialog's button.
+        }
+        node.performClick()
+        compose.waitForIdle()
     }
 
     private fun waitFor(text: String) {

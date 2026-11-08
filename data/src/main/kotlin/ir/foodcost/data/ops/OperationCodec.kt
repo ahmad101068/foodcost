@@ -347,6 +347,10 @@ object OperationCodec {
             "discountPercent" to p.online.discountPercent.json,
             "priceUpliftPercent" to p.online.priceUpliftPercent.json,
         ),
+        // Written only when there are some, so settings without them read as before. A version
+        // that does not know them leaves them out, which changes no figure: a dish in one is priced
+        // with the general method either way.
+        "generalSections" to p.generalSections.takeIf { it.isNotEmpty() }?.let { names -> jsonArray(names.map { it.json }) },
     )
 
     private fun decodePricing(o: JsonObject): PricingSettings {
@@ -371,6 +375,11 @@ object OperationCodec {
                 OnlineTerms(on.decimal("commissionPercent"), on.decimal("discountPercent"), on.decimal("priceUpliftPercent"))
             } else {
                 OnlineTerms()
+            },
+            generalSections = if (o.has("generalSections")) {
+                o.array("generalSections").map { it.asString("generalSections") }
+            } else {
+                emptyList()
             },
         )
     }
@@ -448,28 +457,56 @@ object Backup {
     /**
      * The newest version read. 2 since a change can say from which day it counts, 3 when a close
      * says what it had seen, 4 since changes are numbered, 5 since a close lists its unnumbered
-     * changes and writes its gaps as ranges, 6 since a recipe's kind counts from its day. A version
-     * of the app that reads only the earlier ones refuses a newer file whole rather than misread
-     * it: one before 2 would count dated changes on every day, one before 4 would drop the numbers,
-     * one before 5 would let a change the close had not seen into a closed day, one before 6 would
-     * count a dated kind on every day, closed days included. Older files read as they always did.
+     * changes and writes its gaps as ranges, 6 since a recipe's kind counts from its day, 7 for an
+     * emergency backup, which also carries as text the stored rows its phone could not read. A
+     * version of the app that reads only the earlier ones refuses a newer file whole rather than
+     * misread it: one before 2 would count dated changes on every day, one before 4 would drop the
+     * numbers, one before 5 would let a change the close had not seen into a closed day, one before
+     * 6 would count a dated kind on every day, closed days included, and one before 7 would take an
+     * emergency backup for a whole one, without a word about what it lacks. Older files read as
+     * they always did.
      */
-    const val VERSION = 6
+    const val VERSION = 7
 
-    fun write(operations: List<Operation>): String = Json.write(
+    /**
+     * A stored row its phone could not read, carried in an emergency backup as it was stored, so
+     * nothing of it is lost: [id] is the one it was stored under, [text] its stored text.
+     */
+    data class Unreadable(val id: String, val text: String)
+
+    /** [unreadable] makes it an emergency backup: the operations read, and as text the rows that were not. */
+    fun write(operations: List<Operation>, unreadable: List<Unreadable> = emptyList()): String = Json.write(
         jsonObject(
             "format" to FORMAT.json,
-            "version" to versionFor(operations).json,
+            "version" to (if (unreadable.isEmpty()) versionFor(operations) else 7).json,
             "operations" to jsonArray(operations.map(OperationCodec::encode)),
+            "unreadable" to unreadable.takeIf { it.isNotEmpty() }?.let { rows ->
+                jsonArray(rows.map { jsonObject("id" to it.id.json, "text" to it.text.json) })
+            },
         ),
     )
 
     fun read(text: String): List<Operation> {
+        val root = open(text)
+        return root.array("operations").map { OperationCodec.decode(it.asObject("operation")) }
+    }
+
+    /** The rows an emergency backup carries as text because its phone could not read them; none in an ordinary one. */
+    fun unreadable(text: String): List<Unreadable> {
+        val root = open(text)
+        if (!root.has("unreadable")) return emptyList()
+        return root.array("unreadable").map {
+            val row = it.asObject("unreadable row")
+            Unreadable(row.string("id"), row.string("text"))
+        }
+    }
+
+    private fun open(text: String): JsonObject {
         val root = Json.parse(text).asObject("backup")
         if (root.stringOrNull("format") != FORMAT) throw JsonException("This file is not a food cost backup")
         val version = root.int("version")
         if (version !in 1..VERSION) throw JsonException("Backup version $version is not supported")
-        return root.array("operations").map { OperationCodec.decode(it.asObject("operation")) }
+        return root
     }
 
     /** The oldest version that reads [operations] right, so a file of older changes still opens in 0.7.0. */

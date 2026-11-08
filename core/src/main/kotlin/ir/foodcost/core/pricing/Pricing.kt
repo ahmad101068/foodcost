@@ -91,12 +91,21 @@ data class PricingSettings(
     /** At or above this share (and below [okRatio]) the price is near the line; below it, under-priced. */
     val nearRatio: BigDecimal = BigDecimal("0.93"),
     val online: OnlineTerms = OnlineTerms(),
+    /**
+     * Menu sections priced with [defaultMethod], kept so a dish can be put in one; the sections with
+     * a method of their own are the keys of [methodByCategory]. They change no figure.
+     */
+    val generalSections: List<String> = emptyList(),
 ) {
     init {
         require(vatPercent.signum() >= 0 && vatPercent < Decimals.HUNDRED) { "VAT must be in [0, 100)" }
         require(nearRatio.signum() > 0 && nearRatio <= okRatio) { "Need 0 < near ratio ≤ ok ratio" }
         require(minimumGrossProfitRials == null || minimumGrossProfitRials >= 0) { "The minimum profit cannot be negative" }
+        require(generalSections.none { it.isBlank() }) { "A menu section needs a name" }
     }
+
+    /** Every menu section: those with a method of their own, then those priced with the general one. */
+    val sections: List<String> get() = (methodByCategory.keys + generalSections).distinct()
 
     /** The item's own rule, else its category's, else the general one. */
     fun methodFor(recipe: Recipe): PricingMethod =

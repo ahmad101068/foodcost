@@ -37,7 +37,9 @@ jobs:
           script: |
             ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.foodcost.app.data.SqliteOperationStoreTest --no-daemon --stacktrace
             ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.foodcost.app.RecoveryGuardTest --no-daemon --stacktrace
-            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.foodcost.app.UnreadableWarningTest --no-daemon --stacktrace
+            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.foodcost.app.UnreadableWarningTest#everyScreenBlocksUnverifiedFinancialResultsAfterWarningAcknowledgement --no-daemon --stacktrace
+            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.foodcost.app.UnreadableWarningTest#ingredientListAndDetailDoNotPresentStalePricesAsVerified --no-daemon --stacktrace
+            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.foodcost.app.UnreadableWarningTest#goingOnWithoutTheUnreadablePriceShowsTheFiguresWithoutIt --no-daemon --stacktrace
             ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.foodcost.app.WalkThroughTest --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
         if: always()

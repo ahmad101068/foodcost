@@ -70,6 +70,7 @@ import ir.foodcost.core.model.RecipeId
 import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.core.units.Uom
 import ir.foodcost.data.ledger.LedgerState
+import ir.foodcost.presentation.BackupTexts
 import ir.foodcost.presentation.Checked
 import ir.foodcost.presentation.Field
 import ir.foodcost.presentation.Glossary
@@ -132,7 +133,7 @@ fun CalculatorScreen(
 
     fun commit(plan: QuickPlan, current: QuickInput) {
         if (actions.unreadableRows > 0) {
-            actions.say("ذخیره متوقف شد: اطلاعات مالی ناقص است و ابتدا باید بازیابی شود.")
+            actions.say(Labels.DATA_NOT_VERIFIED)
             return
         }
         actions.run({ ledger -> QuickCalculator.save(ledger, plan, today) }) { id ->
@@ -144,7 +145,7 @@ fun CalculatorScreen(
 
     fun save(current: QuickInput) {
         if (actions.unreadableRows > 0) {
-            actions.say("اطلاعات ذخیره‌شده ناقص است؛ پیش از ذخیره یا تأیید قیمت، پشتیبان را بازیابی کنید.")
+            actions.say(Labels.DATA_NOT_VERIFIED)
             return
         }
         when (val checked = QuickCalculator.check(current, state, money, today)) {
@@ -232,14 +233,14 @@ fun CalculatorScreen(
                     ) {
                         Text("تخفیف فروش", style = MaterialTheme.typography.labelMedium)
                         FilterChip(
-                            selected = input.discountMode == "percent",
-                            onClick = { update(input.copy(discountMode = "percent", discountValue = "")) },
+                            selected = input.discountMode == QuickInput.PERCENT,
+                            onClick = { update(input.copy(discountMode = QuickInput.PERCENT, discountValue = "")) },
                             label = { Text("درصدی") },
                             modifier = Modifier.testTag("discount-percent-mode"),
                         )
                         FilterChip(
-                            selected = input.discountMode == "fixed",
-                            onClick = { update(input.copy(discountMode = "fixed", discountValue = "")) },
+                            selected = input.discountMode == QuickInput.FIXED,
+                            onClick = { update(input.copy(discountMode = QuickInput.FIXED, discountValue = "")) },
                             label = { Text("مبلغ ثابت") },
                             modifier = Modifier.testTag("discount-fixed-mode"),
                         )
@@ -247,25 +248,30 @@ fun CalculatorScreen(
                     TextInput(
                         value = input.discountValue,
                         onValueChange = { update(input.copy(discountValue = it)) },
-                        label = if (input.discountMode == "percent") "درصد تخفیف (۰ تا ۱۰۰)" else "تخفیف هر پرس",
+                        label = if (input.discountMode == QuickInput.PERCENT) "درصد تخفیف (کمتر از ۱۰۰)" else "تخفیف هر پرس",
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
                             .testTag("discount-value"),
                         number = true,
-                        suffix = if (input.discountMode == "percent") "%" else money.unit,
+                        suffix = if (input.discountMode == QuickInput.PERCENT) "٪" else money.unit,
                         imeAction = ImeAction.Done,
                     )
-                    val discountInvalid = input.discountValue.isNotBlank() &&
-                        (if (input.discountMode == "percent") {
-                            ir.foodcost.presentation.Numbers.parse(input.discountValue)?.let {
-                                it < java.math.BigDecimal.ZERO || it >= java.math.BigDecimal(100)
-                            } != false
-                        } else {
-                            money.parse(input.discountValue)?.let { it < 0 || it >= (money.parse(input.menuPrice) ?: 0) } != false
-                        })
-                    if (discountInvalid) {
-                        Text("تخفیف نامعتبر است؛ درصد باید بین صفر و صد و مبلغ حداکثر برابر قیمت فروش باشد.",
+                    // The same rule the check before saving and the figures follow.
+                    val discountProblem = QuickCalculator.discountProblem(input, money)
+                    if (discountProblem != null) {
+                        Text(
+                            discountProblem,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(horizontal = 12.dp).testTag("discount-error"))
+                            modifier = Modifier.padding(horizontal = 12.dp).testTag("discount-error"),
+                        )
+                    } else if (input.discountValue.isNotBlank()) {
+                        Text(
+                            "تخفیف فقط برای دیدن اثرش است و با غذا ذخیره نمی‌شود. روی فروش حضوری و بیرون‌بر حساب می‌شود" +
+                                if (state.pricing.online.isSet) "؛ فروش آنلاین تخفیف خودش را از تنظیمات دارد." else ".",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 12.dp).testTag("discount-note"),
+                        )
                     }
                     val sections = QuickCalculator.categories(state, input)
                     if (sections.isNotEmpty()) {
@@ -387,8 +393,9 @@ fun CalculatorScreen(
 
 /**
  * The calculator's display, always on top so the result stays in sight while typing below. Without
- * a menu price it shows the cost and the suggested price; with one, the four figures that decide a
- * price: the cost, the net sale, the food cost and what is left.
+ * a menu price it shows the food's cost and the suggested price; with one, the four figures that
+ * decide a price: the food's cost, the net sale, the food cost and the gross profit. When the dish
+ * has other costs, the cost with them and what is left after them come under those.
  */
 @Composable
 private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, dataUnreliable: Boolean, modifier: Modifier = Modifier, onExplain: (String) -> Unit) {
@@ -397,7 +404,7 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
     DisplayPanel(modifier) {
         if (dataUnreliable) {
             Text(
-                "نتیجه مالی قابل تأیید نیست؛ بخشی از اطلاعات ذخیره‌شده خوانده نشده است. برای بازیابی اطلاعات به بخش پشتیبان بروید.",
+                BackupTexts.UNVERIFIED_RESULT,
                 modifier = Modifier.testTag("unverified-financial-result"),
                 color = MaterialTheme.colorScheme.error,
             )
@@ -417,7 +424,7 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Figure("هزینه مواد اولیه هر پرس", result.costPerPortion, money, Modifier.weight(1.1f).testTag("cost"), isResult = true, onExplain = explain(Glossary.COST))
+            Figure("هزینهٔ مواد اولیه هر پرس", result.costPerPortion, money, Modifier.weight(1.1f).testTag("cost"), isResult = true, onExplain = explain(Glossary.FOOD))
             if (netSales != null) {
                 Figure("فروش خالص", netSales, money, Modifier.weight(1f).testTag("net-sales"), onExplain = explain(Glossary.NET_SALES))
             } else {
@@ -427,23 +434,31 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
         if (netSales != null && grossProfit != null) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Figure("فودکاست", result.foodCostPercent ?: "—", money, Modifier.weight(1.1f).testTag("food-cost"), onExplain = explain(Glossary.FOOD_COST))
-                // Gross profit excludes other costs; the remaining after those costs is shown separately.
+                // Before the other costs; what is left after them comes under it when there are some.
                 Figure(
                     if (result.grossProfitNegative) "زیان ناخالص" else "سود ناخالص",
                     grossProfit,
                     money,
-                    Modifier.weight(1f).testTag("remaining"),
-                    onExplain = explain(Glossary.REMAINING),
+                    Modifier.weight(1f).testTag("gross-profit"),
+                    onExplain = explain(Glossary.GROSS_PROFIT),
                 )
             }
         }
-        if (netSales != null && remaining != null && result.otherCosts != null) {
-            Text(
-                "مانده پس از سایر هزینه‌های ثبت‌شده: $remaining",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag("after-other-costs"),
-            )
+        if (result.hasLines && result.otherCosts != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Figure("بهای تمام‌شده", result.totalCost, money, Modifier.weight(1.1f).testTag("total-cost"), onExplain = explain(Glossary.COST))
+                if (netSales != null && remaining != null) {
+                    Figure(
+                        if (result.remainingNegative) "کسری پس از هزینه‌های دیگر" else "مانده پس از هزینه‌های دیگر",
+                        remaining,
+                        money,
+                        Modifier.weight(1f).testTag("remaining"),
+                        onExplain = explain(Glossary.REMAINING),
+                    )
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
+            }
         }
         if (!compact) {
             HorizontalDivider()
