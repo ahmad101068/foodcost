@@ -96,6 +96,7 @@ class OperationCodecTest {
                 ),
             ),
             Change.SettingsSaved(pricing = PricingSettings()),
+            Change.SettingsSaved(pricing = PricingSettings(generalSections = listOf("پیش‌غذا", "صبحانه"))),
             Change.SettingsSaved(CostingRules("9".bd), effectiveFrom = D31),
             Change.PeriodClosed(
                 D31,
@@ -124,6 +125,28 @@ class OperationCodecTest {
     }
 
     @Test
+    fun `sections priced with the general method are written only when there are some, so other settings read as before`() {
+        fun encoded(pricing: PricingSettings) = Json.write(OperationCodec.encode(Operation(OpId("s"), Hlc(1, 0, "A"), Actor("u", Role.OWNER), Change.SettingsSaved(pricing = pricing))))
+        assertFalse("generalSections" in encoded(PricingSettings()))
+        assertTrue("\"generalSections\":[\"پیش‌غذا\"]" in encoded(PricingSettings(generalSections = listOf("پیش‌غذا"))))
+    }
+
+    @Test
+    fun `an emergency backup carries as text the rows its phone could not read, and only a version that says so reads it`() {
+        val op = Operation(OpId("a"), Hlc(1, 0, "A"), Actor("u", Role.OWNER), Change.MenuPriceSet(dish, D1, 13_500_000), seq = 1)
+        val rows = listOf(Backup.Unreadable("cut-1", "{\"id\": \"cut"), Backup.Unreadable("cut-2", "not json"))
+        val emergency = Backup.write(listOf(op), rows)
+        assertEquals(7, (Json.parse(emergency) as JsonObject).int("version"))
+        assertEquals(listOf(op), Backup.read(emergency))
+        assertEquals(rows, Backup.unreadable(emergency))
+        // An ordinary backup carries none and is written as before, for the versions before to read.
+        val plain = Backup.write(listOf(op))
+        assertFalse("unreadable" in plain)
+        assertEquals(4, (Json.parse(plain) as JsonObject).int("version"))
+        assertEquals(emptyList(), Backup.unreadable(plain))
+    }
+
+    @Test
     fun `an update writes only the fields it changes`() {
         val op = Operation(OpId("x"), Hlc(1, 0, "A"), Actor("u", Role.COOK), Change.IngredientSaved(rice, name = Opt.Value("برنج")))
         val data = OperationCodec.encode(op).obj("data")
@@ -137,7 +160,8 @@ class OperationCodecTest {
         assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":99,"operations":[]}""") }
         assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":1,"operations":[{"id":"x"}]}""") }
         assertEquals(emptyList(), Backup.read("""{"format":"foodcost-backup","version":1,"operations":[]}"""))
-        assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":7,"operations":[]}""") }
+        // A file of a version newer than this one reads is refused whole.
+        assertFailsWith<JsonException> { Backup.read("""{"format":"foodcost-backup","version":${Backup.VERSION + 1},"operations":[]}""") }
     }
 
     @Test
