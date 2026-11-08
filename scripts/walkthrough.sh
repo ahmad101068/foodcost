@@ -22,10 +22,27 @@ done
 failed=0
 grep -qE "^OK \([0-9]+ tests?\)" walkthrough.log || failed=1
 
-# A stored change that cannot be read: the warning stays on every screen. The app reads its data
-# when it first opens, so this runs in a process of its own, on data it makes and removes itself.
-adb shell am instrument -w -e class ir.foodcost.app.UnreadableWarningTest "$APP.test/androidx.test.runner.AndroidJUnitRunner" | tee unreadable.log
-grep -qE "^OK \([0-9]+ tests?\)" unreadable.log || failed=1
+# Runs the test or class $1 in a process of its own and adds what it says to the log $2. The app
+# reads its data once, when it first opens, so a test of data it could not read needs its own.
+alone() {
+  adb shell am instrument -w -e class "$1" "$APP.test/androidx.test.runner.AndroidJUnitRunner" > alone.log
+  tee -a "$2" < alone.log
+  grep -qE "^OK \([0-9]+ tests?\)" alone.log || failed=1
+}
+
+# A stored change that cannot be read: no figure is shown and every screen says why, and the user
+# can go on without it. Each test on data it makes and removes itself.
+: > unreadable.log
+for test in everyScreenBlocksUnverifiedFinancialResultsAfterWarningAcknowledgement \
+  ingredientListAndDetailDoNotPresentStalePricesAsVerified \
+  goingOnWithoutTheUnreadablePriceShowsTheFiguresWithoutIt; do
+  alone "ir.foodcost.app.UnreadableWarningTest#$test" unreadable.log
+done
+
+# A damaged database set aside, and a row not read: no change and no whole backup until a backup
+# is brought back or the user chooses to go on without it.
+: > recovery.log
+alone ir.foodcost.app.RecoveryGuardTest recovery.log
 adb logcat -d '*:E' > logcat.txt || true
 
 # The release build is shrunk by R8, which the test above does not cover: it must start too.

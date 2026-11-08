@@ -7,13 +7,14 @@ plugins {
     kotlin("plugin.compose")
 }
 
-// A private signing key, given to the build through the repository's secrets. Without it the
-// release APK is signed with the build machine's debug key, which is enough for a build on one's
-// own computer; on GitHub the APK for testing is not made without it, and its signature is checked.
+// A signing key, given to the build in FOODCOST_KEYSTORE_FILE. Without one the release APK is not
+// signed at all: never with the build machine's debug key, as an APK signed with another key does
+// not install over the app. On GitHub the APK for testing is signed with the app's own key, from
+// the repository's secrets, and its signature is checked; the walk-through's start check of the
+// release build uses a throwaway key made for that run.
 val privateKeystore: File? = System.getenv("FOODCOST_KEYSTORE_FILE")?.let(::File)?.takeIf { it.isFile }
 
-// R-075-01 signed candidate: validate on PR before merging to main.
-val appVersion = "0.7.8"
+val appVersion = "0.7.9"
 
 // The number Android compares when an APK installs over another: the version's own number, then
 // the build's number on GitHub (0 on one's own computer). 0.7.4 is 704000 and up, so every newer
