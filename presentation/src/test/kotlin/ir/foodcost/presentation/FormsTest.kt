@@ -186,4 +186,29 @@ class FormsTest {
         val margin = PricingSettings(methodByCategory = mapOf("نوشیدنی سرد" to PricingMethod.TargetMargin(BigDecimal(75))))
         assertEquals(listOf(CategoryTargetInput("نوشیدنی سرد", "75", MethodChoice.MARGIN)), SettingsInput.of(margin, CostingRules(), toman).categories)
     }
+
+    @Test
+    fun `a section priced with the general method is kept by its name alone, to put dishes in`() {
+        // The audit of 0.7.8: such a section was dropped on saving, so it could not be chosen for a dish.
+        val pricing = PricingSettings(
+            methodByCategory = mapOf("نوشیدنی سرد" to PricingMethod.TargetMargin(BigDecimal(75), CostBasis.FULL_COST)),
+            generalSections = listOf("پیش‌غذا"),
+        )
+        val form = SettingsInput.of(pricing, CostingRules(), toman)
+        assertEquals(
+            listOf(CategoryTargetInput("نوشیدنی سرد", "75", MethodChoice.MARGIN, CostBasis.FULL_COST), CategoryTargetInput("پیش‌غذا", useGeneral = true)),
+            form.categories,
+        )
+        val back = valid(form.check(pricing, CostingRules(), toman)).pricing
+        assertEquals(pricing.methodByCategory, back.methodByCategory)
+        assertEquals(listOf("پیش‌غذا"), back.generalSections)
+        assertEquals(listOf("نوشیدنی سرد", "پیش‌غذا"), back.sections)
+        // Its number is not read: one left from a method chosen before does not stop the save.
+        val leftover = form.withCategory(1, form.categories[1].copy(percent = "abc"))
+        assertEquals(listOf("پیش‌غذا"), valid(leftover.check(pricing, CostingRules(), toman)).pricing.generalSections)
+        // One name twice, with a method and without, is refused; a nameless one is left out.
+        fun error(f: SettingsInput) = assertIs<Checked.Invalid>(f.check(pricing, CostingRules(), toman)).errors[Field.CATEGORY]
+        assertEquals("بخش «نوشیدنی سرد» دو بار آمده است.", error(form.withCategory(1, CategoryTargetInput("نوشیدنی سرد", useGeneral = true))))
+        assertEquals(emptyList(), valid(form.withCategory(1, CategoryTargetInput(" ", useGeneral = true)).check(pricing, CostingRules(), toman)).pricing.generalSections)
+    }
 }

@@ -13,6 +13,7 @@ import ir.foodcost.core.units.Dimension
 import ir.foodcost.core.units.UnitConverter
 import ir.foodcost.core.units.Uom
 import ir.foodcost.core.model.RecipeVersion
+import ir.foodcost.data.ledger.AtomicChangeRejected
 import ir.foodcost.data.ledger.RejectReason
 import java.math.BigDecimal
 
@@ -63,13 +64,13 @@ object Labels {
 
     fun kind(kind: RecipeKind): String = when (kind) {
         RecipeKind.MENU_ITEM -> "غذای منو"
-        RecipeKind.PREP -> "نیمه‌آماده"
+        RecipeKind.PREP -> "دستور پایه"
         RecipeKind.EVENT_PACKAGE -> "پکیج مجلس"
     }
 
     fun kindGroup(kind: RecipeKind): String = when (kind) {
         RecipeKind.MENU_ITEM -> "غذاهای منو"
-        RecipeKind.PREP -> "نیمه‌آماده‌ها"
+        RecipeKind.PREP -> "دستورهای پایه"
         RecipeKind.EVENT_PACKAGE -> "پکیج‌های مجلس"
     }
 
@@ -131,6 +132,22 @@ object Labels {
         RejectReason.NO_TARGET -> "موردی برای این کار پیدا نشد."
         RejectReason.DUPLICATE -> "این مورد قبلاً ثبت شده است."
         RejectReason.INVALID -> "مقدار وارد شده درست نیست."
+    }
+
+    /** Said while the stored data was not read whole and the user has not chosen what to do. */
+    const val DATA_NOT_VERIFIED =
+        "داده‌ها کامل خوانده نشده‌اند و تا تصمیم شما چیزی ثبت نمی‌شود. «تنظیمات»، بخش «پشتیبان» را ببینید."
+
+    /**
+     * Why a change was not made, from what stopped it: the rule that refused a step says which rule,
+     * a value the core refused says so, and anything else says only that it was not done.
+     */
+    fun failure(e: Throwable): String = when (e) {
+        is AtomicChangeRejected -> rejection(e.reason)
+        is QuickSaveRefused -> rejection(e.reason)
+        is DataNotVerified -> DATA_NOT_VERIFIED
+        is IllegalArgumentException -> "این مقدار پذیرفته نشد."
+        else -> "این کار انجام نشد."
     }
 }
 

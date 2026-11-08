@@ -63,7 +63,12 @@ data class QuickInput(
     val rows: List<QuickRow> = listOf(QuickRow()),
     val portions: String = "1",
     val menuPrice: String = "",
-    val discountMode: String = "percent",
+    /**
+     * A discount on the menu price to see what it does, [PERCENT] or [FIXED] a portion. It is never
+     * saved with the dish: it lowers the restaurant's own sale, eaten in or taken away; online sales
+     * keep the online terms of the settings.
+     */
+    val discountMode: String = PERCENT,
     val discountValue: String = "",
     val recipeId: RecipeId? = null,
     /** The saved dish's own share for salt and spices; null takes the default. */
@@ -74,6 +79,14 @@ data class QuickInput(
     val category: String? = null,
 ) {
     fun plusExtra(extra: QuickExtra): QuickInput = copy(extras = extras + extra)
+
+    companion object {
+        /** [discountMode]: a share of the menu price. */
+        const val PERCENT = "percent"
+
+        /** [discountMode]: an amount a portion, in the currency shown. */
+        const val FIXED = "fixed"
+    }
 
     fun withExtra(index: Int, extra: QuickExtra): QuickInput = copy(extras = extras.toMutableList().also { it[index] = extra })
 
@@ -148,7 +161,10 @@ data class QuickResult(
     /** At the menu price typed: what a portion sells for without VAT. */
     val netSales: String?,
     val foodCostPercent: String?,
-    /** At the menu price typed: what a portion leaves after every cost entered, signed. Not profit. */
+    /**
+     * At the menu price typed: what a portion leaves after every cost entered, signed. Not profit.
+     * Shown beside the gross profit when there are other costs; without them the two are the same.
+     */
     val remaining: String?,
     val remainingNegative: Boolean,
     /** On every cost entered. */
@@ -166,6 +182,7 @@ data class QuickResult(
     val channels: List<QuickChannel>,
     /** The figures as numbers, for comparing a dish before and after a change; null when not shown. */
     val totalCostRials: BigDecimal? = null,
+    val foodCostRials: BigDecimal? = null,
     val menuRials: Long? = null,
     val discountApplied: Boolean = false,
     val originalMenuRials: Long? = null,
@@ -327,20 +344,12 @@ object QuickCalculator {
             pricing = savedDish?.pricing,
         )
         val menuRials = money.parse(input.menuPrice)?.takeIf { it > 0 }
-        val discount = when {
-            input.discountValue.isBlank() -> BigDecimal.ZERO
-            input.discountMode == "percent" -> Numbers.parse(input.discountValue)
-                ?.takeIf { it >= BigDecimal.ZERO && it < BigDecimal(100) }
-                ?.let { percent -> menuRials?.let { price ->
-                    BigDecimal(price).multiply(percent)
-                        .divide(BigDecimal(100), 0, java.math.RoundingMode.HALF_UP)
-                } }
-            input.discountMode == "fixed" -> money.parse(input.discountValue)
-                ?.takeIf { it >= 0 }?.let { BigDecimal(it) }
-            else -> null
+        val discount = discountRials(input, money, menuRials)
+        val discountedMenuRials = if (discount != null && menuRials != null && discount < BigDecimal(menuRials)) {
+            BigDecimal(menuRials).subtract(discount).longValueExact()
+        } else {
+            null
         }
-        val discountedMenuRials = if (discount != null && menuRials != null &&
-            discount < BigDecimal(menuRials)) BigDecimal(menuRials).subtract(discount).longValueExact() else null
         val calculator = FoodCostCalculator(
             Catalog(ingredients, prices, listOf(recipe), listOfNotNull(discountedMenuRials?.let { MenuPrice(QUICK, today, it) })),
             state.costing,
@@ -410,8 +419,9 @@ object QuickCalculator {
             statusLabel = Labels.status(status),
             incompleteRows = problems.size,
             extras = extraResults,
-            channels = if (sale == null) emptyList() else channels(pricer, cost, sale, extras, state.pricing.online.isSet, money),
+            channels = if (sale == null || menuRials == null) emptyList() else channels(pricer, cost, sale, menuRials, extras, state.pricing.online.isSet, money),
             totalCostRials = if (hasLines) cost.foodCostPerPortion + other else null,
+            foodCostRials = if (hasLines) cost.foodCostPerPortion else null,
             menuRials = discountedMenuRials,
             discountApplied = discount != null && discount.signum() > 0,
             originalMenuRials = menuRials,
@@ -421,7 +431,7 @@ object QuickCalculator {
             grossProfit = sale?.let { signed(it.netSales - cost.foodCostPerPortion, money) },
             grossProfitNegative = sale != null && (sale.netSales - cost.foodCostPerPortion).signum() < 0,
             grossProfitRials = sale?.let { it.netSales - cost.foodCostPerPortion },
-            explanations = if (hasLines) explanations(cost.foodCostPerPortion, other, sale, s, maxCost, discountedMenuRials, state.pricing.vatFactor, money) else emptyMap(),
+            explanations = if (hasLines) explanations(cost, other, sale, s, maxCost, discountedMenuRials, state.pricing.vatFactor, money) else emptyMap(),
             provisional = hasLines && (problems.isNotEmpty() || extraResults.any { it.problem != null }),
             leftOut = if (!hasLines) {
                 emptyList()
@@ -432,9 +442,46 @@ object QuickCalculator {
         )
     }
 
+    /**
+     * What is wrong with the discount typed, or null when it is fine or none is typed: the one rule
+     * the calculator's line under the field, its check before saving and its figures all follow.
+     */
+    fun discountProblem(input: QuickInput, money: MoneyFormat): String? {
+        if (input.discountValue.isBlank()) return null
+        return when (input.discountMode) {
+            QuickInput.PERCENT -> {
+                val percent = Numbers.parse(input.discountValue)
+                if (percent == null || percent.signum() < 0 || percent >= BigDecimal(100)) "درصد تخفیف باید از صفر تا کمتر از صد باشد." else null
+            }
+            QuickInput.FIXED -> {
+                val fixed = money.parse(input.discountValue)
+                val menu = money.parse(input.menuPrice)?.takeIf { it > 0 }
+                when {
+                    fixed == null || fixed < 0 -> "مبلغ تخفیف درست نیست."
+                    menu == null -> "برای تخفیف مبلغی، اول قیمت منو را بنویسید."
+                    fixed >= menu -> "مبلغ تخفیف باید کمتر از قیمت منو باشد."
+                    else -> null
+                }
+            }
+            else -> "نوع تخفیف معتبر نیست."
+        }
+    }
+
+    /** The discount on [menuRials] in rials: zero when none is typed, null when the one typed is not valid. */
+    private fun discountRials(input: QuickInput, money: MoneyFormat, menuRials: Long?): BigDecimal? {
+        if (input.discountValue.isBlank()) return BigDecimal.ZERO
+        if (discountProblem(input, money) != null) return null
+        return when (input.discountMode) {
+            QuickInput.PERCENT -> menuRials?.let { price ->
+                BigDecimal(price).multiply(Numbers.parse(input.discountValue)!!).divide(BigDecimal(100), 0, java.math.RoundingMode.HALF_UP)
+            }
+            else -> money.parse(input.discountValue)?.let { BigDecimal(it) }
+        }
+    }
+
     /** «در این حساب»: each figure's calculation with the dish's own numbers, amounts without their unit until the result. */
     private fun explanations(
-        food: BigDecimal,
+        cost: RecipeCost,
         other: BigDecimal,
         sale: Sale?,
         s: PriceSuggestion,
@@ -444,7 +491,15 @@ object QuickCalculator {
         money: MoneyFormat,
     ): Map<String, String> {
         fun a(value: BigDecimal) = money.amount(value)
+        val food = cost.foodCostPerPortion
         val lines = LinkedHashMap<String, String>()
+        // The display's first figure: the food alone, as the dishes list and the dish's screen show it.
+        lines[Glossary.FOOD] = if (cost.miscPerPortion.signum() == 0) {
+            "بهای مواد این پرس ${money.full(food)} است."
+        } else {
+            "${a(cost.ingredientsPerPortion + cost.subRecipesPerPortion)} جمع مواد + ${a(cost.miscPerPortion)} هزینه‌های جزئی " +
+                "(${Numbers.percent(cost.miscPercent)}) = ${money.full(food)}"
+        }
         lines[Glossary.COST] = if (other.signum() == 0) {
             "بهای مواد این پرس ${money.full(food)} است و هزینهٔ دیگری برایش ثبت نشده."
         } else {
@@ -460,6 +515,7 @@ object QuickCalculator {
                 "${a(BigDecimal(menuRials))} ÷ ${Numbers.format(vatFactor, 4)} = ${money.full(net)}"
             }
             sale.foodCostPercent?.let { lines[Glossary.FOOD_COST] = "${a(food)} ÷ ${a(net)} × ۱۰۰ = ${Numbers.percent(it)}" }
+            lines[Glossary.GROSS_PROFIT] = "${a(net)} − ${a(food)} = ${signed(net - food, money)}"
             lines[Glossary.REMAINING] = "${a(net)} − ${a(registered)} = ${signed(sale.remaining, money)}"
             sale.marginPercent?.let { lines[Glossary.MARGIN] = "(${a(net)} − ${a(registered)}) ÷ ${a(net)} × ۱۰۰ = ${Numbers.percent(it)}" }
             sale.markupPercent?.let { lines[Glossary.MARKUP] = "(${a(net)} − ${a(registered)}) ÷ ${a(registered)} × ۱۰۰ = ${Numbers.percent(it)}" }
@@ -491,7 +547,7 @@ object QuickCalculator {
 
     /** The sections dishes can be put in: those with a target in the settings, and the dish's own. */
     fun categories(state: LedgerState, input: QuickInput): List<String> =
-        (state.pricing.methodByCategory.keys + listOfNotNull(input.category)).distinct()
+        (Sections.of(state) + listOfNotNull(input.category)).distinct()
 
     /** Prices about a power of ten away from the last one, and ingredients already in an earlier row. */
     private fun rowWarnings(input: QuickInput, state: LedgerState, money: MoneyFormat, today: LocalDate): Map<Int, String> {
@@ -562,10 +618,16 @@ object QuickCalculator {
     }
 
     /** The restaurant, takeaway and online side by side, leaving out a channel that would repeat another. */
+    /**
+     * The restaurant's own sale [dineIn], at the price after any discount typed, beside the same
+     * portion taken away at that price and sold online. Online starts from [menuRials], the menu
+     * price before that discount: online sales have their own discount in the settings.
+     */
     private fun channels(
         pricer: Pricer,
         cost: RecipeCost,
         dineIn: Sale,
+        menuRials: Long,
         extras: List<ExtraCost>,
         online: Boolean,
         money: MoneyFormat,
@@ -585,7 +647,7 @@ object QuickCalculator {
             list += row(takeaway, pricer.priceLeaving(dineIn.remaining, cost, SalesChannel.TAKEAWAY))
         }
         if (online) {
-            pricer.channelPrice(dineIn.price, SalesChannel.ONLINE)?.let { price ->
+            pricer.channelPrice(menuRials, SalesChannel.ONLINE)?.let { price ->
                 list += row(pricer.sale(cost, SalesChannel.ONLINE, price), pricer.priceLeaving(dineIn.remaining, cost, SalesChannel.ONLINE))
             }
         }
@@ -726,17 +788,7 @@ object QuickCalculator {
         val portions = p.decimal(input.portions.ifBlank { "1" }, Field.PORTIONS, "تعداد پرس باید بیشتر از صفر باشد.") { it.signum() > 0 }
         val menu = if (input.menuPrice.isBlank()) null else money.parse(input.menuPrice)
         if (input.menuPrice.isNotBlank() && (menu == null || menu <= 0)) p.add(Field.AMOUNT, "قیمت منو درست نیست.")
-        if (input.discountValue.isNotBlank()) {
-            val percent = Numbers.parse(input.discountValue)
-            val fixed = money.parse(input.discountValue)
-            when (input.discountMode) {
-                "percent" -> if (percent == null || percent < BigDecimal.ZERO || percent >= BigDecimal(100))
-                    p.add(Field.AMOUNT, "درصد تخفیف باید از صفر تا کمتر از صد باشد.")
-                "fixed" -> if (fixed == null || fixed < 0 || menu == null || fixed >= menu)
-                    p.add(Field.AMOUNT, "مبلغ تخفیف باید کمتر از قیمت منو باشد.")
-                else -> p.add(Field.AMOUNT, "نوع تخفیف معتبر نیست.")
-            }
-        }
+        discountProblem(input, money)?.let { p.add(Field.DISCOUNT, it) }
         // A new calculation saved over a dish on the menu keeps that dish's section unless one is chosen.
         val category = input.category?.trim()?.ifEmpty { null } ?: namesake?.let { state.recipes[it]?.category }
         return p.result { QuickPlan(name, rows, portions!!, menu, editing ?: namesake, input.miscPercent, extras, category) }
@@ -748,7 +800,8 @@ object QuickCalculator {
      * with them, and the rows that look like a slip.
      */
     fun review(input: QuickInput, plan: QuickPlan, state: LedgerState, money: MoneyFormat, today: LocalDate): QuickReview {
-        val after = compute(input.copy(recipeId = plan.recipeId, category = plan.category), state, money, today)
+        // The discount is not saved with the dish, so the figures after are those without it.
+        val after = compute(input.copy(recipeId = plan.recipeId, category = plan.category, discountValue = ""), state, money, today)
         val changes = plan.recipeId
             ?.let { open(state, it, today, money) }
             ?.let { compareFigures(compute(it, state, money, today), after, money) }
@@ -785,9 +838,12 @@ object QuickCalculator {
             val down = a != null && b != null && b < a
             list += QuickChange(label, text(a), text(b), change, worse = if (worseIfUp) up else down)
         }
-        val costBefore = before.totalCostRials
-        val costAfter = after.totalCostRials
-        add("هزینهٔ هر پرس", costBefore, costAfter, ::amount, moved(costBefore, costAfter), worseIfUp = true)
+        // The display's names: the food first, the other costs only when the dish has some.
+        val otherCosts = before.otherCosts != null || after.otherCosts != null
+        add("هزینهٔ مواد اولیه هر پرس", before.foodCostRials, after.foodCostRials, ::amount, moved(before.foodCostRials, after.foodCostRials), worseIfUp = true)
+        if (otherCosts) {
+            add("بهای تمام‌شده", before.totalCostRials, after.totalCostRials, ::amount, moved(before.totalCostRials, after.totalCostRials), worseIfUp = true)
+        }
         val suggestedBefore = before.suggestedRials?.let { BigDecimal(it) }
         val suggestedAfter = after.suggestedRials?.let { BigDecimal(it) }
         add("قیمت پیشنهادی", suggestedBefore, suggestedAfter, ::amount, moved(suggestedBefore, suggestedAfter), worseIfUp = true)
@@ -795,7 +851,10 @@ object QuickCalculator {
         val menuAfter = after.menuRials?.let { BigDecimal(it) }
         add("قیمت منو", menuBefore, menuAfter, ::amount, moved(menuBefore, menuAfter), worseIfUp = false)
         add("فودکاست", before.foodCostValue, after.foodCostValue, { v -> v?.let { Numbers.percent(it) } ?: "—" }, null, worseIfUp = true)
-        add("مانده هر پرس", before.remainingRials, after.remainingRials, { v -> v?.let { signedAmount(it, money) } ?: "—" }, null, worseIfUp = false)
+        add("سود ناخالص", before.grossProfitRials, after.grossProfitRials, { v -> v?.let { signedAmount(it, money) } ?: "—" }, null, worseIfUp = false)
+        if (otherCosts) {
+            add("مانده پس از هزینه‌های دیگر", before.remainingRials, after.remainingRials, { v -> v?.let { signedAmount(it, money) } ?: "—" }, null, worseIfUp = false)
+        }
         return list
     }
 
@@ -835,13 +894,20 @@ object QuickCalculator {
         }
         result.leftOutNote?.let { appendLine(it) }
         appendLine()
-        appendLine("بهای مواد هر پرس: ${result.costPerPortion}، ${result.miscNote}")
-        result.otherCosts?.let { appendLine("هزینهٔ هر پرس با هزینه‌های دیگر: ${result.totalCost}") }
+        appendLine("هزینهٔ مواد اولیه هر پرس: ${result.costPerPortion}، ${result.miscNote}")
+        result.otherCosts?.let { appendLine("بهای تمام‌شده با هزینه‌های دیگر: ${result.totalCost}") }
         result.suggested?.let { appendLine("${result.suggestedLabel}: $it، ${result.method}") }
+        if (result.discountApplied) {
+            result.originalMenuRials?.let { appendLine("قیمت منو: ${money.full(it)}") }
+            result.discountRials?.let { appendLine("تخفیف: ${money.full(it)}") }
+        }
         result.menuRials?.let { appendLine("${if (result.discountApplied) "قیمت پس از تخفیف" else "قیمت منو"}: ${money.full(it)}، ${result.statusLabel}") }
         result.netSales?.let { appendLine("فروش خالص: $it") }
         result.foodCostPercent?.let { appendLine("فودکاست: $it") }
-        result.remaining?.let { appendLine("${if (result.remainingNegative) "کسری هر پرس" else "مانده هر پرس"}: $it") }
+        result.grossProfit?.let { appendLine("${if (result.grossProfitNegative) "زیان ناخالص" else "سود ناخالص"}: $it") }
+        if (result.otherCosts != null) {
+            result.remaining?.let { appendLine("${if (result.remainingNegative) "کسری پس از هزینه‌های دیگر" else "مانده پس از هزینه‌های دیگر"}: $it") }
+        }
     }.trimEnd()
 
     /** مواد یک پرس, or مواد ۴ پرس for a batch. */

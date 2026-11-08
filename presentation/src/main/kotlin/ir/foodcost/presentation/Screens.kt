@@ -38,7 +38,7 @@ data class MenuRow(
     val category: String? = null,
     val status: PriceStatus,
     val statusLabel: String,
-    /** The food alone. */
+    /** The food alone: «هزینهٔ مواد اولیه هر پرس», on top of the calculator and of this list alike. */
     val foodCost: String,
     val menuPrice: String?,
     val suggestedPrice: String,
@@ -47,7 +47,7 @@ data class MenuRow(
     val raise: String?,
     /**
      * Food, the dish's other costs for a portion eaten in and its overhead share: the same
-     * «هزینهٔ هر پرس» the calculator shows for the dish.
+     * «بهای تمام‌شده» the calculator shows under its figures when the dish has other costs.
      */
     val cost: String = foodCost,
     /** The part of [cost] that is not food, when there is one. */
@@ -311,7 +311,7 @@ data class PricingInfo(
     val suggestedFoodCostPercent: String?,
     val raise: String?,
     val grossProfit: String?,
-    /** Food, other costs and the overhead share, as the calculator's «هزینهٔ هر پرس»; null when it is the food alone. */
+    /** Food, other costs and the overhead share, as the calculator's «بهای تمام‌شده»; null when it is the food alone. */
     val totalCost: String? = null,
 )
 

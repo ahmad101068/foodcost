@@ -271,7 +271,10 @@ fun checkMenuPrice(text: String, money: MoneyFormat): Checked<Long> {
 
 enum class MethodChoice { FOOD_COST, MARGIN, MARKUP }
 
-/** A menu section with a food cost target of its own, as typed: drinks usually aim lower than plates. */
+/**
+ * A menu section, as typed: one with a pricing method of its own, as drinks usually aim lower than
+ * plates, or with [useGeneral] one priced like the rest, there to put dishes in.
+ */
 data class CategoryTargetInput(
     val name: String = "",
     val percent: String = "",
@@ -279,7 +282,7 @@ data class CategoryTargetInput(
     val basis: CostBasis = CostBasis.FOOD_COST,
     val useGeneral: Boolean = false,
 ) {
-    val isBlank: Boolean get() = name.isBlank() && percent.isBlank()
+    val isBlank: Boolean get() = name.isBlank() && (useGeneral || percent.isBlank())
 }
 
 /** The pricing rules and misc share, ready to save. */
@@ -302,7 +305,7 @@ data class SettingsInput(
     val onlineCommission: String = "",
     val onlineDiscount: String = "",
     val onlineUplift: String = "",
-    /** Sections priced with their own food cost target instead of the general rule. */
+    /** The menu sections: priced with a method of their own, or with the general one. */
     val categories: List<CategoryTargetInput> = emptyList(),
     /**
      * True when [percent] was kept from a margin or markup on every cost on a switch to a food
@@ -363,6 +366,7 @@ data class SettingsInput(
             it.signum() >= 0
         }
         val byCategory = LinkedHashMap<String, PricingMethod>()
+        val general = ArrayList<String>()
         val seen = HashSet<String>()
         categories.forEach { category ->
             if (category.isBlank) return@forEach
@@ -376,7 +380,7 @@ data class SettingsInput(
             when {
                 name.isEmpty() -> p.add(Field.CATEGORY, "نام بخش را بنویسید.")
                 !seen.add(Persian.searchKey(name)) -> p.add(Field.CATEGORY, "بخش «$name» دو بار آمده است.")
-                category.useGeneral -> Unit
+                category.useGeneral -> general += name
                 !validTarget -> p.add(Field.CATEGORY, if (category.method == MethodChoice.FOOD_COST) "فودکاست هدف «$name» باید بیشتر از ۰ و کمتر از ۱۰۰ باشد." else "درصد روش قیمت‌گذاری «$name» معتبر نیست.")
                 else -> byCategory[name] = when (category.method) {
                     MethodChoice.FOOD_COST -> PricingMethod.TargetFoodCost(target!!)
@@ -401,6 +405,7 @@ data class SettingsInput(
                     overhead = overhead,
                     online = OnlineTerms(commission!!, discount!!, uplift!!),
                     methodByCategory = byCategory,
+                    generalSections = general,
                 ),
             )
         }
@@ -540,7 +545,7 @@ data class SettingsInput(
                             is PricingMethod.Markup -> method.basis
                         },
                     )
-                },
+                } + pricing.generalSections.filter { it !in pricing.methodByCategory }.map { CategoryTargetInput(name = it, useGeneral = true) },
             )
         }
     }

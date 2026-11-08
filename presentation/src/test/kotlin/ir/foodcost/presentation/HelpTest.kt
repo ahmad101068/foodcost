@@ -59,10 +59,19 @@ class HelpTest {
         assertEquals("۵۷۲٬۷۲۷ × ۳۵٪ = ۲۰۰٬۴۵۵ تومان", lines[Glossary.MAX_COST])
         assertEquals("۳۶۴٬۱۰۵ ÷ ۳۵٪ = ۱٬۰۴۰٬۳۰۰، با مالیات ۱٬۱۴۴٬۳۳۰، گرد شده ۱٬۱۵۰٬۰۰۰ تومان", lines[Glossary.SUGGESTED])
 
+        assertEquals("۳۵۳٬۵۰۰ جمع مواد + ۱۰٬۶۰۵ هزینه‌های جزئی (۳٪) = ۳۶۴٬۱۰۵ تومان", lines[Glossary.FOOD])
+        assertEquals("۵۷۲٬۷۲۷ − ۳۶۴٬۱۰۵ = ‎+۲۰۸٬۶۲۲ تومان", lines[Glossary.GROSS_PROFIT])
+
         val withWage = koobideh(input = Guide.sample(toman).plusExtra(QuickExtra("دستمزد", "20000")))
         assertEquals("۳۶۴٬۱۰۵ بهای مواد + ۲۰٬۰۰۰ هزینه‌های دیگر = ۳۸۴٬۱۰۵ تومان", withWage.explanations[Glossary.COST])
-        // Without a menu price only the cost and the suggestion can be explained.
-        assertEquals(setOf(Glossary.COST, Glossary.SUGGESTED), koobideh(input = Guide.sample(toman).copy(menuPrice = "")).explanations.keys)
+        // The display's figures and what tapping them explains end in the same number.
+        assertTrue(withWage.explanations.getValue(Glossary.FOOD).endsWith(withWage.costPerPortion))
+        assertTrue(withWage.explanations.getValue(Glossary.GROSS_PROFIT).endsWith(withWage.grossProfit!!))
+        assertTrue(withWage.explanations.getValue(Glossary.COST).endsWith(withWage.totalCost))
+        assertTrue(withWage.explanations.getValue(Glossary.REMAINING).endsWith(withWage.remaining!!))
+        assertEquals("۵۷۲٬۷۲۷ − ۳۸۴٬۱۰۵ = ‎+۱۸۸٬۶۲۲ تومان", withWage.explanations[Glossary.REMAINING])
+        // Without a menu price only the costs and the suggestion can be explained.
+        assertEquals(setOf(Glossary.FOOD, Glossary.COST, Glossary.SUGGESTED), koobideh(input = Guide.sample(toman).copy(menuPrice = "")).explanations.keys)
     }
 
     @Test
@@ -74,6 +83,7 @@ class HelpTest {
         assertTrue(example(Glossary.FOOD).contains(food))
         assertTrue(example(Glossary.NET_SALES).contains(net))
         assertTrue(example(Glossary.REMAINING).contains(amount(result.remaining).removePrefix("‎+")))
+        assertTrue(example(Glossary.GROSS_PROFIT).contains(amount(result.grossProfit).removePrefix("‎+")))
         assertTrue(example(Glossary.MAX_COST).contains(amount(result.maxCost)))
         assertTrue(example(Glossary.SUGGESTED).contains(amount(result.suggested)))
         assertTrue(result.explanations.getValue(Glossary.SUGGESTED).contains("با مالیات ۱٬۱۴۴٬۳۳۰"))
@@ -82,6 +92,7 @@ class HelpTest {
 
         val withWage = koobideh(input = Guide.sample(toman).plusExtra(QuickExtra("دستمزد", "20000")))
         assertTrue(example(Glossary.COST).contains(amount(withWage.totalCost)))
+        assertTrue(example(Glossary.REMAINING).contains(amount(withWage.remaining).removePrefix("‎+")))
         val withBox = koobideh(input = Guide.sample(toman).plusExtra(QuickExtra("ظرف و بسته‌بندی", "15000", takeawayOnly = true)))
         val takeaway = withBox.channels.single { it.label == "بیرون‌بر" }
         assertTrue(example(Glossary.EXTRAS).contains(amount(takeaway.remaining).removePrefix("‎+")))
