@@ -55,7 +55,7 @@ jobs:
           FOODCOST_KEYSTORE_PASSWORD: ${{ secrets.FOODCOST_KEYSTORE_PASSWORD }}
         run: |
           set -o pipefail
-          ./gradlew :presentation:test :app:assembleRelease --no-daemon 2>&1 | tee build.log
+          ./gradlew :presentation:test :app:assembleRelease :app:bundleRelease --no-daemon 2>&1 | tee build.log
       # The certificate's fingerprint is public, the same in every APK: a different one means the
       # APK was signed with another key and is not kept.
       - name: Check the APK's signature
@@ -67,6 +67,13 @@ jobs:
             echo "::error title=Signing::The APK is not signed with the app's own key"
             exit 1
           fi
+      - name: Keep Play Store AAB as private workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: foodcost-play-aab
+          path: app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 30
       # Annotations can be read through the API without downloading the logs.
       - name: Report failures
         if: failure()
