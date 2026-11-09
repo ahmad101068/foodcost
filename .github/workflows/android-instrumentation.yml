@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "app/**"
+      - "scripts/walkthrough.sh"
       - ".github/workflows/android-instrumentation.yml"
   workflow_dispatch:
 

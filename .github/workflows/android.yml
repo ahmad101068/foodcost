@@ -6,6 +6,7 @@ on:
   push:
     paths:
       - "app/**"
+      - "scripts/walkthrough.sh"
       - "core/**"
       - "data/**"
       - "presentation/**"
