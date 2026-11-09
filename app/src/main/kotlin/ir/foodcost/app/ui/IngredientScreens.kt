@@ -60,6 +60,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import ir.foodcost.app.ui.theme.FoodSectionColors
+import ir.foodcost.app.ui.theme.foodSectionColors
 import ir.foodcost.core.model.IngredientId
 import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.core.units.Dimension
@@ -91,6 +93,7 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
     val rows = remember(state, money, today, query) { IngredientScreens.rows(state, today, money, query) }
     val visibleRows = if (filter == "بدون قیمت") rows.filter { it.unitPrice == null } else rows
     val missingPriceCount = rows.count { it.unitPrice == null }
+    val sectionColors = foodSectionColors()
     TabScaffold(
         title = "مواد اولیه",
         nav = nav,
@@ -113,7 +116,7 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
                         FilterChip(
                             selected = filter == choice, onClick = { filter = choice },
                             label = { Text(choice, fontWeight = FontWeight.Bold) },
-                            colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(selectedContainerColor = Color(0xFFFFD84D), selectedLabelColor = Color(0xFF172747)),
+                            colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(selectedContainerColor = sectionColors.statPrimary, selectedLabelColor = sectionColors.statValue),
                             shape = RoundedCornerShape(12.dp),
                         )
                     }
@@ -123,14 +126,14 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0C3267)),
+                    colors = CardDefaults.cardColors(containerColor = sectionColors.container),
                 ) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("مدیریت مواد اولیه", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
-                        Text("قیمت و بازده مواد مصرفی", style = MaterialTheme.typography.bodySmall, color = Color(0xFFDCE9FF))
+                        Text("مدیریت مواد اولیه", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = sectionColors.heading)
+                        Text("قیمت و بازده مواد مصرفی", style = MaterialTheme.typography.bodySmall, color = sectionColors.subheading)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            IngredientStat("تعداد مواد", Persian.digits(rows.size), Modifier.weight(1f), Color(0xFF155E9A))
-                            IngredientStat("بدون قیمت", Persian.digits(missingPriceCount), Modifier.weight(1f), Color(0xFF353C90))
+                            IngredientStat("تعداد مواد", Persian.digits(rows.size), Modifier.weight(1f), sectionColors.statPrimary, sectionColors)
+                            IngredientStat("بدون قیمت", Persian.digits(missingPriceCount), Modifier.weight(1f), sectionColors.statSecondary, sectionColors)
                         }
                     }
                 }
@@ -223,7 +226,7 @@ private fun QuickPriceDialog(
 }
 
 @Composable
-private fun IngredientStat(label: String, value: String, modifier: Modifier, background: Color) {
+private fun IngredientStat(label: String, value: String, modifier: Modifier, background: Color, colors: FoodSectionColors) {
     Column(
         modifier = modifier
             .then(Modifier)
@@ -232,8 +235,8 @@ private fun IngredientStat(label: String, value: String, modifier: Modifier, bac
     ) {
         androidx.compose.material3.Surface(color = background, shape = RoundedCornerShape(14.dp)) {
             Column(Modifier.fillMaxWidth().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(label, color = Color(0xFFE4EEFF), style = MaterialTheme.typography.labelMedium)
-                Text(value, color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(label, color = colors.statLabel, style = MaterialTheme.typography.labelMedium)
+                Text(value, color = colors.statValue, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -243,6 +246,7 @@ private fun IngredientStat(label: String, value: String, modifier: Modifier, bac
 private fun IngredientListItem(row: IngredientRow, dataUnreliable: Boolean, onClick: () -> Unit, onReprice: () -> Unit) {
     val yieldLabel = row.yieldLabel
     val price = row.unitPrice
+    val sectionColors = foodSectionColors()
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
@@ -250,7 +254,7 @@ private fun IngredientListItem(row: IngredientRow, dataUnreliable: Boolean, onCl
         shape = RoundedCornerShape(18.dp),
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(row.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF0C3267))
+            Text(row.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = sectionColors.itemTitle)
             Text(
                 if (dataUnreliable) BackupTexts.UNVERIFIED_PRICE else price ?: row.priceProblem.orEmpty(),
                 style = MaterialTheme.typography.bodyMedium,
@@ -266,7 +270,7 @@ private fun IngredientListItem(row: IngredientRow, dataUnreliable: Boolean, onCl
                 TextButton(
                     onClick = onReprice,
                     modifier = Modifier.semantics { contentDescription = "قیمت تازهٔ ${row.name}" },
-                ) { Text("قیمت‌روز", color = Color(0xFF1254A0), fontWeight = FontWeight.Bold) }
+                ) { Text("قیمت‌روز", color = sectionColors.itemTitle, fontWeight = FontWeight.Bold) }
             }
         }
     }
