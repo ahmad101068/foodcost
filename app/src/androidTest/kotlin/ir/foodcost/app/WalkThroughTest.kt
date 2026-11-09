@@ -219,6 +219,9 @@ class WalkThroughTest {
         typeTag("category-0-percent", "30")
         show("category-0-name")
         shot("18-sections")
+        // Commit section-specific pricing before navigating to another settings screen.
+        click("ذخیرهٔ قیمت‌گذاری")
+        waitForPart("تنظیمات ذخیره شد")
 
         // Online sales with a 20% commission: the online column joins the restaurant and takeaway.
         click("بازگشت به تنظیمات")
@@ -243,6 +246,7 @@ class WalkThroughTest {
 
         // Switched to rials, the calculation is the same plate: 364,105 toman is 3,641,050 rials.
         click("تنظیمات")
+        click("عمومی و راهنما")
         click("ریال")
         backupPassword()
         click("ماشین‌حساب")
