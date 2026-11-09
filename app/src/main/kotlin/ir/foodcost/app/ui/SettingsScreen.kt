@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -72,7 +73,7 @@ fun SettingsScreen(
     val currency by container.currency.collectAsState()
     var input by remember(state.pricing, state.costing, money) { mutableStateOf(SettingsInput.of(state.pricing, state.costing, money)) }
     var errors by remember { mutableStateOf(emptyMap<Field, String>()) }
-    var section by remember { mutableStateOf("خانه") }
+    var section by rememberSaveable { mutableStateOf("خانه") }
     val context = LocalContext.current
     val categoryNames = remember { HashMap<Int, FocusRequester>() }
     val categoryPercents = remember { HashMap<Int, FocusRequester>() }
