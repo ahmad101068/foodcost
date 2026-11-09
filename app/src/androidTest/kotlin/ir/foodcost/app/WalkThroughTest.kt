@@ -16,6 +16,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.SemanticsNodeInteraction
@@ -160,6 +161,7 @@ class WalkThroughTest {
 
         // A new onion price from the list, in one field.
         click("مواد")
+        rule.onNodeWithTag("ingredients-list").performScrollToNode(hasText("هر کیلو ۱٬۶۰۰٬۰۰۰ تومان"))
         waitFor("هر کیلو ۱٬۶۰۰٬۰۰۰ تومان")
         shot("12-ingredients")
         rule.onNodeWithContentDescription("قیمت تازهٔ پیاز").performClick()
