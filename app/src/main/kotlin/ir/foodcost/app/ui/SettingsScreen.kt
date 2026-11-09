@@ -1,6 +1,7 @@
 package ir.foodcost.app.ui
 
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -74,6 +75,9 @@ fun SettingsScreen(
     var input by remember(state.pricing, state.costing, money) { mutableStateOf(SettingsInput.of(state.pricing, state.costing, money)) }
     var errors by remember { mutableStateOf(emptyMap<Field, String>()) }
     var section by rememberSaveable { mutableStateOf("خانه") }
+    // Intercept the system back button while inside settings, before the app-level handler
+    // navigates to the calculator. The on-screen return button uses the same destination.
+    BackHandler(enabled = section != "خانه") { section = "خانه" }
     val context = LocalContext.current
     val categoryNames = remember { HashMap<Int, FocusRequester>() }
     val categoryPercents = remember { HashMap<Int, FocusRequester>() }
@@ -147,7 +151,7 @@ fun SettingsScreen(
             }
 
             if (section == "عمومی و راهنما") SettingsCard("واحد پول") {
-                Segmented(DisplayCurrency.entries, currency, { Labels.currency(it) }) { container.setCurrency(it) }
+                Segmented(listOf(DisplayCurrency.RIAL, DisplayCurrency.TOMAN), currency, { Labels.currency(it) }) { container.setCurrency(it) }
                 Text(
                     "مبلغ‌ها همیشه به ریال ذخیره می‌شوند؛ این فقط شکل نمایش و ورود مبلغ است.",
                     style = MaterialTheme.typography.bodySmall,
