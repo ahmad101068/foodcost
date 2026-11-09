@@ -154,6 +154,47 @@ fun FoodCostTheme(content: @Composable () -> Unit) {
     }
 }
 
+/**
+ * Calm sage/teal accents used only for the ingredients and dishes summaries and list titles.
+ * Both modes maintain readable contrast without a large saturated navy surface.
+ */
+data class FoodSectionColors(
+    val container: Color,
+    val heading: Color,
+    val subheading: Color,
+    val statPrimary: Color,
+    val statSecondary: Color,
+    val statLabel: Color,
+    val statValue: Color,
+    val itemTitle: Color,
+)
+
+@Composable
+fun foodSectionColors(): FoodSectionColors =
+    if (isSystemInDarkTheme()) {
+        FoodSectionColors(
+            container = Color(0xFF283F3E),
+            heading = Color(0xFFE5F3EE),
+            subheading = Color(0xFFCADBD6),
+            statPrimary = Color(0xFF365552),
+            statSecondary = Color(0xFF405F5B),
+            statLabel = Color(0xFFC5E0D8),
+            statValue = Color(0xFFF6FFFC),
+            itemTitle = Color(0xFFA2D6C9),
+        )
+    } else {
+        FoodSectionColors(
+            container = Color(0xFFE6F1EE),
+            heading = Color(0xFF265C56),
+            subheading = Color(0xFF56736F),
+            statPrimary = Color(0xFFD0E4DD),
+            statSecondary = Color(0xFFDAEAE6),
+            statLabel = Color(0xFF4E6F69),
+            statValue = Color(0xFF204F49),
+            itemTitle = Color(0xFF275E59),
+        )
+    }
+
 /** The calculator's display: a lapis window with the result in saffron. */
 data class DisplayColors(
     val container: Color,
