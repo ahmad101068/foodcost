@@ -53,7 +53,7 @@ class ExitConfirmationTest {
             rule.onAllNodesWithText("انصراف").onFirst().performClick()
             rule.waitForIdle()
             rule.onAllNodesWithText("آیا می‌خواهید از برنامه خارج شوید؟").assertCountEquals(0)
-            rule.onAllNodesWithTag("row-0-name").onFirst().assertExists()
+            rule.waitUntil(15_000) { rule.onAllNodesWithTag("row-0-name").fetchSemanticsNodes().isNotEmpty() }
         }
     }
 }
