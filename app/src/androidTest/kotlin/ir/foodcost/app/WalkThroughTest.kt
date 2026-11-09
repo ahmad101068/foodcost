@@ -210,7 +210,7 @@ class WalkThroughTest {
         waitFor("حساب یک غذا")
         shot("17-help-guide")
         back()
-        click("بازگشت به تنظیمات")
+        // Returning from the help route recreates the settings overview.
         click("بخش‌های منو")
 
         // Main dishes aim at a 30% food cost; a tap on the section puts the keyboard on its target.
