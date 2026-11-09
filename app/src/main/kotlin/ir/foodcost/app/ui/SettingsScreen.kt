@@ -57,6 +57,7 @@ import ir.foodcost.presentation.Field
 import ir.foodcost.presentation.Labels
 import ir.foodcost.presentation.MethodChoice
 import ir.foodcost.presentation.MoneyFormat
+import ir.foodcost.presentation.Numbers
 import ir.foodcost.presentation.Persian
 import ir.foodcost.presentation.SettingsInput
 import java.time.LocalDate
@@ -175,6 +176,44 @@ fun SettingsScreen(
                     number = true,
                     suffix = "٪",
                 )
+                val equivalents = input.equivalentPercentages()
+                if (equivalents != null) {
+                    Text("معادل‌های خودکار درصد", style = MaterialTheme.typography.titleSmall)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        MethodChoice.entries.forEach { choice ->
+                            Card(
+                                modifier = Modifier.weight(1f).testTag("pricing-rate-${choice.name.lowercase()}"),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (choice == input.method) {
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceContainerLow
+                                    },
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                            ) {
+                                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(methodName(choice), style = MaterialTheme.typography.labelSmall)
+                                    Text(
+                                        equivalents[choice]?.let { Numbers.percent(it) } ?: "—",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (input.method != MethodChoice.FOOD_COST && input.basis == CostBasis.FULL_COST) {
+                        Text(
+                            "فودکاست واقعی از حاشیه سود روی همه هزینه‌ها به‌تنهایی به دست نمی‌آید؛ برای محاسبه آن سهم مواد اولیه نیز لازم است.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else if (input.percent.isNotBlank() && !input.carried) {
+                    Text("برای مشاهده معادل‌ها، درصد معتبر وارد کنید.", style = MaterialTheme.typography.bodySmall)
+                }
+
                 if (input.method != MethodChoice.FOOD_COST) {
                     Text("روی چه هزینه‌ای؟", style = MaterialTheme.typography.labelLarge)
                     Segmented(CostBasis.entries, input.basis, { basisName(it) }) { input = input.copy(basis = it) }

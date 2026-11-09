@@ -74,6 +74,24 @@ class WalkThroughTest {
         }
     }
 
+    @Test
+    fun calculatorBackAsksBeforeClosing() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            waitForFocus("row-0-name")
+            val device = UiDevice.getInstance(instrumentation)
+            // Android may consume the first Back to hide the initial software keyboard.
+            device.pressBack()
+            rule.waitForIdle()
+            if (rule.onAllNodesWithText("آیا می‌خواهید از برنامه خارج شوید؟").fetchSemanticsNodes().isEmpty()) {
+                device.pressBack()
+            }
+            waitFor("آیا می‌خواهید از برنامه خارج شوید؟")
+            click("انصراف")
+            waitForTag("row-0-name")
+            rule.onAllNodesWithText("آیا می‌خواهید از برنامه خارج شوید؟").assertCountEquals(0)
+        }
+    }
+
     private fun walk() {
         // The empty calculator opens with the keyboard on the first field.
         waitForFocus("row-0-name")

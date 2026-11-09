@@ -134,6 +134,34 @@ class FormsTest {
     }
 
     @Test
+    fun `general pricing displays three live equivalent rates as the user types`() {
+        val base = SettingsInput.of(PricingSettings(), CostingRules(), toman)
+        val margin = base.copy(method = MethodChoice.MARGIN, percent = "۳۰", basis = CostBasis.FOOD_COST)
+        assertEquals(
+            mapOf(
+                MethodChoice.FOOD_COST to BigDecimal("70"),
+                MethodChoice.MARGIN to BigDecimal("30"),
+                MethodChoice.MARKUP to BigDecimal("42.86"),
+            ),
+            margin.equivalentPercentages(),
+        )
+        val food = margin.copy(method = MethodChoice.FOOD_COST, percent = "35")
+        assertEquals(BigDecimal("65"), food.equivalentPercentages()?.get(MethodChoice.MARGIN))
+        assertEquals(BigDecimal("185.71"), food.equivalentPercentages()?.get(MethodChoice.MARKUP))
+        val markup = margin.copy(method = MethodChoice.MARKUP, percent = "200")
+        assertEquals(BigDecimal("33.33"), markup.equivalentPercentages()?.get(MethodChoice.FOOD_COST))
+        assertEquals(BigDecimal("66.67"), markup.equivalentPercentages()?.get(MethodChoice.MARGIN))
+
+        // A full-cost margin implies a share of ALL costs, not a food-cost figure.
+        val full = margin.copy(basis = CostBasis.FULL_COST)
+        assertEquals(null, full.equivalentPercentages()?.get(MethodChoice.FOOD_COST))
+        assertEquals(BigDecimal("42.86"), full.equivalentPercentages()?.get(MethodChoice.MARKUP))
+        assertEquals(null, margin.copy(percent = "").equivalentPercentages())
+        assertEquals(null, margin.copy(percent = "abc").equivalentPercentages())
+        assertEquals(null, margin.copy(carried = true).equivalentPercentages())
+    }
+
+    @Test
     fun `the month's fixed costs, online terms and the margin basis are read, checked and shown back`() {
         val input = SettingsInput.of(PricingSettings(), CostingRules(), toman).copy(
             monthlyFixed = "450000000", monthlyPortions = "6000",

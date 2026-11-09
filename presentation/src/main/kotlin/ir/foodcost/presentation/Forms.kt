@@ -433,6 +433,31 @@ data class SettingsInput(
     }
 
     /**
+     * The three live rates shown side by side in general pricing. They update on every keystroke
+     * and use the SAME math as switching methods, without modifying the saved pricing method.
+     *
+     * A margin/markup based on ALL costs has no mathematically determined FOOD cost percentage:
+     * it would also require the actual share of food in those costs. Null signals "not derivable",
+     * never an invented food-cost figure.
+     */
+    fun equivalentPercentages(): Map<MethodChoice, BigDecimal?>? {
+        if (carried) return null
+        val value = Numbers.parse(percent) ?: return null
+        if (value.signum() < 0 ||
+            (method != MethodChoice.MARKUP && value >= HUNDRED) ||
+            (method == MethodChoice.FOOD_COST && value.signum() == 0)
+        ) return null
+
+        return MethodChoice.entries.associateWith { choice ->
+            if (choice == MethodChoice.FOOD_COST && method != MethodChoice.FOOD_COST && basis == CostBasis.FULL_COST) {
+                null
+            } else {
+                equivalent(value, method, choice)
+            }
+        }
+    }
+
+    /**
      * The number in the other methods: «یعنی حاشیهٔ سود ۶۵٪ و مارک‌آپ ۱۸۵٫۷٪», or on every cost,
      * where a food cost share has no equivalent, «یعنی مارک‌آپ ۶۶٫۷٪، روی همهٔ هزینه‌ها».
      */
