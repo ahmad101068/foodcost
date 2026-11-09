@@ -139,23 +139,23 @@ class FormsTest {
         val margin = base.copy(method = MethodChoice.MARGIN, percent = "۳۰", basis = CostBasis.FOOD_COST)
         assertEquals(
             mapOf(
-                MethodChoice.FOOD_COST to BigDecimal("70"),
-                MethodChoice.MARGIN to BigDecimal("30"),
-                MethodChoice.MARKUP to BigDecimal("42.86"),
+                MethodChoice.FOOD_COST to "70",
+                MethodChoice.MARGIN to "30",
+                MethodChoice.MARKUP to "42.86",
             ),
-            margin.equivalentPercentages(),
+            margin.equivalentPercentages()?.mapValues { it.value?.toPlainString() },
         )
         val food = margin.copy(method = MethodChoice.FOOD_COST, percent = "35")
-        assertEquals(BigDecimal("65"), food.equivalentPercentages()?.get(MethodChoice.MARGIN))
-        assertEquals(BigDecimal("185.71"), food.equivalentPercentages()?.get(MethodChoice.MARKUP))
+        assertEquals("65", food.equivalentPercentages()?.get(MethodChoice.MARGIN)?.toPlainString())
+        assertEquals("185.71", food.equivalentPercentages()?.get(MethodChoice.MARKUP)?.toPlainString())
         val markup = margin.copy(method = MethodChoice.MARKUP, percent = "200")
-        assertEquals(BigDecimal("33.33"), markup.equivalentPercentages()?.get(MethodChoice.FOOD_COST))
-        assertEquals(BigDecimal("66.67"), markup.equivalentPercentages()?.get(MethodChoice.MARGIN))
+        assertEquals("33.33", markup.equivalentPercentages()?.get(MethodChoice.FOOD_COST)?.toPlainString())
+        assertEquals("66.67", markup.equivalentPercentages()?.get(MethodChoice.MARGIN)?.toPlainString())
 
         // A full-cost margin implies a share of ALL costs, not a food-cost figure.
         val full = margin.copy(basis = CostBasis.FULL_COST)
         assertEquals(null, full.equivalentPercentages()?.get(MethodChoice.FOOD_COST))
-        assertEquals(BigDecimal("42.86"), full.equivalentPercentages()?.get(MethodChoice.MARKUP))
+        assertEquals("42.86", full.equivalentPercentages()?.get(MethodChoice.MARKUP)?.toPlainString())
         assertEquals(null, margin.copy(percent = "").equivalentPercentages())
         assertEquals(null, margin.copy(percent = "abc").equivalentPercentages())
         assertEquals(null, margin.copy(carried = true).equivalentPercentages())
