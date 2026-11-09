@@ -199,8 +199,9 @@ class WalkThroughTest {
         // The three pricing methods put the same price: a 35% food cost is a 185.71% markup.
         click("تنظیمات")
         click("ویرایش قیمت‌گذاری")
-        // Android's system Back must return to the settings overview, not the calculator.
-        UiDevice.getInstance(instrumentation).pressBack()
+        // Use the in-app return control in the visual walkthrough. API 34 emulators can
+        // swallow synthetic Back keys when an input method was recently open.
+        click("بازگشت به تنظیمات")
         waitFor("وضعیت فعلی قیمت‌گذاری")
         click("ویرایش قیمت‌گذاری")
         waitFor("ذخیرهٔ قیمت‌گذاری")
