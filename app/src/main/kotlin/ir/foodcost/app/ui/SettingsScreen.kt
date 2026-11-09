@@ -129,7 +129,7 @@ fun SettingsScreen(
             } else {
                 OutlinedButton(onClick = { section = "خانه" }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Filled.ArrowForward, contentDescription = null)
-                    Text("  بازگشت به تنظیمات")
+                    Text("بازگشت به تنظیمات")
                 }
             }
             if (!backupFirst && section == "پشتیبان‌گیری") BackupCard(container, today, actions)
