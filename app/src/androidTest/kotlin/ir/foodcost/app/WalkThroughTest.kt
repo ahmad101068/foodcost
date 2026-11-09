@@ -195,6 +195,10 @@ class WalkThroughTest {
         // The three pricing methods put the same price: a 35% food cost is a 185.71% markup.
         click("تنظیمات")
         click("ویرایش قیمت‌گذاری")
+        // Android's system Back must return to the settings overview, not the calculator.
+        UiDevice.getInstance(instrumentation).pressBack()
+        waitFor("وضعیت فعلی قیمت‌گذاری")
+        click("ویرایش قیمت‌گذاری")
         waitFor("ذخیرهٔ قیمت‌گذاری")
         click("مارک‌آپ")
         waitFor("185.71")
@@ -246,6 +250,11 @@ class WalkThroughTest {
 
         // Switched to rials, the calculation is the same plate: 364,105 toman is 3,641,050 rials.
         click("تنظیمات")
+        click("عمومی و راهنما")
+        // Only the current rial and toman should be offered.
+        rule.onAllNodesWithText("ریال جدید").assertCountEquals(0)
+        UiDevice.getInstance(instrumentation).pressBack()
+        waitFor("وضعیت فعلی قیمت‌گذاری")
         click("عمومی و راهنما")
         click("ریال")
         backupPassword()
