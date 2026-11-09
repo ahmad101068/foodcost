@@ -3,6 +3,7 @@ package ir.foodcost.app.ui
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,9 +38,12 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -446,13 +450,31 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
                     }.joinToString("")
                     val ratio = digits.replace("٪", "").replace("%", "").replace("٫", ".").replace(",", "").trim().toFloatOrNull()
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.size(112.dp).testTag("food-cost-gauge")) {
-                        CircularProgressIndicator(
-                            progress = { ((ratio ?: 0f) / 100f).coerceIn(0f, 1f) },
-                            modifier = Modifier.fillMaxSize(),
-                            color = if (result.statusLabel == "سالم") green else orange,
-                            trackColor = Color(0xFFE1E4EC),
-                            strokeWidth = 9.dp,
-                        )
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val stroke = 9.dp.toPx()
+                            val inset = stroke / 2f
+                            val diameter = size.minDimension - stroke
+                            val arcTopLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
+                            val arcSize = Size(diameter, diameter)
+                            drawArc(
+                                color = Color(0xFFE1E4EC),
+                                startAngle = 180f,
+                                sweepAngle = 180f,
+                                useCenter = false,
+                                topLeft = arcTopLeft,
+                                size = arcSize,
+                                style = Stroke(width = stroke, cap = StrokeCap.Round),
+                            )
+                            drawArc(
+                                color = if (result.statusLabel == "سالم") green else orange,
+                                startAngle = 180f,
+                                sweepAngle = 180f * ((ratio ?: 0f) / 100f).coerceIn(0f, 1f),
+                                useCenter = false,
+                                topLeft = arcTopLeft,
+                                size = arcSize,
+                                style = Stroke(width = stroke, cap = StrokeCap.Round),
+                            )
+                        }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("فودکاست", style = MaterialTheme.typography.labelMedium, color = Color(0xFF263248))
                             Text(percent, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = if (result.statusLabel == "سالم") green else orange, modifier = Modifier.clickable(onClickLabel = "توضیح فودکاست", onClick = { onExplain(Glossary.FOOD_COST) }).testTag("food-cost"))
