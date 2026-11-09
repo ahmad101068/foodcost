@@ -9,7 +9,6 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.uiautomator.UiDevice
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -36,17 +35,14 @@ class ExitConfirmationTest {
 
     @Test
     fun calculatorBackAsksBeforeClosing() {
-        ActivityScenario.launch(MainActivity::class.java).use {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             rule.waitUntil(15_000) {
                 rule.onAllNodesWithTag("row-0-name").fetchSemanticsNodes().isNotEmpty()
             }
-            val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-            // A first press may only dismiss the system's open software keyboard.
-            device.pressBack()
-            rule.waitForIdle()
-            if (rule.onAllNodesWithText("آیا می‌خواهید از برنامه خارج شوید؟").fetchSemanticsNodes().isEmpty()) {
-                device.pressBack()
-            }
+            // Exercise the exact OnBackPressedDispatcher callback registered by Compose.
+            // UIAutomator's synthetic Back can be consumed repeatedly by the system IME
+            // on API 34, even when the activity's handler is working correctly.
+            scenario.onActivity { activity -> activity.onBackPressedDispatcher.onBackPressed() }
             rule.waitUntil(15_000) {
                 rule.onAllNodesWithText("آیا می‌خواهید از برنامه خارج شوید؟").fetchSemanticsNodes().isNotEmpty()
             }

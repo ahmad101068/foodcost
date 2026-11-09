@@ -257,7 +257,9 @@ class WalkThroughTest {
         click("عمومی و راهنما")
         // Only the current rial and toman should be offered.
         rule.onAllNodesWithText("ریال جدید").assertCountEquals(0)
-        UiDevice.getInstance(instrumentation).pressBack()
+        // The screen's own return control is deterministic after the emulator switches
+        // dark mode and may still be finishing keyboard dismissal.
+        click("بازگشت به تنظیمات")
         waitFor("وضعیت فعلی قیمت‌گذاری")
         click("عمومی و راهنما")
         click("ریال")
