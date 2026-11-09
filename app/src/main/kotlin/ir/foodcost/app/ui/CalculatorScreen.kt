@@ -3,10 +3,12 @@ package ir.foodcost.app.ui
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -35,6 +37,13 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -399,87 +408,109 @@ fun CalculatorScreen(
  */
 @Composable
 private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, dataUnreliable: Boolean, modifier: Modifier = Modifier, onExplain: (String) -> Unit) {
-    // A figure explains itself once there is a calculation behind it.
-    fun explain(id: String): (() -> Unit)? = if (id in result.explanations) ({ onExplain(id) }) else null
-    DisplayPanel(modifier) {
-        if (dataUnreliable) {
-            Text(
-                BackupTexts.UNVERIFIED_RESULT,
-                modifier = Modifier.testTag("unverified-financial-result"),
-                color = MaterialTheme.colorScheme.error,
-            )
-            return@DisplayPanel
-        }
-        val netSales = result.netSales
-        val remaining = result.remaining
-        val grossProfit = result.grossProfit
-        val originalPrice = result.originalMenuRials
-        val effectivePrice = result.menuRials
-        if (result.discountApplied && originalPrice != null && effectivePrice != null) {
-            Text(
-                "قیمت منو: ${money.full(originalPrice)}  |  تخفیف: ${money.full(result.discountRials ?: 0L)}  |  قیمت پس از تخفیف: ${money.full(effectivePrice)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag("discount-summary"),
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Figure("هزینهٔ مواد اولیه هر پرس", result.costPerPortion, money, Modifier.weight(1.1f).testTag("cost"), isResult = true, onExplain = explain(Glossary.FOOD))
-            if (netSales != null) {
-                Figure("فروش خالص", netSales, money, Modifier.weight(1f).testTag("net-sales"), onExplain = explain(Glossary.NET_SALES))
-            } else {
-                Figure(result.suggestedLabel, result.suggested ?: "—", money, Modifier.weight(1f).testTag("suggested"), onExplain = explain(Glossary.SUGGESTED))
+    val navy = Color(0xFF173B93)
+    val green = Color(0xFF087A32)
+    val orange = Color(0xFFE66B15)
+    val hasPrice = result.netSales != null
+    Card(
+        modifier = modifier.fillMaxWidth().testTag("calculator-dashboard"),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (dataUnreliable) {
+                Text(BackupTexts.UNVERIFIED_RESULT, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("unverified-financial-result"))
+                return@Column
             }
-        }
-        if (netSales != null && grossProfit != null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Figure("فودکاست", result.foodCostPercent ?: "—", money, Modifier.weight(1.1f).testTag("food-cost"), onExplain = explain(Glossary.FOOD_COST))
-                // Before the other costs; what is left after them comes under it when there are some.
-                Figure(
-                    if (result.grossProfitNegative) "زیان ناخالص" else "سود ناخالص",
-                    grossProfit,
-                    money,
-                    Modifier.weight(1f).testTag("gross-profit"),
-                    onExplain = explain(Glossary.GROSS_PROFIT),
-                )
+            if (result.discountApplied) {
+                Text("فروش پس از تخفیف: ${result.netSales ?: "—"}", style = MaterialTheme.typography.labelSmall, color = navy, modifier = Modifier.testTag("discount-summary"))
             }
-        }
-        if (result.hasLines && result.otherCosts != null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Figure("بهای تمام‌شده", result.totalCost, money, Modifier.weight(1.1f).testTag("total-cost"), onExplain = explain(Glossary.COST))
-                if (netSales != null && remaining != null) {
-                    Figure(
-                        if (result.remainingNegative) "کسری پس از هزینه‌های دیگر" else "مانده پس از هزینه‌های دیگر",
-                        remaining,
-                        money,
-                        Modifier.weight(1f).testTag("remaining"),
-                        onExplain = explain(Glossary.REMAINING),
-                    )
-                } else {
-                    Spacer(Modifier.weight(1f))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1.15f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    DashboardMetric("قیمت فروش هر پرس", result.netSales ?: result.suggested ?: "—", navy, Color(0xFFF0F4FF), Modifier.testTag(if (hasPrice) "net-sales" else "suggested"), money, onClick = { onExplain(if (hasPrice) Glossary.NET_SALES else Glossary.SUGGESTED) })
+                    DashboardMetric("هزینه مواد هر پرس", result.costPerPortion, orange, Color(0xFFFFF3E8), Modifier.testTag("cost"), money, onClick = { onExplain(Glossary.FOOD) })
+                    if (hasPrice) {
+                        DashboardMetric(
+                            if (result.remaining != null) "مانده پس از هزینه‌ها" else if (result.grossProfitNegative) "زیان ناخالص" else "سود ناخالص",
+                            result.remaining ?: result.grossProfit ?: "—",
+                            green, Color(0xFFEAF8EE), Modifier.testTag("gross-profit"), money,
+                            onClick = { onExplain(if (result.remaining != null) Glossary.REMAINING else Glossary.GROSS_PROFIT) },
+                        )
+                    }
+                }
+                Column(Modifier.weight(0.95f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val percent = result.foodCostPercent ?: "—"
+                    val digits = percent.map { ch ->
+                        when (ch) {
+                            in '۰'..'۹' -> ('0'.code + ch.code - '۰'.code).toChar()
+                            in '٠'..'٩' -> ('0'.code + ch.code - '٠'.code).toChar()
+                            else -> ch
+                        }
+                    }.joinToString("")
+                    val ratio = digits.replace("٪", "").replace("%", "").replace("٫", ".").replace(",", "").trim().toFloatOrNull()
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(112.dp).testTag("food-cost-gauge")) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val stroke = 9.dp.toPx()
+                            val inset = stroke / 2f
+                            val diameter = size.minDimension - stroke
+                            val arcTopLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
+                            val arcSize = Size(diameter, diameter)
+                            drawArc(
+                                color = Color(0xFFE1E4EC),
+                                startAngle = 180f,
+                                sweepAngle = 180f,
+                                useCenter = false,
+                                topLeft = arcTopLeft,
+                                size = arcSize,
+                                style = Stroke(width = stroke, cap = StrokeCap.Round),
+                            )
+                            drawArc(
+                                color = if (result.statusLabel == "سالم") green else orange,
+                                startAngle = 180f,
+                                sweepAngle = 180f * ((ratio ?: 0f) / 100f).coerceIn(0f, 1f),
+                                useCenter = false,
+                                topLeft = arcTopLeft,
+                                size = arcSize,
+                                style = Stroke(width = stroke, cap = StrokeCap.Round),
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("فودکاست", style = MaterialTheme.typography.labelMedium, color = Color(0xFF263248))
+                            Text(percent, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = if (result.statusLabel == "سالم") green else orange, modifier = Modifier.clickable(onClickLabel = "توضیح فودکاست", onClick = { onExplain(Glossary.FOOD_COST) }).testTag("food-cost"))
+                        }
+                    }
+                    if (result.hasLines) StatusChip(result.status, result.statusLabel)
+                }
+            }
+            if (!compact) {
+                HorizontalDivider(color = Color(0xFFE8EAF1))
+                Text(note(result), style = MaterialTheme.typography.bodySmall, color = Color(0xFF4B5874))
+                if (result.incompleteRows > 0) {
+                    Text("${Persian.digits(result.incompleteRows)} ردیف کامل نیست و در جمع نیامده است.", style = MaterialTheme.typography.bodySmall, color = orange)
                 }
             }
         }
-        if (!compact) {
-            HorizontalDivider()
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (result.hasLines) StatusChip(result.status, result.statusLabel)
-                Text(
-                    note(result),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            if (result.incompleteRows > 0) {
-                val wrong = result.rows.any { it.problem != null && !it.waiting }
-                Text(
-                    "${Persian.digits(result.incompleteRows)} ردیف کامل نیست و در جمع نیامده است.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (wrong) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+    }
+}
+
+@Composable
+private fun DashboardMetric(
+    label: String,
+    value: String,
+    accent: Color,
+    background: Color,
+    modifier: Modifier = Modifier,
+    money: MoneyFormat,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth().background(background, RoundedCornerShape(14.dp))
+            .clickable(onClickLabel = "توضیح $label", onClick = onClick).padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = Color(0xFF354057))
+        Text(value, style = MaterialTheme.typography.titleMedium, color = accent, maxLines = 2)
     }
 }
 
@@ -631,24 +662,66 @@ private fun ExtrasCard(
 /** At the menu price typed: margin and markup, pricing backwards, and the other channels beside the restaurant. */
 @Composable
 private fun PriceDetails(result: QuickResult, money: MoneyFormat, onExplain: (List<String>) -> Unit) {
-    Card(colors = whiteCardColors(), modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("جزئیات قیمت منو", style = MaterialTheme.typography.titleSmall)
-            val margin = result.margin
-            val markup = result.markup
-            if (margin != null && markup != null) {
-                Explained("مارجین $margin و مارک‌آپ $markup، روی همهٔ هزینه‌های ثبت‌شده") {
-                    onExplain(listOf(Glossary.MARGIN, Glossary.MARKUP))
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.testTag("pricing-dashboard")) {
+        if (result.channels.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                result.channels.take(2).forEach { channel ->
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F4FF)),
+                    ) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Text(channel.label, style = MaterialTheme.typography.titleSmall, color = Color(0xFF173B93))
+                            Text("قیمت: ${channel.price ?: "—"}", style = MaterialTheme.typography.bodySmall)
+                            Text("مانده: ${channel.remaining ?: "—"}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            Text("نسبت هزینه: ${channel.foodCostPercent ?: "—"}", style = MaterialTheme.typography.bodySmall)
+                            channel.priceForSameRemaining?.let {
+                                Text("قیمت برای همان مانده: $it", style = MaterialTheme.typography.labelSmall, color = Color(0xFF173B93))
+                            }
+                        }
+                    }
                 }
             }
-            val maxCost = result.maxCost
-            val maxCostLabel = result.maxCostLabel
-            if (maxCost != null && maxCostLabel != null) {
-                Explained("$maxCostLabel: $maxCost") { onExplain(listOf(Glossary.MAX_COST)) }
+        }
+        if (result.channels.isNotEmpty()) {
+            Card(colors = whiteCardColors(), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp)) {
+                    ChannelTable(result.channels, money) { onExplain(listOf(Glossary.CHANNELS)) }
+                }
             }
-            if (result.channels.isNotEmpty()) {
-                HorizontalDivider(Modifier.padding(vertical = 4.dp))
-                ChannelTable(result.channels, money) { onExplain(listOf(Glossary.CHANNELS)) }
+        }
+        val margin = result.margin
+        val markup = result.markup
+        if (margin != null || markup != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                listOfNotNull(margin?.let { "مارجین" to it }, markup?.let { "مارک‌آپ" to it }).forEach { (label, value) ->
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF4DE)),
+                        onClick = { onExplain(listOf(Glossary.MARGIN, Glossary.MARKUP)) },
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text(label, style = MaterialTheme.typography.labelMedium)
+                            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF805200))
+                        }
+                    }
+                }
+            }
+        }
+        result.maxCost?.let { max ->
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF8EE)), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("راهنمای قیمت‌گذاری", style = MaterialTheme.typography.titleSmall, color = Color(0xFF087A32))
+                    Text("${result.maxCostLabel ?: "حداکثر هزینه"}: $max", style = MaterialTheme.typography.bodyMedium)
+                    result.suggested?.let { Text("${result.suggestedLabel}: $it", style = MaterialTheme.typography.bodyMedium) }
+                }
+            }
+        }
+        if (result.channels.isNotEmpty()) {
+            Explained("قیمت برای همان مانده، مبلغ لازم برای حفظ مانده حضوری در کانال دیگر است.") {
+                onExplain(listOf(Glossary.CHANNELS))
             }
         }
     }
