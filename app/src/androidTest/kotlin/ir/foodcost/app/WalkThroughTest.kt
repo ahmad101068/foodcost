@@ -194,6 +194,7 @@ class WalkThroughTest {
 
         // The three pricing methods put the same price: a 35% food cost is a 185.71% markup.
         click("تنظیمات")
+        click("ویرایش قیمت‌گذاری")
         waitFor("ذخیرهٔ قیمت‌گذاری")
         click("مارک‌آپ")
         waitFor("185.71")
@@ -201,12 +202,16 @@ class WalkThroughTest {
         quiet()
         shot("16-settings")
         click("فودکاست هدف")
+        click("بازگشت به تنظیمات")
+        click("عمومی و راهنما")
 
         // The guide to using the app, from the settings.
         click("کار با برنامه")
         waitFor("حساب یک غذا")
         shot("17-help-guide")
         back()
+        click("بازگشت به تنظیمات")
+        click("بخش‌های منو")
 
         // Main dishes aim at a 30% food cost; a tap on the section puts the keyboard on its target.
         click("غذای اصلی")
@@ -216,6 +221,8 @@ class WalkThroughTest {
         shot("18-sections")
 
         // Online sales with a 20% commission: the online column joins the restaurant and takeaway.
+        click("بازگشت به تنظیمات")
+        click("فروش آنلاین")
         type("کمیسیون سامانه", "20")
         click("ذخیرهٔ قیمت‌گذاری")
         waitForPart("تنظیمات ذخیره شد")

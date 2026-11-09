@@ -88,6 +88,7 @@ fun SettingsScreen(
             Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            if (backupFirst) BackupCard(container, today, actions)
             if (section == "خانه") {
                 SettingsCard("وضعیت فعلی قیمت‌گذاری") {
                     Text("روش: ${methodName(input.method)}", style = MaterialTheme.typography.titleMedium)
@@ -131,7 +132,7 @@ fun SettingsScreen(
                     Text("  بازگشت به تنظیمات")
                 }
             }
-            if (backupFirst || section == "پشتیبان‌گیری") BackupCard(container, today, actions)
+            if (!backupFirst && section == "پشتیبان‌گیری") BackupCard(container, today, actions)
 
             if (section == "عمومی و راهنما") SettingsCard("راهنما") {
                 Text(
