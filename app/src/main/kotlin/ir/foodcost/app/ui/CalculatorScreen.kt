@@ -652,13 +652,20 @@ private fun PriceDetails(result: QuickResult, money: MoneyFormat, onExplain: (Li
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                             Text(channel.label, style = MaterialTheme.typography.titleSmall, color = Color(0xFF173B93))
                             Text("قیمت: ${channel.price ?: "—"}", style = MaterialTheme.typography.bodySmall)
-                            Text("مانده: ${channel.remaining ?: "—"}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, modifier = Modifier.testTag("channel-remaining"))
+                            Text("مانده: ${channel.remaining ?: "—"}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
                             Text("نسبت هزینه: ${channel.foodCostPercent ?: "—"}", style = MaterialTheme.typography.bodySmall)
                             channel.priceForSameRemaining?.let {
                                 Text("قیمت برای همان مانده: $it", style = MaterialTheme.typography.labelSmall, color = Color(0xFF173B93))
                             }
                         }
                     }
+                }
+            }
+        }
+        if (result.channels.isNotEmpty()) {
+            Card(colors = whiteCardColors(), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp)) {
+                    ChannelTable(result.channels, money) { onExplain(listOf(Glossary.CHANNELS)) }
                 }
             }
         }
