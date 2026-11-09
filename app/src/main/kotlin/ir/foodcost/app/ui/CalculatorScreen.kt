@@ -445,7 +445,7 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
                         }
                     }.joinToString("")
                     val ratio = digits.replace("٪", "").replace("%", "").replace("٫", ".").replace(",", "").trim().toFloatOrNull()
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(112.dp).clickable(onClickLabel = "توضیح فودکاست", onClick = { onExplain(Glossary.FOOD_COST) }).testTag("food-cost-gauge")) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(112.dp).testTag("food-cost-gauge")) {
                         CircularProgressIndicator(
                             progress = { ((ratio ?: 0f) / 100f).coerceIn(0f, 1f) },
                             modifier = Modifier.fillMaxSize(),
@@ -455,7 +455,7 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
                         )
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("فودکاست", style = MaterialTheme.typography.labelMedium, color = Color(0xFF263248))
-                            Text(percent, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = if (result.statusLabel == "سالم") green else orange, modifier = Modifier.testTag("food-cost"))
+                            Text(percent, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = if (result.statusLabel == "سالم") green else orange, modifier = Modifier.clickable(onClickLabel = "توضیح فودکاست", onClick = { onExplain(Glossary.FOOD_COST) }).testTag("food-cost"))
                         }
                     }
                     if (result.hasLines) StatusChip(result.status, result.statusLabel)
