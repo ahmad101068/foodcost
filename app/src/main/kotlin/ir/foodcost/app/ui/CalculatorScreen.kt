@@ -424,7 +424,7 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1.15f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DashboardMetric("قیمت فروش هر پرس", result.netSales ?: result.suggested ?: "—", navy, Color(0xFFF0F4FF), Modifier.testTag("net-sales"), money, onClick = { onExplain(if (hasPrice) Glossary.NET_SALES else Glossary.SUGGESTED) })
+                    DashboardMetric("قیمت فروش هر پرس", result.netSales ?: result.suggested ?: "—", navy, Color(0xFFF0F4FF), Modifier.testTag(if (hasPrice) "net-sales" else "suggested"), money, onClick = { onExplain(if (hasPrice) Glossary.NET_SALES else Glossary.SUGGESTED) })
                     DashboardMetric("هزینه مواد هر پرس", result.costPerPortion, orange, Color(0xFFFFF3E8), Modifier.testTag("cost"), money, onClick = { onExplain(Glossary.FOOD) })
                     if (hasPrice) {
                         DashboardMetric(
@@ -488,7 +488,7 @@ private fun DashboardMetric(
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = Color(0xFF354057))
-        FitText(value, style = MaterialTheme.typography.titleMedium, color = accent)
+        Text(value, style = MaterialTheme.typography.titleMedium, color = accent, maxLines = 2)
     }
 }
 
