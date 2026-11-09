@@ -90,6 +90,7 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
     var filter by rememberSaveable { mutableStateOf("همه") }
     val rows = remember(state, money, today, query) { IngredientScreens.rows(state, today, money, query) }
     val visibleRows = if (filter == "بدون قیمت") rows.filter { it.unitPrice == null } else rows
+    val missingPriceCount = rows.count { it.unitPrice == null }
     TabScaffold(
         title = "مواد اولیه",
         nav = nav,
@@ -109,19 +110,28 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     listOf("همه", "بدون قیمت").forEach { choice ->
-                        FilterChip(selected = filter == choice, onClick = { filter = choice }, label = { Text(choice) })
+                        FilterChip(
+                            selected = filter == choice, onClick = { filter = choice },
+                            label = { Text(choice, fontWeight = FontWeight.Bold) },
+                            colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(selectedContainerColor = Color(0xFFFFD84D), selectedLabelColor = Color(0xFF172747)),
+                            shape = RoundedCornerShape(12.dp),
+                        )
                     }
                 }
             }
             item {
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF16376D)),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0C3267)),
                 ) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("مدیریت مواد اولیه", style = MaterialTheme.typography.titleMedium, color = Color.White)
-                        Text("${Persian.digits(rows.size)} ماده ثبت‌شده", style = MaterialTheme.typography.bodyMedium, color = Color.White)
-                        Text("قیمت خرید و بازده مواد را در همین صفحه کنترل کنید.", style = MaterialTheme.typography.bodySmall, color = Color(0xFFE4ECFF))
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("مدیریت مواد اولیه", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("قیمت و بازده مواد مصرفی", style = MaterialTheme.typography.bodySmall, color = Color(0xFFDCE9FF))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            IngredientStat("تعداد مواد", Persian.digits(rows.size), Modifier.weight(1f), Color(0xFF155E9A))
+                            IngredientStat("بدون قیمت", Persian.digits(missingPriceCount), Modifier.weight(1f), Color(0xFF353C90))
+                        }
                     }
                 }
             }
@@ -213,6 +223,23 @@ private fun QuickPriceDialog(
 }
 
 @Composable
+private fun IngredientStat(label: String, value: String, modifier: Modifier, background: Color) {
+    Column(
+        modifier = modifier
+            .then(Modifier)
+            .padding(2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        androidx.compose.material3.Surface(color = background, shape = RoundedCornerShape(14.dp)) {
+            Column(Modifier.fillMaxWidth().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(label, color = Color(0xFFE4EEFF), style = MaterialTheme.typography.labelMedium)
+                Text(value, color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
 private fun IngredientListItem(row: IngredientRow, dataUnreliable: Boolean, onClick: () -> Unit, onReprice: () -> Unit) {
     val yieldLabel = row.yieldLabel
     val price = row.unitPrice
@@ -223,7 +250,7 @@ private fun IngredientListItem(row: IngredientRow, dataUnreliable: Boolean, onCl
         shape = RoundedCornerShape(18.dp),
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(row.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(row.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF0C3267))
             Text(
                 if (dataUnreliable) BackupTexts.UNVERIFIED_PRICE else price ?: row.priceProblem.orEmpty(),
                 style = MaterialTheme.typography.bodyMedium,
@@ -239,7 +266,7 @@ private fun IngredientListItem(row: IngredientRow, dataUnreliable: Boolean, onCl
                 TextButton(
                     onClick = onReprice,
                     modifier = Modifier.semantics { contentDescription = "قیمت تازهٔ ${row.name}" },
-                ) { Text("قیمت تازه") }
+                ) { Text("قیمت‌روز", color = Color(0xFF1254A0), fontWeight = FontWeight.Bold) }
             }
         }
     }

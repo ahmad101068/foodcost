@@ -116,20 +116,22 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
             item {
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     categories.forEach { choice ->
-                        FilterChip(selected = categoryFilter == choice, onClick = { categoryFilter = choice }, label = { Text(choice) })
+                        FilterChip(selected = categoryFilter == choice, onClick = { categoryFilter = choice }, label = { Text(choice, fontWeight = FontWeight.Bold) }, shape = RoundedCornerShape(12.dp), colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(selectedContainerColor = androidx.compose.ui.graphics.Color(0xFFFFD84D), selectedLabelColor = androidx.compose.ui.graphics.Color(0xFF172747)))
                     }
                 }
             }
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF16376D)),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF0C3267)),
                 ) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text("خلاصه منو", style = MaterialTheme.typography.titleMedium, color = androidx.compose.ui.graphics.Color(0xFFFFD85E))
-                        Text("${Persian.digits(model.plates.size)} غذای منو  •  ${Persian.digits(model.preparations.size)} دستور پایه", color = androidx.compose.ui.graphics.Color.White)
-                        if (actions.unreadableRows == 0 && model.needsRepricing > 0) {
-                            Text("${Persian.digits(model.needsRepricing)} غذا نیاز به بازنگری قیمت دارد", color = androidx.compose.ui.graphics.Color(0xFFFFD85E))
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("خلاصه منو", style = MaterialTheme.typography.titleLarge, color = androidx.compose.ui.graphics.Color(0xFFFFD84D))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            MenuStat("تعداد غذا", Persian.digits(model.plates.size), Modifier.weight(1f))
+                            MenuStat("دستور پایه", Persian.digits(model.preparations.size), Modifier.weight(1f))
+                            MenuStat("نیازمند اصلاح", if (actions.unreadableRows > 0) "—" else Persian.digits(model.needsRepricing), Modifier.weight(1f))
                         }
                     }
                 }
@@ -219,6 +221,14 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
 }
 
 @Composable
+private fun MenuStat(label: String, value: String, modifier: Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Text(label, color = androidx.compose.ui.graphics.Color(0xFFE3EBFC), style = MaterialTheme.typography.labelSmall)
+        Text(value, color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.titleLarge)
+    }
+}
+
+@Composable
 private fun UnverifiedFinancialData() {
     Text(
         BackupTexts.UNVERIFIED_RESULT,
@@ -251,7 +261,7 @@ private fun PlateCard(row: MenuRow, dataUnreliable: Boolean, onClick: () -> Unit
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(row.name, style = MaterialTheme.typography.titleMedium)
+                    Text(row.name, style = MaterialTheme.typography.titleMedium, color = androidx.compose.ui.graphics.Color(0xFF0C3267))
                     listOfNotNull(row.kindLabel, row.category).joinToString("، ").ifEmpty { null }?.let {
                         Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
