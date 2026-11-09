@@ -94,6 +94,18 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
         ) {
             item { SearchField(query, { query = it }, "جستجوی ماده") }
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("مواد اولیه", style = MaterialTheme.typography.titleMedium)
+                        Text("${Persian.digits(rows.size)} ماده در فهرست", style = MaterialTheme.typography.bodyMedium)
+                        Text("برای اصلاح قیمت خرید، «قیمت تازه» را انتخاب کنید.", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
             if (rows.isEmpty()) {
                 item {
                     if (query.isBlank()) {
@@ -185,26 +197,33 @@ private fun QuickPriceDialog(
 private fun IngredientListItem(row: IngredientRow, dataUnreliable: Boolean, onClick: () -> Unit, onReprice: () -> Unit) {
     val yieldLabel = row.yieldLabel
     val price = row.unitPrice
-    ListItem(
-        headlineContent = { Text(row.name) },
-        supportingContent = {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(row.name, style = MaterialTheme.typography.titleMedium)
             Text(
-                (if (dataUnreliable) BackupTexts.UNVERIFIED_PRICE else price ?: row.priceProblem.orEmpty()),
-                color = if (dataUnreliable || price == null) MaterialTheme.colorScheme.error else Color.Unspecified,
+                if (dataUnreliable) BackupTexts.UNVERIFIED_PRICE else price ?: row.priceProblem.orEmpty(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (dataUnreliable || price == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
             )
-        },
-        trailingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (yieldLabel != null) Text(yieldLabel, style = MaterialTheme.typography.labelMedium)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (yieldLabel != null) Text("بازده: $yieldLabel", style = MaterialTheme.typography.labelMedium)
+                else Spacer(Modifier.width(1.dp))
                 TextButton(
                     onClick = onReprice,
                     modifier = Modifier.semantics { contentDescription = "قیمت تازهٔ ${row.name}" },
                 ) { Text("قیمت تازه") }
             }
-        },
-        modifier = Modifier.clickable(onClick = onClick),
-    )
-    HorizontalDivider()
+        }
+    }
 }
 
 /** One ingredient: its price today, the price history and where it is used. */

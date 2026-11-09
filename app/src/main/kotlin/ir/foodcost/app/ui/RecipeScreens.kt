@@ -105,6 +105,20 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
         ) {
             item { SearchField(query, { query = it }, "جستجوی غذا") }
             item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("خلاصه منو", style = MaterialTheme.typography.titleMedium)
+                        Text("${Persian.digits(model.plates.size)} غذای منو  •  ${Persian.digits(model.preparations.size)} دستور پایه")
+                        if (actions.unreadableRows == 0 && model.needsRepricing > 0) {
+                            Text("${Persian.digits(model.needsRepricing)} غذا نیاز به بازنگری قیمت دارد", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            }
+            item {
                 TextButton(onClick = { creatingBase = true }) {
                     Text("دستور پایه (برای ترکیبات مشترک)")
                 }
@@ -217,7 +231,7 @@ private fun PriceVerdict(needsRepricing: Int) {
 
 @Composable
 private fun PlateCard(row: MenuRow, dataUnreliable: Boolean, onClick: () -> Unit, onDelete: () -> Unit) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), colors = whiteCardColors()) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp), colors = whiteCardColors()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
