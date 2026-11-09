@@ -75,7 +75,10 @@ class WalkThroughTest {
     }
 
     private fun walk() {
-        // The empty calculator opens with the keyboard on the first field.
+        // Wait for the calculator to render, then explicitly focus its first field.
+        // Emulator keyboard focus is not guaranteed to survive activity recreation.
+        waitForTag("row-0-name")
+        rule.onNodeWithTag("row-0-name").performClick()
         waitForFocus("row-0-name")
         shot("01-calculator-empty")
 
