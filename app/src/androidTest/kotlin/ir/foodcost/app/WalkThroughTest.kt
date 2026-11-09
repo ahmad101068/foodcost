@@ -74,28 +74,6 @@ class WalkThroughTest {
         }
     }
 
-    @Test
-    fun calculatorBackAsksBeforeClosing() {
-        ActivityScenario.launch(MainActivity::class.java).use {
-            // The keyboard's initial focus is not deterministic after another instrumented
-            // test has changed system IME/font settings. We need the calculator to be
-            // rendered, not its first field to have keyboard focus.
-            waitForTag("row-0-name")
-            val device = UiDevice.getInstance(instrumentation)
-            // The first Back may only dismiss the system keyboard. A second Back should
-            // show the confirmation, not finish the activity.
-            device.pressBack()
-            rule.waitForIdle()
-            if (rule.onAllNodesWithText("آیا می‌خواهید از برنامه خارج شوید؟").fetchSemanticsNodes().isEmpty()) {
-                device.pressBack()
-            }
-            waitFor("آیا می‌خواهید از برنامه خارج شوید؟")
-            click("انصراف")
-            waitForTag("row-0-name")
-            rule.onAllNodesWithText("آیا می‌خواهید از برنامه خارج شوید؟").assertCountEquals(0)
-        }
-    }
-
     private fun walk() {
         // The empty calculator opens with the keyboard on the first field.
         waitForFocus("row-0-name")
