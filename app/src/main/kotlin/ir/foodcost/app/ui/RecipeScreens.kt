@@ -1,6 +1,12 @@
 package ir.foodcost.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Surface
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -87,9 +93,12 @@ import java.time.LocalDate
 fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav: Navigator, actions: AppActions) {
     var query by rememberSaveable { mutableStateOf("") }
     var creating by rememberSaveable { mutableStateOf(false) }
+    var categoryFilter by rememberSaveable { mutableStateOf("همه") }
     var creatingBase by rememberSaveable { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<Pair<RecipeId, String>?>(null) }
     val model = remember(state, money, today, query) { DishesScreen.build(state, today, money, query) }
+    val categories = listOf("همه") + model.plates.mapNotNull { it.category }.distinct()
+    val filteredPlates = if (categoryFilter == "همه") model.plates else model.plates.filter { it.category == categoryFilter }
     TabScaffold(
         title = "غذاها",
         nav = nav,
@@ -105,15 +114,22 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
         ) {
             item { SearchField(query, { query = it }, "جستجوی غذا") }
             item {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    categories.forEach { choice ->
+                        FilterChip(selected = categoryFilter == choice, onClick = { categoryFilter = choice }, label = { Text(choice) })
+                    }
+                }
+            }
+            item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF16376D)),
                 ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text("خلاصه منو", style = MaterialTheme.typography.titleMedium)
-                        Text("${Persian.digits(model.plates.size)} غذای منو  •  ${Persian.digits(model.preparations.size)} دستور پایه")
+                        Text("خلاصه منو", style = MaterialTheme.typography.titleMedium, color = androidx.compose.ui.graphics.Color(0xFFFFD85E))
+                        Text("${Persian.digits(model.plates.size)} غذای منو  •  ${Persian.digits(model.preparations.size)} دستور پایه", color = androidx.compose.ui.graphics.Color.White)
                         if (actions.unreadableRows == 0 && model.needsRepricing > 0) {
-                            Text("${Persian.digits(model.needsRepricing)} غذا نیاز به بازنگری قیمت دارد", color = MaterialTheme.colorScheme.error)
+                            Text("${Persian.digits(model.needsRepricing)} غذا نیاز به بازنگری قیمت دارد", color = androidx.compose.ui.graphics.Color(0xFFFFD85E))
                         }
                     }
                 }
@@ -142,7 +158,7 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
             }
             if (model.plates.isNotEmpty()) {
                 item { SectionTitle("غذاهای منو", Modifier.padding(start = 4.dp)) }
-                items(model.plates, key = { it.recipeId.value }) { row ->
+                items(filteredPlates, key = { it.recipeId.value }) { row ->
                     PlateCard(
                         row,
                         dataUnreliable = actions.unreadableRows > 0,
@@ -231,7 +247,7 @@ private fun PriceVerdict(needsRepricing: Int) {
 
 @Composable
 private fun PlateCard(row: MenuRow, dataUnreliable: Boolean, onClick: () -> Unit, onDelete: () -> Unit) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp), colors = whiteCardColors()) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = whiteCardColors()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

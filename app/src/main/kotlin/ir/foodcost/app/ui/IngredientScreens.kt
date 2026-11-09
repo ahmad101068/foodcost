@@ -1,6 +1,12 @@
 package ir.foodcost.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Surface
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -69,6 +75,7 @@ import ir.foodcost.presentation.IngredientScreens
 import ir.foodcost.presentation.JalaliDate
 import ir.foodcost.presentation.Labels
 import ir.foodcost.presentation.MoneyFormat
+import ir.foodcost.presentation.Persian
 import ir.foodcost.presentation.PriceInput
 import ir.foodcost.presentation.PriceRow
 import ir.foodcost.presentation.QuickCalculator
@@ -80,7 +87,9 @@ import java.time.LocalDate
 fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav: Navigator, actions: AppActions) {
     var query by rememberSaveable { mutableStateOf("") }
     var repricing by remember { mutableStateOf<IngredientRow?>(null) }
+    var filter by rememberSaveable { mutableStateOf("همه") }
     val rows = remember(state, money, today, query) { IngredientScreens.rows(state, today, money, query) }
+    val visibleRows = if (filter == "بدون قیمت") rows.filter { it.unitPrice == null } else rows
     TabScaffold(
         title = "مواد اولیه",
         nav = nav,
@@ -95,18 +104,28 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
         ) {
             item { SearchField(query, { query = it }, "جستجوی ماده") }
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("مواد اولیه", style = MaterialTheme.typography.titleMedium)
-                        Text("${Persian.digits(rows.size)} ماده در فهرست", style = MaterialTheme.typography.bodyMedium)
-                        Text("برای اصلاح قیمت خرید، «قیمت تازه» را انتخاب کنید.", style = MaterialTheme.typography.bodySmall)
+                    listOf("همه", "بدون قیمت").forEach { choice ->
+                        FilterChip(selected = filter == choice, onClick = { filter = choice }, label = { Text(choice) })
                     }
                 }
             }
-            if (rows.isEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF16376D)),
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("مدیریت مواد اولیه", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                        Text("${Persian.digits(rows.size)} ماده ثبت‌شده", style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                        Text("قیمت خرید و بازده مواد را در همین صفحه کنترل کنید.", style = MaterialTheme.typography.bodySmall, color = Color(0xFFE4ECFF))
+                    }
+                }
+            }
+            if (visibleRows.isEmpty()) {
                 item {
                     if (query.isBlank()) {
                         EmptyState(
@@ -118,7 +137,7 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
                     }
                 }
             }
-            items(rows, key = { it.id.value }) { row ->
+            items(visibleRows, key = { it.id.value }) { row ->
                 IngredientListItem(
                     row = row,
                     dataUnreliable = actions.unreadableRows > 0,
@@ -201,10 +220,10 @@ private fun IngredientListItem(row: IngredientRow, dataUnreliable: Boolean, onCl
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(18.dp),
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(row.name, style = MaterialTheme.typography.titleMedium)
+            Text(row.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text(
                 if (dataUnreliable) BackupTexts.UNVERIFIED_PRICE else price ?: row.priceProblem.orEmpty(),
                 style = MaterialTheme.typography.bodyMedium,
