@@ -277,18 +277,9 @@ enum class MethodChoice { FOOD_COST, MARGIN, MARKUP }
  */
 enum class SettingsArea { GENERAL_PRICING, MENU_SECTIONS, FIXED_COSTS, ONLINE }
 
-/**
- * A menu section, as typed: one with a pricing method of its own, as drinks usually aim lower than
- * plates, or with [useGeneral] one priced like the rest, there to put dishes in.
- */
-data class CategoryTargetInput(
-    val name: String = "",
-    val percent: String = "",
-    val method: MethodChoice = MethodChoice.FOOD_COST,
-    val basis: CostBasis = CostBasis.FOOD_COST,
-    val useGeneral: Boolean = false,
-) {
-    val isBlank: Boolean get() = name.isBlank() && (useGeneral || percent.isBlank())
+/** A section name is for grouping only. There are no per-section pricing inputs. */
+data class CategoryTargetInput(val name: String = "") {
+    val isBlank: Boolean get() = name.isBlank()
 }
 
 /** The pricing rules and misc share, ready to save. */
@@ -311,7 +302,7 @@ data class SettingsInput(
     val onlineCommission: String = "",
     val onlineDiscount: String = "",
     val onlineUplift: String = "",
-    /** The menu sections: priced with a method of their own, or with the general one. */
+    /** Optional menu section names. Every dish uses the general pricing method. */
     val categories: List<CategoryTargetInput> = emptyList(),
     /**
      * True when [percent] was kept from a margin or markup on every cost on a switch to a food
@@ -399,28 +390,15 @@ data class SettingsInput(
         val uplift = p.decimal(onlineUplift.ifBlank { "0" }, Field.UPLIFT, "درصد گران‌تر بودن آنلاین نمی‌تواند منفی باشد.") {
             it.signum() >= 0
         }
-        val byCategory = LinkedHashMap<String, PricingMethod>()
         val general = ArrayList<String>()
         val seen = HashSet<String>()
         categories.forEach { category ->
             if (category.isBlank) return@forEach
             val name = category.name.trim()
-            val target = Numbers.parse(category.percent)
-            val validTarget = when (category.method) {
-                MethodChoice.FOOD_COST -> target != null && target.signum() > 0 && target < HUNDRED
-                MethodChoice.MARGIN -> target != null && target.signum() >= 0 && target < HUNDRED
-                MethodChoice.MARKUP -> target != null && target.signum() >= 0
-            }
             when {
                 name.isEmpty() -> p.add(Field.CATEGORY, "نام بخش را بنویسید.")
                 !seen.add(Persian.searchKey(name)) -> p.add(Field.CATEGORY, "بخش «$name» دو بار آمده است.")
-                category.useGeneral -> general += name
-                !validTarget -> p.add(Field.CATEGORY, if (category.method == MethodChoice.FOOD_COST) "فودکاست هدف «$name» باید بیشتر از ۰ و کمتر از ۱۰۰ باشد." else "درصد روش قیمت‌گذاری «$name» معتبر نیست.")
-                else -> byCategory[name] = when (category.method) {
-                    MethodChoice.FOOD_COST -> PricingMethod.TargetFoodCost(target!!)
-                    MethodChoice.MARGIN -> PricingMethod.TargetMargin(target!!, category.basis)
-                    MethodChoice.MARKUP -> PricingMethod.Markup(target!!, category.basis)
-                }
+                else -> general += name
             }
         }
         return p.result {
@@ -438,7 +416,8 @@ data class SettingsInput(
                     rounding = PriceRounding(roundingStepRials, roundingDirection),
                     overhead = overhead,
                     online = OnlineTerms(commission!!, discount!!, uplift!!),
-                    methodByCategory = byCategory,
+                    // Clear obsolete targets when saving any settings area; retain section names.
+                    methodByCategory = emptyMap(),
                     generalSections = general,
                 ),
             )
@@ -590,26 +569,7 @@ data class SettingsInput(
                 onlineCommission = percentOrBlank(pricing.online.commissionPercent),
                 onlineDiscount = percentOrBlank(pricing.online.discountPercent),
                 onlineUplift = percentOrBlank(pricing.online.priceUpliftPercent),
-                categories = pricing.methodByCategory.map { (name, method) ->
-                    CategoryTargetInput(
-                        name = name,
-                        percent = Numbers.editable(when (method) {
-                            is PricingMethod.TargetFoodCost -> method.percent
-                            is PricingMethod.TargetMargin -> method.percent
-                            is PricingMethod.Markup -> method.percent
-                        }),
-                        method = when (method) {
-                            is PricingMethod.TargetFoodCost -> MethodChoice.FOOD_COST
-                            is PricingMethod.TargetMargin -> MethodChoice.MARGIN
-                            is PricingMethod.Markup -> MethodChoice.MARKUP
-                        },
-                        basis = when (method) {
-                            is PricingMethod.TargetFoodCost -> CostBasis.FOOD_COST
-                            is PricingMethod.TargetMargin -> method.basis
-                            is PricingMethod.Markup -> method.basis
-                        },
-                    )
-                } + pricing.generalSections.filter { it !in pricing.methodByCategory }.map { CategoryTargetInput(name = it, useGeneral = true) },
+                categories = pricing.sections.map(::CategoryTargetInput),
             )
         }
     }

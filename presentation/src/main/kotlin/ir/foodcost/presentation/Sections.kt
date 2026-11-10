@@ -5,9 +5,8 @@ import ir.foodcost.data.ledger.LedgerState
 /** The menu sections a dish can be put in. */
 object Sections {
     /**
-     * Those of the settings, with a pricing method of their own or priced with the general one, then
-     * any other section a dish on the menu is already in, such as one typed before sections were
-     * chosen from the settings: each once, in that order.
+     * Names from settings (including legacy category names), then any other section used by
+     * existing dishes. These labels have no pricing effect: all dishes use the general method.
      */
     fun of(state: LedgerState): List<String> {
         val settings = state.pricing.sections

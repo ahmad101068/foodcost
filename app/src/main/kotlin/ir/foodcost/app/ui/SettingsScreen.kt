@@ -83,10 +83,8 @@ fun SettingsScreen(
     BackHandler(enabled = section != "خانه") { section = "خانه" }
     val context = LocalContext.current
     val categoryNames = remember { HashMap<Int, FocusRequester>() }
-    val categoryPercents = remember { HashMap<Int, FocusRequester>() }
     fun categoryName(i: Int): FocusRequester = categoryNames.getOrPut(i) { FocusRequester() }
-    fun categoryPercent(i: Int): FocusRequester = categoryPercents.getOrPut(i) { FocusRequester() }
-    var focusCategory by remember { mutableStateOf<Pair<Int, Boolean>?>(null) }
+    var focusCategory by remember { mutableStateOf<Int?>(null) }
 
     TabScaffold(title = "تنظیمات", nav = nav, actions = actions) { padding ->
         // While the data waits for the user's choice, or a backup is due, the backup card comes first:
@@ -102,7 +100,7 @@ fun SettingsScreen(
                     Text("روش عمومی ذخیره‌شده: ${methodName(persisted.method)}", style = MaterialTheme.typography.titleMedium)
                     Text("درصد: ${persisted.percent}٪   |   مبنا: ${basisName(persisted.basis)}")
                     Text("مالیات: ${persisted.vatPercent}٪", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("بخش‌های با قیمت‌گذاری اختصاصی: ${state.pricing.methodByCategory.size}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("بخش‌های منو: ${state.pricing.sections.size} (فقط دسته‌بندی)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (input != persisted) {
                         Text("ویرایش‌هایی در تنظیمات وجود دارد که هنوز ذخیره نشده‌اند.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                     }
@@ -112,7 +110,7 @@ fun SettingsScreen(
                 }
                 listOf(
                     Triple("قیمت‌گذاری", "فودکاست، مارجین، مارک‌آپ، مالیات و گرد کردن", Icons.Filled.Settings),
-                    Triple("بخش‌های منو", "قیمت‌گذاری اختصاصی گروه‌های غذایی", Icons.Filled.List),
+                    Triple("دسته‌بندی منو", "بخش‌بندی غذاها بدون قیمت‌گذاری جداگانه", Icons.Filled.List),
                     Triple("فروش آنلاین", "کمیسیون، تخفیف و افزایش قیمت", Icons.Filled.ShoppingCart),
                     Triple("هزینه‌های ثابت", "سربار ماهانه و سهم هر پرس", Icons.Filled.ShoppingCart),
                     Triple("پشتیبان‌گیری", "ساخت و بازگرداندن فایل اطلاعات", Icons.Filled.Info),
@@ -262,10 +260,9 @@ fun SettingsScreen(
                 )
             }
 
-            if (section == "بخش‌های منو") SettingsCard("قیمت‌گذاری اختصاصی بخش‌های منو") {
+            if (section == "دسته‌بندی منو") SettingsCard("دسته‌بندی منو") {
                 Text(
-                    "بخش‌های منو را اینجا بسازید تا غذاها را در آن‌ها بگذارید. هر بخش می‌تواند فودکاست هدف، حاشیهٔ سود یا مارک‌آپ مخصوص داشته باشد، " +
-                        "یا مثل بقیه با روش عمومی بالا قیمت بخورد. برای غذای بدون بخش هم روش عمومی بالا اعمال می‌شود.",
+                    "بخش‌های منو فقط برای مرتب‌کردن غذاها هستند. تمام غذاها، با هر نام بخشی، از روش و درصد قیمت‌گذاری عمومی استفاده می‌کنند.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 input.categories.forEachIndexed { i, category ->
@@ -274,48 +271,11 @@ fun SettingsScreen(
                             value = category.name,
                             onValueChange = { input = input.withCategory(i, category.copy(name = it)) },
                             label = "نام بخش",
-                            modifier = Modifier.weight(1.4f).focusRequester(categoryName(i)).testTag("category-$i-name"),
-                            imeAction = ImeAction.Next,
+                            modifier = Modifier.weight(1f).focusRequester(categoryName(i)).testTag("category-$i-name"),
+                            imeAction = ImeAction.Done,
                         )
-                        if (!category.useGeneral) {
-                            TextInput(
-                                value = category.percent,
-                                onValueChange = { input = input.withCategory(i, category.copy(percent = it)) },
-                                label = methodName(category.method),
-                                modifier = Modifier.weight(1f).focusRequester(categoryPercent(i)).testTag("category-$i-percent"),
-                                number = true,
-                                suffix = "٪",
-                                imeAction = ImeAction.Done,
-                            )
-                        }
                         IconButton(onClick = { input = input.withoutCategory(i) }) {
                             Icon(Icons.Filled.Close, contentDescription = "حذف بخش")
-                        }
-                    }
-                    Text("روش قیمت‌گذاری «${category.name.ifBlank { "بخش جدید" }}»", style = MaterialTheme.typography.labelMedium)
-                    // null: priced like the rest, with the general method above.
-                    val methods: List<MethodChoice?> = listOf(null) + MethodChoice.entries
-                    ChoiceChips(methods, category.method.takeIf { !category.useGeneral }, { it?.let(::methodName) ?: "روش عمومی" }) { chosen ->
-                        val next = when {
-                            chosen == null -> category.copy(useGeneral = true)
-                            category.useGeneral || chosen != category.method ->
-                                category.copy(useGeneral = false, method = chosen, percent = "", basis = CostBasis.FOOD_COST)
-                            else -> category
-                        }
-                        if (next != category) input = input.withCategory(i, next)
-                    }
-                    when {
-                        category.useGeneral -> Text(
-                            "این بخش مثل بقیهٔ غذاها با روش عمومی بالا قیمت می‌خورد و برای دسته‌بندی غذاهاست.",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        category.method == MethodChoice.FOOD_COST ->
-                            Text("مبنای فودکاست هدف: فقط هزینهٔ مواد اولیه", style = MaterialTheme.typography.bodySmall)
-                        else -> {
-                            Text("مبنای محاسبه درصد", style = MaterialTheme.typography.labelMedium)
-                            Segmented(CostBasis.entries, category.basis, { basisName(it) }) { chosen ->
-                                input = input.withCategory(i, category.copy(basis = chosen))
-                            }
                         }
                     }
                 }
@@ -326,7 +286,7 @@ fun SettingsScreen(
                     input.categoryPresets().forEach { name ->
                         AssistChip(
                             onClick = {
-                                focusCategory = input.categories.size to true
+                                focusCategory = input.categories.size
                                 input = input.plusCategory(name)
                             },
                             label = { Text(name) },
@@ -335,18 +295,17 @@ fun SettingsScreen(
                     }
                     AssistChip(
                         onClick = {
-                            focusCategory = input.categories.size to false
+                            focusCategory = input.categories.size
                             input = input.plusCategory("")
                         },
                         label = { Text("بخش دیگر") },
                         leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
                     )
                 }
-                // A new section takes the keyboard: on its target when it came with a name, else on its name.
                 LaunchedEffect(focusCategory, input.categories.size) {
-                    val (i, named) = focusCategory ?: return@LaunchedEffect
+                    val i = focusCategory ?: return@LaunchedEffect
                     if (i < input.categories.size) {
-                        runCatching { (if (named) categoryPercent(i) else categoryName(i)).requestFocus() }
+                        runCatching { categoryName(i).requestFocus() }
                         focusCategory = null
                     }
                 }
@@ -413,11 +372,11 @@ fun SettingsScreen(
             }
 
             // Each section commits only its own fields. Pending edits elsewhere are excluded.
-            if (section in listOf("قیمت‌گذاری", "بخش‌های منو", "هزینه‌های ثابت", "فروش آنلاین")) Button(
+            if (section in listOf("قیمت‌گذاری", "دسته‌بندی منو", "هزینه‌های ثابت", "فروش آنلاین")) Button(
                 onClick = {
                     val area = when (section) {
                         "قیمت‌گذاری" -> SettingsArea.GENERAL_PRICING
-                        "بخش‌های منو" -> SettingsArea.MENU_SECTIONS
+                        "دسته‌بندی منو" -> SettingsArea.MENU_SECTIONS
                         "هزینه‌های ثابت" -> SettingsArea.FIXED_COSTS
                         else -> SettingsArea.ONLINE
                     }
@@ -437,7 +396,7 @@ fun SettingsScreen(
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("ذخیرهٔ قیمت‌گذاری") }
+            ) { Text(if (section == "دسته‌بندی منو") "ذخیرهٔ دسته‌بندی" else "ذخیرهٔ قیمت‌گذاری") }
 
 
 

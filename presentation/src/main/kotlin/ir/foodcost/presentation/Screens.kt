@@ -17,7 +17,6 @@ import ir.foodcost.core.model.RecipeLine
 import ir.foodcost.core.model.RecipeVersion
 import ir.foodcost.core.over
 import ir.foodcost.core.pricing.PriceStatus
-import ir.foodcost.core.pricing.PricingMethod
 import ir.foodcost.core.reports.MenuItemReport
 import ir.foodcost.core.units.Dimension
 import ir.foodcost.core.units.UnitConverter
@@ -34,7 +33,7 @@ data class MenuRow(
     val name: String,
     /** Set for event packages, so they stand out from plates. */
     val kindLabel: String?,
-    /** The menu section, such as نوشیدنی گرم, with its food cost target when it has one. */
+    /** Optional menu section label; no section-level pricing applies. */
     val category: String? = null,
     val status: PriceStatus,
     val statusLabel: String,
@@ -75,13 +74,13 @@ object MenuStatusScreen {
             compareBy<MenuItemReport> { ORDER.indexOf(it.status) }
                 .thenByDescending { if (it.needsRaise()) it.evaluation.changePercent ?: BigDecimal.ZERO else BigDecimal.ZERO }
                 .thenBy(names) { it.recipe.name },
-        ).map { row(it, money, state.pricing.methodByCategory) }
+        ).map { row(it, money) }
         return MenuStatusModel(JalaliDate.of(date).formatLong(), rows, items.groupingBy { it.status }.eachCount())
     }
 
     private fun MenuItemReport.needsRaise(): Boolean = status == PriceStatus.UNDER || status == PriceStatus.NEAR
 
-    private fun row(item: MenuItemReport, money: MoneyFormat, targets: Map<String, PricingMethod>): MenuRow {
+    private fun row(item: MenuItemReport, money: MoneyFormat): MenuRow {
         val e = item.evaluation
         // A cost with lines missing would look exact and be wrong, so it is not shown as a number.
         val reliable = item.cost.hasLines && item.cost.isComplete
@@ -89,10 +88,7 @@ object MenuStatusScreen {
             recipeId = item.recipe.id,
             name = item.recipe.name,
             kindLabel = if (item.recipe.kind == RecipeKind.EVENT_PACKAGE) Labels.kind(item.recipe.kind) else null,
-            category = item.recipe.category?.let { section ->
-                val target = (targets[section] as? PricingMethod.TargetFoodCost)?.takeIf { item.recipe.pricing == null }
-                if (target == null) section else "$section، هدف ${Numbers.percent(target.percent)}"
-            },
+            category = item.recipe.category,
             status = item.status,
             statusLabel = Labels.status(item.status),
             foodCost = costText(item.cost.hasLines, item.cost.isComplete, item.cost.foodCostPerPortion, money),
