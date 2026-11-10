@@ -190,15 +190,18 @@ class WalkThroughTest {
         shot("15-recipe")
         back()
 
-        // The three pricing methods put the same price: a 35% food cost is a 185.71% markup.
+        // The three pricing methods put the same price, retaining the recurring markup's precision.
         click("تنظیمات")
         waitFor("ذخیرهٔ قیمت‌گذاری")
+        click("حاشیهٔ سود")
+        waitFor("65")
         click("مارک‌آپ")
-        waitFor("185.71")
+        waitForPart("185.714285714285")
         waitForPart("یعنی فودکاست ۳۵٪ و حاشیهٔ سود ۶۵٪")
         quiet()
         shot("16-settings")
         click("فودکاست هدف")
+        waitFor("35")
 
         // The guide to using the app, from the settings.
         click("کار با برنامه")
