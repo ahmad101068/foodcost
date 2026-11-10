@@ -15,6 +15,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -64,6 +75,7 @@ fun SettingsScreen(
     val currency by container.currency.collectAsState()
     var input by remember(state.pricing, state.costing, money) { mutableStateOf(SettingsInput.of(state.pricing, state.costing, money)) }
     var errors by remember { mutableStateOf(emptyMap<Field, String>()) }
+    var section by remember { mutableStateOf("خانه") }
     val context = LocalContext.current
     val categoryNames = remember { HashMap<Int, FocusRequester>() }
     val categoryPercents = remember { HashMap<Int, FocusRequester>() }
@@ -79,9 +91,52 @@ fun SettingsScreen(
             Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            if (backupFirst) BackupCard(container, today, actions)
+            if (section == "خانه") {
+                SettingsCard("وضعیت فعلی قیمت‌گذاری") {
+                    Text("روش: ${methodName(input.method)}", style = MaterialTheme.typography.titleMedium)
+                    Text("درصد: ${input.percent}٪   |   مبنا: ${basisName(input.basis)}")
+                    Text("مالیات: ${input.vatPercent}٪", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedButton(onClick = { section = "قیمت‌گذاری" }, modifier = Modifier.fillMaxWidth()) {
+                        Text("ویرایش قیمت‌گذاری")
+                    }
+                }
+                listOf(
+                    Triple("قیمت‌گذاری", "فودکاست، مارجین، مارک‌آپ، مالیات و گرد کردن", Icons.Filled.Tune),
+                    Triple("بخش‌های منو", "قیمت‌گذاری اختصاصی گروه‌های غذایی", Icons.Filled.List),
+                    Triple("فروش آنلاین", "کمیسیون، تخفیف و افزایش قیمت", Icons.Filled.ShoppingCart),
+                    Triple("هزینه‌های ثابت", "سربار ماهانه و سهم هر پرس", Icons.Filled.AccountBalanceWallet),
+                    Triple("پشتیبان‌گیری", "ساخت و بازگرداندن فایل اطلاعات", Icons.Filled.Backup),
+                    Triple("عمومی و راهنما", "واحد پول، راهنما و اطلاعات برنامه", Icons.Filled.Info),
+                ).forEach { (name, description, symbol) ->
+                    Card(
+                        onClick = { section = name },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Icon(symbol, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(name, style = MaterialTheme.typography.titleMedium)
+                                Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Icon(Icons.Filled.ChevronLeft, contentDescription = null)
+                        }
+                    }
+                }
+            } else {
+                OutlinedButton(onClick = { section = "خانه" }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Filled.ArrowForward, contentDescription = null)
+                    Text("  بازگشت به تنظیمات")
+                }
+            }
+            if (backupFirst || section == "پشتیبان‌گیری") BackupCard(container, today, actions)
 
-            SettingsCard("راهنما") {
+            if (section == "عمومی و راهنما") SettingsCard("راهنما") {
                 Text(
                     "معنی واژه‌هایی مثل فودکاست، مارجین، مارک‌آپ و بهای تمام‌شده، و راهنمای کار با برنامه.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -92,7 +147,7 @@ fun SettingsScreen(
                 }
             }
 
-            SettingsCard("واحد پول") {
+            if (section == "عمومی و راهنما") SettingsCard("واحد پول") {
                 Segmented(DisplayCurrency.entries, currency, { Labels.currency(it) }) { container.setCurrency(it) }
                 Text(
                     "مبلغ‌ها همیشه به ریال ذخیره می‌شوند؛ این فقط شکل نمایش و ورود مبلغ است.",
@@ -101,7 +156,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsCard("قیمت‌گذاری") {
+            if (section == "قیمت‌گذاری") SettingsCard("قیمت‌گذاری") {
                 // The three are ways to put the same price: switching turns the number into its equivalent.
                 Segmented(MethodChoice.entries, input.method, { methodName(it) }) { input = input.withMethod(it) }
                 TextInput(
@@ -158,7 +213,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsCard("قیمت‌گذاری اختصاصی بخش‌های منو") {
+            if (section == "بخش‌های منو") SettingsCard("قیمت‌گذاری اختصاصی بخش‌های منو") {
                 Text(
                     "بخش‌های منو را اینجا بسازید تا غذاها را در آن‌ها بگذارید. هر بخش می‌تواند فودکاست هدف، حاشیهٔ سود یا مارک‌آپ مخصوص داشته باشد، " +
                         "یا مثل بقیه با روش عمومی بالا قیمت بخورد. برای غذای بدون بخش هم روش عمومی بالا اعمال می‌شود.",
@@ -248,7 +303,7 @@ fun SettingsScreen(
                 }
             }
 
-            SettingsCard("هزینه‌های ثابت ماهانه") {
+            if (section == "هزینه‌های ثابت") SettingsCard("هزینه‌های ثابت ماهانه") {
                 Text(
                     "حقوق، اجاره، گاز و برق و بقیهٔ هزینه‌های ثابت یک ماه، تقسیم بر پرس‌هایی که در ماه فروخته می‌شود، سهم هر پرس از سربار است. اختیاری است.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -276,7 +331,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsCard("فروش آنلاین") {
+            if (section == "فروش آنلاین") SettingsCard("فروش آنلاین") {
                 Text(
                     "اگر غذا از راه سامانه‌های سفارش آنلاین هم فروخته می‌شود، ماشین‌حساب کنار فروش حضوری، مانده‌اش را هم نشان می‌دهد.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -309,7 +364,7 @@ fun SettingsScreen(
             }
 
             // One button for the three cards above: pricing, fixed costs and online sales.
-            Button(
+            if (section in listOf("قیمت‌گذاری", "بخش‌های منو", "هزینه‌های ثابت", "فروش آنلاین")) Button(
                 onClick = {
                     when (val checked = input.check(state.pricing, state.costing, money)) {
                         is Checked.Invalid -> {
@@ -328,9 +383,9 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("ذخیرهٔ قیمت‌گذاری") }
 
-            if (!backupFirst) BackupCard(container, today, actions)
 
-            SettingsCard("دربارهٔ برنامه") {
+
+            if (section == "عمومی و راهنما") SettingsCard("دربارهٔ برنامه") {
                 Text("فودکاست، نسخهٔ ${Persian.digits(versionLabel(context))}", style = MaterialTheme.typography.bodyMedium)
                 Text(
                     "فودکاست برای یک نفر روی یک گوشی است: هر تغییری به نام مالک ثبت می‌شود و کاربر یا نقش جدا ندارد. " +
