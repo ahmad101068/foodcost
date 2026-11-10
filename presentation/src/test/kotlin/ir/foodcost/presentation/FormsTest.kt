@@ -162,7 +162,7 @@ class FormsTest {
     }
 
     @Test
-    fun `saving a menu target must not overwrite unsaved changes to general pricing`() {
+    fun `saving a menu label must not overwrite unsaved changes to general pricing`() {
         val current = PricingSettings(
             defaultMethod = PricingMethod.TargetMargin(BigDecimal("30"), CostBasis.FULL_COST),
             vatPercent = BigDecimal("10"),
@@ -172,30 +172,28 @@ class FormsTest {
         val pending = SettingsInput.of(current, costing, toman)
             .copy(method = MethodChoice.FOOD_COST, percent = "25", vatPercent = "9", onlineCommission = "35")
             .plusCategory("غذای اصلی")
-            .let { it.withCategory(1, it.categories[1].copy(percent = "28")) }
 
         val savedMenu = valid(pending.forSaveArea(SettingsArea.MENU_SECTIONS, current, costing, toman).check(current, costing, toman))
         assertEquals(current.defaultMethod, savedMenu.pricing.defaultMethod)
         assertEquals(current.vatPercent, savedMenu.pricing.vatPercent)
         assertEquals(current.online, savedMenu.pricing.online)
         assertEquals(costing, savedMenu.costing)
-        assertEquals(PricingMethod.TargetFoodCost(BigDecimal("28")), savedMenu.pricing.methodByCategory["غذای اصلی"])
-        assertEquals(current.methodByCategory["نوشیدنی گرم"], savedMenu.pricing.methodByCategory["نوشیدنی گرم"])
+        assertEquals(emptyMap(), savedMenu.pricing.methodByCategory)
+        assertEquals(listOf("نوشیدنی گرم", "غذای اصلی"), savedMenu.pricing.generalSections)
     }
 
     @Test
-    fun `saving general pricing leaves menu targets alone and does not validate pending menu edits`() {
+    fun `saving global pricing converts old section targets to label only`() {
         val current = PricingSettings(methodByCategory = mapOf("غذای اصلی" to PricingMethod.TargetFoodCost(BigDecimal("30"))))
         val costing = CostingRules()
         val pending = SettingsInput.of(current, costing, toman)
-            .withMethod(MethodChoice.MARGIN)
-            .copy(percent = "40")
-            .plusCategory("نوشیدنی گرم") // Incomplete, not yet ready to save
-        val savedGeneral = valid(pending.forSaveArea(SettingsArea.GENERAL_PRICING, current, costing, toman).check(current, costing, toman))
-        assertEquals(PricingMethod.TargetMargin(BigDecimal("40")), savedGeneral.pricing.defaultMethod)
-        assertEquals(current.methodByCategory, savedGeneral.pricing.methodByCategory)
-        assertEquals(current.generalSections, savedGeneral.pricing.generalSections)
-        assertEquals(current.online, savedGeneral.pricing.online)
+            .withMethod(MethodChoice.MARGIN).copy(percent = "40")
+            .plusCategory("نوشیدنی گرم") // Still unsaved and should not leak into global save.
+        val saved = valid(pending.forSaveArea(SettingsArea.GENERAL_PRICING, current, costing, toman).check(current, costing, toman))
+        assertEquals(PricingMethod.TargetMargin(BigDecimal("40")), saved.pricing.defaultMethod)
+        assertEquals(emptyMap(), saved.pricing.methodByCategory)
+        assertEquals(listOf("غذای اصلی"), saved.pricing.generalSections)
+        assertEquals(current.online, saved.pricing.online)
     }
 
     @Test
@@ -213,10 +211,11 @@ class FormsTest {
     }
 
     @Test
-    fun `saving online or fixed cost settings preserves general and section pricing`() {
+    fun `saving online or fixed cost settings preserves global pricing and menu labels`() {
         val current = PricingSettings(
             defaultMethod = PricingMethod.TargetFoodCost(BigDecimal("35")),
             methodByCategory = mapOf("غذای اصلی" to PricingMethod.TargetFoodCost(BigDecimal("30"))),
+            generalSections = listOf("پیش‌غذا"),
         )
         val costing = CostingRules()
         val staged = SettingsInput.of(current, costing, toman).copy(
@@ -226,7 +225,8 @@ class FormsTest {
         for (area in listOf(SettingsArea.ONLINE, SettingsArea.FIXED_COSTS)) {
             val saved = valid(staged.forSaveArea(area, current, costing, toman).check(current, costing, toman))
             assertEquals(current.defaultMethod, saved.pricing.defaultMethod)
-            assertEquals(current.methodByCategory, saved.pricing.methodByCategory)
+            assertEquals(emptyMap(), saved.pricing.methodByCategory)
+            assertEquals(listOf("غذای اصلی", "پیش‌غذا"), saved.pricing.generalSections)
         }
     }
 
@@ -263,49 +263,34 @@ class FormsTest {
     }
 
     @Test
-    fun `menu sections get their own food cost target, checked and shown back`() {
+    fun `menu labels are validated as names only and use the general pricing method`() {
         val input = SettingsInput.of(PricingSettings(), CostingRules(), toman)
             .plusCategory("نوشیدنی گرم")
-            .let { it.withCategory(0, it.categories[0].copy(percent = "۲۰")) }
             .plusCategory("")
         assertEquals(listOf("غذای اصلی", "پیش‌غذا و سالاد", "نوشیدنی سرد", "دسر و کیک", "صبحانه"), input.categoryPresets())
-        val pricing = valid(input.check(PricingSettings(), CostingRules(), toman)).pricing
-        assertEquals(mapOf("نوشیدنی گرم" to PricingMethod.TargetFoodCost(BigDecimal(20))), pricing.methodByCategory)
-        assertEquals(listOf(CategoryTargetInput("نوشیدنی گرم", "20")), SettingsInput.of(pricing, CostingRules(), toman).categories)
-
-        fun error(form: SettingsInput) = assertIs<Checked.Invalid>(form.check(PricingSettings(), CostingRules(), toman)).errors[Field.CATEGORY]
-        assertEquals("فودکاست هدف «دسر و کیک» باید بیشتر از ۰ و کمتر از ۱۰۰ باشد.", error(input.plusCategory("دسر و کیک")))
-        assertEquals("بخش «نوشيدني گرم» دو بار آمده است.", error(input.plusCategory("نوشيدني گرم").let { it.withCategory(2, it.categories[2].copy(percent = "25")) }))
-        assertEquals("نام بخش را بنویسید.", error(input.withCategory(1, CategoryTargetInput("", "30"))))
-        assertEquals(emptyMap(), valid(input.withoutCategory(0).check(PricingSettings(), CostingRules(), toman)).pricing.methodByCategory)
-
-        // A section stored as a margin retains its actual method and percentage.
-        val margin = PricingSettings(methodByCategory = mapOf("نوشیدنی سرد" to PricingMethod.TargetMargin(BigDecimal(75))))
-        assertEquals(listOf(CategoryTargetInput("نوشیدنی سرد", "75", MethodChoice.MARGIN)), SettingsInput.of(margin, CostingRules(), toman).categories)
+        val saved = valid(input.check(PricingSettings(), CostingRules(), toman)).pricing
+        assertEquals(emptyMap(), saved.methodByCategory)
+        assertEquals(listOf("نوشیدنی گرم"), saved.generalSections)
+        assertEquals(listOf(CategoryTargetInput("نوشیدنی گرم")), SettingsInput.of(saved, CostingRules(), toman).categories)
+        fun error(form: SettingsInput) =
+            assertIs<Checked.Invalid>(form.check(PricingSettings(), CostingRules(), toman)).errors[Field.CATEGORY]
+        assertEquals("بخش «نوشيدني گرم» دو بار آمده است.", error(input.plusCategory("نوشيدني گرم")))
+        assertEquals(emptyList(), valid(input.withoutCategory(0).check(PricingSettings(), CostingRules(), toman)).pricing.generalSections)
     }
 
     @Test
-    fun `a section priced with the general method is kept by its name alone, to put dishes in`() {
-        // The audit of 0.7.8: such a section was dropped on saving, so it could not be chosen for a dish.
-        val pricing = PricingSettings(
+    fun `old section percentages disappear from editing but original names survive`() {
+        val old = PricingSettings(
             methodByCategory = mapOf("نوشیدنی سرد" to PricingMethod.TargetMargin(BigDecimal(75), CostBasis.FULL_COST)),
             generalSections = listOf("پیش‌غذا"),
         )
-        val form = SettingsInput.of(pricing, CostingRules(), toman)
-        assertEquals(
-            listOf(CategoryTargetInput("نوشیدنی سرد", "75", MethodChoice.MARGIN, CostBasis.FULL_COST), CategoryTargetInput("پیش‌غذا", useGeneral = true)),
-            form.categories,
-        )
-        val back = valid(form.check(pricing, CostingRules(), toman)).pricing
-        assertEquals(pricing.methodByCategory, back.methodByCategory)
-        assertEquals(listOf("پیش‌غذا"), back.generalSections)
-        assertEquals(listOf("نوشیدنی سرد", "پیش‌غذا"), back.sections)
-        // Its number is not read: one left from a method chosen before does not stop the save.
-        val leftover = form.withCategory(1, form.categories[1].copy(percent = "abc"))
-        assertEquals(listOf("پیش‌غذا"), valid(leftover.check(pricing, CostingRules(), toman)).pricing.generalSections)
-        // One name twice, with a method and without, is refused; a nameless one is left out.
-        fun error(f: SettingsInput) = assertIs<Checked.Invalid>(f.check(pricing, CostingRules(), toman)).errors[Field.CATEGORY]
-        assertEquals("بخش «نوشیدنی سرد» دو بار آمده است.", error(form.withCategory(1, CategoryTargetInput("نوشیدنی سرد", useGeneral = true))))
-        assertEquals(emptyList(), valid(form.withCategory(1, CategoryTargetInput(" ", useGeneral = true)).check(pricing, CostingRules(), toman)).pricing.generalSections)
+        val form = SettingsInput.of(old, CostingRules(), toman)
+        assertEquals(listOf(CategoryTargetInput("نوشیدنی سرد"), CategoryTargetInput("پیش‌غذا")), form.categories)
+        val saved = valid(form.check(old, CostingRules(), toman)).pricing
+        assertEquals(emptyMap(), saved.methodByCategory)
+        assertEquals(listOf("نوشیدنی سرد", "پیش‌غذا"), saved.generalSections)
+        assertEquals(PricingMethod.TargetFoodCost(BigDecimal(35)), saved.defaultMethod)
+        assertEquals("بخش «نوشیدنی سرد» دو بار آمده است.",
+            assertIs<Checked.Invalid>(form.plusCategory("نوشیدنی سرد").check(old, CostingRules(), toman)).errors[Field.CATEGORY])
     }
 }

@@ -220,16 +220,14 @@ class WalkThroughTest {
         shot("17-help-guide")
         back()
         // Returning from the help route recreates the settings overview.
-        click("بخش‌های منو")
+        click("دسته‌بندی منو")
 
-        // Main dishes aim at a 30% food cost; a tap on the section puts the keyboard on its target.
+        // Sections contain only names, never their own pricing target.
         click("غذای اصلی")
-        waitForFocus("category-0-percent")
-        typeTag("category-0-percent", "30")
+        waitForTag("category-0-name")
         show("category-0-name")
         shot("18-sections")
-        // Commit section-specific pricing before navigating to another settings screen.
-        click("ذخیرهٔ قیمت‌گذاری")
+        click("ذخیرهٔ دسته‌بندی")
         waitForPart("تنظیمات ذخیره شد")
 
         // Online sales with a 20% commission: the online column joins the restaurant and takeaway.
@@ -244,9 +242,9 @@ class WalkThroughTest {
         show("channel-remaining")
         shot("19-online")
 
-        // The koobideh put among the main dishes is priced at their 30%: 1,340,000 toman.
+        // Choosing a section leaves the 35% general pricing unchanged.
         click("غذای اصلی")
-        waitForPart("۱٬۳۴۰٬۰۰۰")
+        waitForPart("۱٬۱۵۰٬۰۰۰")
         show("dish-name")
         shot("20-section-price")
 

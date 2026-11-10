@@ -126,12 +126,17 @@ class PricingTest {
     }
 
     @Test
-    fun `the item's own rule beats its category's, which beats the general one`() {
+    fun `general pricing wins over legacy section and recipe price overrides`() {
         val settings = PricingSettings(methodByCategory = mapOf("drinks" to PricingMethod.TargetFoodCost(40.bd)))
-        assertEquals(PricingMethod.TargetFoodCost(35.bd), settings.methodFor(dish(1).recipes.values.single()))
-        assertEquals(PricingMethod.TargetFoodCost(40.bd), settings.methodFor(dish(1, category = "drinks").recipes.values.single()))
-        val own = PricingMethod.Markup(100.bd)
-        assertEquals(own, settings.methodFor(dish(1, category = "drinks", pricing = own).recipes.values.single()))
+        val general = PricingMethod.TargetFoodCost(35.bd)
+        assertEquals(general, settings.methodFor(dish(1).recipes.values.single()))
+        assertEquals(general, settings.methodFor(dish(1, category = "drinks").recipes.values.single()))
+        assertEquals(general, settings.methodFor(dish(1, category = "drinks", pricing = PricingMethod.Markup(100.bd)).recipes.values.single()))
+        val normal = FoodCostCalculator(dish(3_500_000), pricing = settings).evaluate(rid("dish"), D1).suggestion.menuPrice
+        val legacy = FoodCostCalculator(dish(3_500_000, category = "drinks", pricing = PricingMethod.Markup(100.bd)), pricing = settings)
+            .evaluate(rid("dish"), D1).suggestion.menuPrice
+        assertEquals(11_000_000L, normal)
+        assertEquals(normal, legacy)
     }
 
     @Test
