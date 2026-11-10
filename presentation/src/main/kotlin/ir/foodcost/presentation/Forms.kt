@@ -272,6 +272,12 @@ fun checkMenuPrice(text: String, money: MoneyFormat): Checked<Long> {
 enum class MethodChoice { FOOD_COST, MARGIN, MARKUP }
 
 /**
+ * Settings are edited on different screens. Saving one screen must not silently commit
+ * pending edits on another screen or reset an unrelated pricing override.
+ */
+enum class SettingsArea { GENERAL_PRICING, MENU_SECTIONS, FIXED_COSTS, ONLINE }
+
+/**
  * A menu section, as typed: one with a pricing method of its own, as drinks usually aim lower than
  * plates, or with [useGeneral] one priced like the rest, there to put dishes in.
  */
@@ -320,6 +326,29 @@ data class SettingsInput(
 
     fun withoutCategory(index: Int): SettingsInput = copy(categories = categories.filterIndexed { i, _ -> i != index })
 
+    /**
+     * Rebuild the form from persisted settings and apply only fields owned by the selected
+     * screen. The existing `check` validates the merged form and `saveSettings` can persist
+     * it atomically without leaking unsaved changes from other settings sections.
+     */
+    fun forSaveArea(area: SettingsArea, pricing: PricingSettings, costing: CostingRules, money: MoneyFormat): SettingsInput {
+        val saved = of(pricing, costing, money)
+        return when (area) {
+            SettingsArea.GENERAL_PRICING -> saved.copy(
+                method = method, percent = percent, basis = basis, carried = carried,
+                vatPercent = vatPercent, menuPriceIncludesVat = menuPriceIncludesVat,
+                roundingStepRials = roundingStepRials, roundingDirection = roundingDirection,
+                miscPercent = miscPercent,
+            )
+            SettingsArea.MENU_SECTIONS -> saved.copy(categories = categories)
+            SettingsArea.FIXED_COSTS -> saved.copy(monthlyFixed = monthlyFixed, monthlyPortions = monthlyPortions)
+            SettingsArea.ONLINE -> saved.copy(
+                onlineCommission = onlineCommission, onlineDiscount = onlineDiscount,
+                onlineUplift = onlineUplift,
+            )
+        }
+    }
+
     /** The suggested sections not added yet. */
     fun categoryPresets(): List<String> {
         val taken = categories.map { Persian.searchKey(it.name) }.toSet()
@@ -335,6 +364,11 @@ data class SettingsInput(
 
     fun check(currentPricing: PricingSettings, currentCosting: CostingRules, money: MoneyFormat): Checked<SettingsDraft> {
         val p = Problems()
+        // A margin on *all* costs cannot be converted into a food-only cost target.
+        // Merely carrying over the numeric value would silently produce a wrong menu price.
+        if (carried && method == MethodChoice.FOOD_COST) {
+            p.add(Field.PERCENT, "این درصد معادل فودکاست نیست؛ درصد فودکاست هدف را خودتان وارد کنید.")
+        }
         val value = p.decimal(percent, Field.PERCENT, percentMessage()) {
             when (method) {
                 MethodChoice.FOOD_COST -> it.signum() > 0 && it < HUNDRED
@@ -422,6 +456,11 @@ data class SettingsInput(
      */
     fun withMethod(choice: MethodChoice): SettingsInput {
         if (choice == method) return this
+        if (carried) {
+            // The carried number came from an incompatible cost basis. Do not convert it
+            // as though it were a food-cost percentage when switching again.
+            return copy(method = choice, percent = "", basis = CostBasis.FOOD_COST, carried = false)
+        }
         if (choice == MethodChoice.FOOD_COST && basis == CostBasis.FULL_COST) return copy(method = choice, carried = true)
         val converted = Numbers.parse(percent)?.let { equivalent(it, method, choice) }
         return copy(

@@ -162,6 +162,75 @@ class FormsTest {
     }
 
     @Test
+    fun `saving a menu target must not overwrite unsaved changes to general pricing`() {
+        val current = PricingSettings(
+            defaultMethod = PricingMethod.TargetMargin(BigDecimal("30"), CostBasis.FULL_COST),
+            vatPercent = BigDecimal("10"),
+            methodByCategory = mapOf("نوشیدنی گرم" to PricingMethod.TargetFoodCost(BigDecimal("20"))),
+        )
+        val costing = CostingRules()
+        val pending = SettingsInput.of(current, costing, toman)
+            .copy(method = MethodChoice.FOOD_COST, percent = "25", vatPercent = "9", onlineCommission = "35")
+            .plusCategory("غذای اصلی")
+            .let { it.withCategory(1, it.categories[1].copy(percent = "28")) }
+
+        val savedMenu = valid(pending.forSaveArea(SettingsArea.MENU_SECTIONS, current, costing, toman).check(current, costing, toman))
+        assertEquals(current.defaultMethod, savedMenu.pricing.defaultMethod)
+        assertEquals(current.vatPercent, savedMenu.pricing.vatPercent)
+        assertEquals(current.online, savedMenu.pricing.online)
+        assertEquals(costing, savedMenu.costing)
+        assertEquals(PricingMethod.TargetFoodCost(BigDecimal("28")), savedMenu.pricing.methodByCategory["غذای اصلی"])
+        assertEquals(current.methodByCategory["نوشیدنی گرم"], savedMenu.pricing.methodByCategory["نوشیدنی گرم"])
+    }
+
+    @Test
+    fun `saving general pricing leaves menu targets alone and does not validate pending menu edits`() {
+        val current = PricingSettings(methodByCategory = mapOf("غذای اصلی" to PricingMethod.TargetFoodCost(BigDecimal("30"))))
+        val costing = CostingRules()
+        val pending = SettingsInput.of(current, costing, toman)
+            .withMethod(MethodChoice.MARGIN)
+            .copy(percent = "40")
+            .plusCategory("نوشیدنی گرم") // Incomplete, not yet ready to save
+        val savedGeneral = valid(pending.forSaveArea(SettingsArea.GENERAL_PRICING, current, costing, toman).check(current, costing, toman))
+        assertEquals(PricingMethod.TargetMargin(BigDecimal("40")), savedGeneral.pricing.defaultMethod)
+        assertEquals(current.methodByCategory, savedGeneral.pricing.methodByCategory)
+        assertEquals(current.generalSections, savedGeneral.pricing.generalSections)
+        assertEquals(current.online, savedGeneral.pricing.online)
+    }
+
+    @Test
+    fun `full cost margin cannot silently become food target or be reconverted from carried value`() {
+        val current = PricingSettings(defaultMethod = PricingMethod.TargetMargin(BigDecimal("30"), CostBasis.FULL_COST))
+        val costing = CostingRules()
+        val form = SettingsInput.of(current, costing, toman)
+        val changed = form.withMethod(MethodChoice.FOOD_COST)
+        assertEquals(true, changed.carried)
+        assertEquals(setOf(Field.PERCENT), errors(changed.check(current, costing, toman)))
+        assertEquals(setOf(Field.PERCENT), errors(changed.forSaveArea(SettingsArea.GENERAL_PRICING, current, costing, toman).check(current, costing, toman)))
+        assertEquals("", changed.withMethod(MethodChoice.MARKUP).percent)
+        val explicit = changed.copy(percent = "35", carried = false)
+        assertEquals(PricingMethod.TargetFoodCost(BigDecimal("35")), valid(explicit.check(current, costing, toman)).pricing.defaultMethod)
+    }
+
+    @Test
+    fun `saving online or fixed cost settings preserves general and section pricing`() {
+        val current = PricingSettings(
+            defaultMethod = PricingMethod.TargetFoodCost(BigDecimal("35")),
+            methodByCategory = mapOf("غذای اصلی" to PricingMethod.TargetFoodCost(BigDecimal("30"))),
+        )
+        val costing = CostingRules()
+        val staged = SettingsInput.of(current, costing, toman).copy(
+            method = MethodChoice.MARGIN, percent = "60", onlineCommission = "18",
+            monthlyFixed = "450000000", monthlyPortions = "6000",
+        )
+        for (area in listOf(SettingsArea.ONLINE, SettingsArea.FIXED_COSTS)) {
+            val saved = valid(staged.forSaveArea(area, current, costing, toman).check(current, costing, toman))
+            assertEquals(current.defaultMethod, saved.pricing.defaultMethod)
+            assertEquals(current.methodByCategory, saved.pricing.methodByCategory)
+        }
+    }
+
+    @Test
     fun `the month's fixed costs, online terms and the margin basis are read, checked and shown back`() {
         val input = SettingsInput.of(PricingSettings(), CostingRules(), toman).copy(
             monthlyFixed = "450000000", monthlyPortions = "6000",

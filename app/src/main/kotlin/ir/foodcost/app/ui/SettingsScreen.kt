@@ -60,6 +60,7 @@ import ir.foodcost.presentation.MoneyFormat
 import ir.foodcost.presentation.Numbers
 import ir.foodcost.presentation.Persian
 import ir.foodcost.presentation.SettingsInput
+import ir.foodcost.presentation.SettingsArea
 import java.time.LocalDate
 
 /** The settings tab: currency, pricing rules and backup. */
@@ -74,6 +75,7 @@ fun SettingsScreen(
 ) {
     val currency by container.currency.collectAsState()
     var input by remember(state.pricing, state.costing, money) { mutableStateOf(SettingsInput.of(state.pricing, state.costing, money)) }
+    val persisted = remember(state.pricing, state.costing, money) { SettingsInput.of(state.pricing, state.costing, money) }
     var errors by remember { mutableStateOf(emptyMap<Field, String>()) }
     var section by rememberSaveable { mutableStateOf("خانه") }
     // Intercept the system back button while inside settings, before the app-level handler
@@ -97,9 +99,13 @@ fun SettingsScreen(
             if (backupFirst) BackupCard(container, today, actions)
             if (section == "خانه") {
                 SettingsCard("وضعیت فعلی قیمت‌گذاری") {
-                    Text("روش: ${methodName(input.method)}", style = MaterialTheme.typography.titleMedium)
-                    Text("درصد: ${input.percent}٪   |   مبنا: ${basisName(input.basis)}")
-                    Text("مالیات: ${input.vatPercent}٪", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("روش عمومی ذخیره‌شده: ${methodName(persisted.method)}", style = MaterialTheme.typography.titleMedium)
+                    Text("درصد: ${persisted.percent}٪   |   مبنا: ${basisName(persisted.basis)}")
+                    Text("مالیات: ${persisted.vatPercent}٪", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("بخش‌های با قیمت‌گذاری اختصاصی: ${state.pricing.methodByCategory.size}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (input != persisted) {
+                        Text("ویرایش‌هایی در تنظیمات وجود دارد که هنوز ذخیره نشده‌اند.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
                     OutlinedButton(onClick = { section = "قیمت‌گذاری" }, modifier = Modifier.fillMaxWidth()) {
                         Text("ویرایش قیمت‌گذاری")
                     }
@@ -406,10 +412,17 @@ fun SettingsScreen(
                 )
             }
 
-            // One button for the three cards above: pricing, fixed costs and online sales.
+            // Each section commits only its own fields. Pending edits elsewhere are excluded.
             if (section in listOf("قیمت‌گذاری", "بخش‌های منو", "هزینه‌های ثابت", "فروش آنلاین")) Button(
                 onClick = {
-                    when (val checked = input.check(state.pricing, state.costing, money)) {
+                    val area = when (section) {
+                        "قیمت‌گذاری" -> SettingsArea.GENERAL_PRICING
+                        "بخش‌های منو" -> SettingsArea.MENU_SECTIONS
+                        "هزینه‌های ثابت" -> SettingsArea.FIXED_COSTS
+                        else -> SettingsArea.ONLINE
+                    }
+                    val scoped = input.forSaveArea(area, state.pricing, state.costing, money)
+                    when (val checked = scoped.check(state.pricing, state.costing, money)) {
                         is Checked.Invalid -> {
                             errors = checked.errors
                             // The field may be scrolled out of sight above the button.
