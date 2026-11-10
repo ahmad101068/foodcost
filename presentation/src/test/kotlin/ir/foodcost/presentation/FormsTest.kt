@@ -205,9 +205,84 @@ class FormsTest {
         assertEquals(true, changed.carried)
         assertEquals(setOf(Field.PERCENT), errors(changed.check(current, costing, toman)))
         assertEquals(setOf(Field.PERCENT), errors(changed.forSaveArea(SettingsArea.GENERAL_PRICING, current, costing, toman).check(current, costing, toman)))
-        assertEquals("", changed.withMethod(MethodChoice.MARKUP).percent)
+        assertEquals("42.86", changed.withMethod(MethodChoice.MARKUP).percent)
+        assertEquals(CostBasis.FULL_COST, changed.withMethod(MethodChoice.MARKUP).basis)
+        assertEquals("30", changed.withMethod(MethodChoice.MARGIN).percent)
+        val lastRates = changed.equivalentPercentages()
+        assertEquals(null, lastRates?.get(MethodChoice.FOOD_COST))
+        assertEquals("30", lastRates?.get(MethodChoice.MARGIN)?.toPlainString())
+        assertEquals("42.86", lastRates?.get(MethodChoice.MARKUP)?.toPlainString())
         val explicit = changed.copy(percent = "35", carried = false)
         assertEquals(PricingMethod.TargetFoodCost(BigDecimal("35")), valid(explicit.check(current, costing, toman)).pricing.defaultMethod)
+    }
+
+    @Test
+    fun `switching all costs then food target restores previous food cost instead of losing rates`() {
+        val origin = SettingsInput.of(PricingSettings(), CostingRules(), toman)
+        // Food cost 35% = margin 65% = markup 185.71% (food-only basis).
+        val margin = origin.withMethod(MethodChoice.MARGIN)
+        assertEquals("65", margin.percent)
+        val allCosts = margin.withBasis(CostBasis.FULL_COST)
+        assertEquals("65", allCosts.percent)
+        assertEquals(null, allCosts.equivalentPercentages()?.get(MethodChoice.FOOD_COST))
+        val allMarkup = allCosts.withMethod(MethodChoice.MARKUP)
+        assertEquals("185.71", allMarkup.percent)
+
+        // The original 35% food-only target is remembered from before the basis switch.
+        val foodAgain = allMarkup.withMethod(MethodChoice.FOOD_COST)
+        assertEquals("35", foodAgain.percent)
+        assertEquals(false, foodAgain.carried)
+        assertEquals(CostBasis.FOOD_COST, foodAgain.basis)
+        assertEquals("65", foodAgain.equivalentPercentages()?.get(MethodChoice.MARGIN)?.toPlainString())
+        assertEquals("185.71", foodAgain.equivalentPercentages()?.get(MethodChoice.MARKUP)?.toPlainString())
+
+        // Revisit all-cost pricing: it has its own remembered markup, not a blank field.
+        val allAgain = foodAgain.withMethod(MethodChoice.MARGIN).withBasis(CostBasis.FULL_COST)
+        assertEquals("65", allAgain.percent)
+        assertEquals("185.71", allAgain.withMethod(MethodChoice.MARKUP).percent)
+    }
+
+    @Test
+    fun `user edited rates are retained independently for food and full cost bases`() {
+        val original = SettingsInput.of(PricingSettings(), CostingRules(), toman)
+            .withMethod(MethodChoice.MARGIN).copy(percent = "30")
+        val allCosts = original.withBasis(CostBasis.FULL_COST).copy(percent = "40")
+        assertEquals("66.67", allCosts.withMethod(MethodChoice.MARKUP).percent)
+        val foodOnly = allCosts.withBasis(CostBasis.FOOD_COST)
+        assertEquals("30", foodOnly.percent)
+        assertEquals("70", foodOnly.equivalentPercentages()?.get(MethodChoice.FOOD_COST)?.toPlainString())
+        val fullAgain = foodOnly.withBasis(CostBasis.FULL_COST)
+        assertEquals("40", fullAgain.percent)
+        assertEquals("66.67", fullAgain.withMethod(MethodChoice.MARKUP).percent)
+    }
+
+    @Test
+    fun `unknown full cost to food conversion does not erase the old rate or invent food cost`() {
+        val pricing = PricingSettings(defaultMethod = PricingMethod.TargetMargin(BigDecimal("30"), CostBasis.FULL_COST))
+        val initial = SettingsInput.of(pricing, CostingRules(), toman)
+        val unknownFood = initial.withMethod(MethodChoice.FOOD_COST)
+        assertEquals("", unknownFood.percent)
+        assertEquals(true, unknownFood.carried)
+        assertEquals(null, unknownFood.equivalentPercentages()?.get(MethodChoice.FOOD_COST))
+        assertEquals("30", unknownFood.equivalentPercentages()?.get(MethodChoice.MARGIN)?.toPlainString())
+        assertEquals(setOf(Field.PERCENT), errors(unknownFood.check(pricing, CostingRules(), toman)))
+        val recovered = unknownFood.withMethod(MethodChoice.MARGIN)
+        assertEquals("30", recovered.percent)
+        assertEquals(CostBasis.FULL_COST, recovered.basis)
+        // An explicit food target is valid; it will never be guessed from total cost.
+        val chosenFood = unknownFood.copy(percent = "28", carried = false)
+        assertEquals(PricingMethod.TargetFoodCost(BigDecimal("28")), valid(chosenFood.check(pricing, CostingRules(), toman)).pricing.defaultMethod)
+    }
+
+    @Test
+    fun `invalid or partial numbers do not get discarded across basis switches`() {
+        val initial = SettingsInput.of(PricingSettings(), CostingRules(), toman)
+            .withMethod(MethodChoice.MARGIN).copy(percent = "abc")
+        val onAll = initial.withBasis(CostBasis.FULL_COST)
+        assertEquals("abc", onAll.percent)
+        assertEquals("abc", onAll.withBasis(CostBasis.FOOD_COST).percent)
+        val blank = initial.copy(percent = "").withBasis(CostBasis.FULL_COST)
+        assertEquals("", blank.withBasis(CostBasis.FOOD_COST).percent)
     }
 
     @Test

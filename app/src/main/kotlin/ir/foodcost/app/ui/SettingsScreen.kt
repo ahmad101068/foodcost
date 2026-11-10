@@ -101,7 +101,7 @@ fun SettingsScreen(
                     Text("درصد: ${persisted.percent}٪   |   مبنا: ${basisName(persisted.basis)}")
                     Text("مالیات: ${persisted.vatPercent}٪", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("بخش‌های منو: ${state.pricing.sections.size} (فقط دسته‌بندی)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (input != persisted) {
+                    if (input.copy(rememberedFoodOnly = null, rememberedFullCost = null) != persisted) {
                         Text("ویرایش‌هایی در تنظیمات وجود دارد که هنوز ذخیره نشده‌اند.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                     }
                     OutlinedButton(onClick = { section = "قیمت‌گذاری" }, modifier = Modifier.fillMaxWidth()) {
@@ -175,14 +175,14 @@ fun SettingsScreen(
                     supporting = listOfNotNull(
                         methodHint(input.method),
                         // From a margin or markup on every cost there is no food cost equivalent: the number is the old one.
-                        if (input.carried) "این عدد از روش قبلی مانده است. فودکاست فقط بهای مواد را می‌سنجد و با «همهٔ هزینه‌ها» برابری ثابتی ندارد؛ عدد را دوباره بنویسید." else input.equivalents(),
+                        if (input.carried) "حاشیه سود روی همه هزینه‌ها به فودکاست هدف تبدیل مستقیم ندارد. درصد فودکاست را وارد کنید؛ درصدهای قبلی حاشیه سود و مارک‌آپ محفوظ هستند." else input.equivalents(),
                     ).joinToString("\n"),
                     number = true,
                     suffix = "٪",
                 )
                 val equivalents = input.equivalentPercentages()
                 if (equivalents != null) {
-                    Text("معادل‌های خودکار درصد", style = MaterialTheme.typography.titleSmall)
+                    Text(if (input.carried) "مقادیر قبلی (مبنای همه هزینه‌ها)" else "معادل‌های خودکار درصد", style = MaterialTheme.typography.titleSmall)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         MethodChoice.entries.forEach { choice ->
                             Card(
@@ -220,12 +220,12 @@ fun SettingsScreen(
 
                 if (input.method != MethodChoice.FOOD_COST) {
                     Text("روی چه هزینه‌ای؟", style = MaterialTheme.typography.labelLarge)
-                    Segmented(CostBasis.entries, input.basis, { basisName(it) }) { input = input.copy(basis = it) }
+                    Segmented(CostBasis.entries, input.basis, { basisName(it) }) { input = input.withBasis(it) }
                     Text(
                         if (input.basis == CostBasis.FOOD_COST) {
                             "فقط بهای مواد؛ هزینه‌های دیگر از مانده کم می‌شوند."
                         } else {
-                            "مواد، هزینه‌های دیگر هر غذا و سهم سربار ماهانه. عدد با عوض کردن مبنا همان می‌ماند ولی قیمت‌ها عوض می‌شوند؛ روی همهٔ هزینه‌ها، عدد به سود نزدیک‌تر است و معمولاً خیلی کوچک‌تر از «فقط مواد»."
+                            "مواد، هزینه‌های دیگر هر غذا و سهم سربار ماهانه. درصد این مبنا جداگانه حفظ می‌شود؛ در صورت بازگشت به «فقط مواد»، مقدار قبلی بازیابی خواهد شد. این دو مبنا الزاماً درصد معادل ندارند."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

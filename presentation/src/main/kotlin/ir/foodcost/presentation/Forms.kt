@@ -285,6 +285,9 @@ data class MenuSectionInput(val name: String = "") {
 /** The pricing rules and misc share, ready to save. */
 data class SettingsDraft(val costing: CostingRules, val pricing: PricingSettings)
 
+/** Temporary form memory. It is NOT written into the persisted pricing settings. */
+data class PricingRateDraft(val method: MethodChoice, val percent: String)
+
 /** The settings form, as typed. Amounts are in [MoneyFormat]'s currency. */
 data class SettingsInput(
     val method: MethodChoice,
@@ -309,6 +312,10 @@ data class SettingsInput(
      * cost target, which has no equivalent of it; typing a number clears it.
      */
     val carried: Boolean = false,
+    /** Most recently entered food-only rate, available after visiting "all costs". */
+    val rememberedFoodOnly: PricingRateDraft? = null,
+    /** Most recently entered all-cost rate, recoverable after trying a food-cost target. */
+    val rememberedFullCost: PricingRateDraft? = null,
 ) {
     fun plusCategory(name: String): SettingsInput = copy(categories = categories + MenuSectionInput(name))
 
@@ -424,27 +431,66 @@ data class SettingsInput(
         }
     }
 
+    /** Convert a remembered rate to the selected method without misrepresenting its cost basis. */
+    private fun PricingRateDraft.asMethod(choice: MethodChoice): String {
+        if (method == choice) return percent
+        return Numbers.parse(percent)?.let { equivalent(it, method, choice) }?.let(Numbers::editable) ?: percent
+    }
+
     /**
-     * The form with [choice] as its method and the number turned into that method's equivalent,
-     * so switching the method leaves the suggested price as it was: a 35% food cost is a 65% margin
-     * and a 185.71% markup. A margin and a markup convert on whichever cost they are taken, every
-     * cost included: a 40% margin is a 66.67% markup. A margin or markup coming from a food cost
-     * target starts on the food alone, where it puts the same price. Only a margin or markup on
-     * every cost turning into a food cost target, which measures the food alone, has no equivalent:
-     * the number is kept and marked [carried]. A number that cannot be read is left as typed.
+     * Switch the cost BASIS while keeping a separate editable rate for each basis.
+     * There is no universal conversion from a percentage of all costs to one of food alone;
+     * when visiting a basis for the first time the same numeric input is merely carried
+     * across as a starting value, never presented as a mathematical equivalent.
+     */
+    fun withBasis(choice: CostBasis): SettingsInput {
+        if (method == MethodChoice.FOOD_COST || choice == basis) return this
+        val remembered = if (choice == CostBasis.FOOD_COST) rememberedFoodOnly else rememberedFullCost
+        val restored = remembered?.asMethod(method) ?: percent
+        return if (basis == CostBasis.FOOD_COST) {
+            copy(basis = choice, percent = restored, carried = false,
+                rememberedFoodOnly = PricingRateDraft(method, percent))
+        } else {
+            copy(basis = choice, percent = restored, carried = false,
+                rememberedFullCost = PricingRateDraft(method, percent))
+        }
+    }
+
+    /**
+     * Switch between equivalent margin/markup/food-cost rates on the SAME basis.
+     * A food-cost percentage cannot be derived from a full-cost margin/markup alone.
+     * In that case restore the previously entered food-only percentage, if known.
+     * Otherwise allow explicit entry while preserving the full-cost numbers for return.
      */
     fun withMethod(choice: MethodChoice): SettingsInput {
         if (choice == method) return this
+
         if (carried) {
-            // The carried number came from an incompatible cost basis. Do not convert it
-            // as though it were a food-cost percentage when switching again.
-            return copy(method = choice, percent = "", basis = CostBasis.FOOD_COST, carried = false)
+            val previous = rememberedFullCost
+            // Returning to the previous full-cost mode must never clear its last value.
+            return copy(
+                method = choice,
+                percent = previous?.asMethod(choice) ?: percent,
+                basis = if (previous != null) CostBasis.FULL_COST else basis,
+                carried = false,
+            )
         }
-        if (choice == MethodChoice.FOOD_COST && basis == CostBasis.FULL_COST) return copy(method = choice, carried = true)
+
+        if (choice == MethodChoice.FOOD_COST && basis == CostBasis.FULL_COST) {
+            val previousFood = rememberedFoodOnly
+            return copy(
+                method = choice,
+                basis = CostBasis.FOOD_COST,
+                percent = previousFood?.asMethod(MethodChoice.FOOD_COST) ?: "",
+                carried = previousFood == null,
+                rememberedFullCost = PricingRateDraft(method, percent),
+            )
+        }
+
         val converted = Numbers.parse(percent)?.let { equivalent(it, method, choice) }
         return copy(
             method = choice,
-            percent = converted?.let { Numbers.editable(it) } ?: percent,
+            percent = converted?.let(Numbers::editable) ?: percent,
             basis = if (method == MethodChoice.FOOD_COST) CostBasis.FOOD_COST else basis,
             carried = false,
         )
@@ -459,7 +505,14 @@ data class SettingsInput(
      * never an invented food-cost figure.
      */
     fun equivalentPercentages(): Map<MethodChoice, BigDecimal?>? {
-        if (carried) return null
+        if (carried) {
+            // Still show the remembered full-cost margin and markup, but never fabricate food cost.
+            val old = rememberedFullCost ?: return null
+            val previousValue = Numbers.parse(old.percent) ?: return null
+            return MethodChoice.entries.associateWith { choice ->
+                if (choice == MethodChoice.FOOD_COST) null else equivalent(previousValue, old.method, choice)
+            }
+        }
         val value = Numbers.parse(percent) ?: return null
         if (value.signum() < 0 ||
             (method != MethodChoice.MARKUP && value >= HUNDRED) ||
