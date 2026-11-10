@@ -26,6 +26,7 @@ import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.core.pricing.PriceSuggestion
 import ir.foodcost.core.pricing.Pricer
 import ir.foodcost.core.pricing.PricingMethod
+import ir.foodcost.core.pricing.PricingScope
 import ir.foodcost.core.pricing.Sale
 import ir.foodcost.core.roundToRials
 import ir.foodcost.core.units.Conversions
@@ -77,7 +78,11 @@ data class QuickInput(
     val extras: List<QuickExtra> = emptyList(),
     /** The menu section, such as drinks, which can have a food cost target of its own. */
     val category: String? = null,
+    /** Distinguishes an explicit 'no section' choice from an untouched new calculation. */
+    val categoryChosen: Boolean = false,
 ) {
+    fun withCategory(category: String?): QuickInput = copy(category = category, categoryChosen = true)
+
     fun plusExtra(extra: QuickExtra): QuickInput = copy(extras = extras + extra)
 
     companion object {
@@ -387,7 +392,9 @@ object QuickCalculator {
         val maxCost = discountedMenuRials?.takeIf { hasLines }?.let { pricer.maxCost(recipe, it) }
         val overhead = state.pricing.overhead?.perPortion?.takeIf { it.signum() > 0 && recipe.kind != RecipeKind.PREP }
         // «فودکاست هدف ۲۰٪ برای نوشیدنی گرم» when the dish's section has a target of its own.
-        val section = recipe.category?.takeIf { recipe.pricing == null && it in state.pricing.methodByCategory }
+        val section = recipe.category?.takeIf {
+            state.pricing.scope == PricingScope.MENU_SECTIONS && recipe.pricing == null && it in state.pricing.methodByCategory
+        }
         return QuickResult(
             rows = rows,
             hasLines = hasLines,
@@ -789,8 +796,9 @@ object QuickCalculator {
         val menu = if (input.menuPrice.isBlank()) null else money.parse(input.menuPrice)
         if (input.menuPrice.isNotBlank() && (menu == null || menu <= 0)) p.add(Field.AMOUNT, "قیمت منو درست نیست.")
         discountProblem(input, money)?.let { p.add(Field.DISCOUNT, it) }
-        // A new calculation saved over a dish on the menu keeps that dish's section unless one is chosen.
-        val category = input.category?.trim()?.ifEmpty { null } ?: namesake?.let { state.recipes[it]?.category }
+        // An untouched new calculation keeps a namesake's section; explicitly choosing none clears it.
+        val category = if (input.categoryChosen) input.category?.trim()?.ifEmpty { null }
+            else input.category?.trim()?.ifEmpty { null } ?: namesake?.let { state.recipes[it]?.category }
         return p.result { QuickPlan(name, rows, portions!!, menu, editing ?: namesake, input.miscPercent, extras, category) }
     }
 

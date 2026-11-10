@@ -56,6 +56,10 @@ class AppContainer(context: Context) {
     /** Null until the stored operations have been read. */
     val state: StateFlow<LedgerState?> = _state.asStateFlow()
 
+    // Draft v1 files without their own currency used the preference at the time they were written.
+    // Capture it before migrating the display preference, otherwise old NEW_RIAL text is reinterpreted.
+    private val draftCurrencyBeforeMigration = prefs.getString(KEY_CURRENCY, null)
+        ?.let { name -> DisplayCurrency.entries.firstOrNull { it.name == name } } ?: DisplayCurrency.TOMAN
     private val _currency = MutableStateFlow(readCurrency())
     val currency: StateFlow<DisplayCurrency> = _currency.asStateFlow()
 
@@ -122,7 +126,8 @@ class AppContainer(context: Context) {
     fun saveDraft() = writeDraft(quickDraft.value, _currency.value)
 
     private fun readDraft(): QuickInput = try {
-        QuickDrafts.decode(draftFile.readFully().toString(Charsets.UTF_8), _currency.value) ?: QuickInput()
+        QuickDrafts.decode(draftFile.readFully().toString(Charsets.UTF_8), draftCurrencyBeforeMigration)
+            ?.let { QuickDrafts.convert(it, draftCurrencyBeforeMigration, _currency.value) } ?: QuickInput()
     } catch (e: IOException) {
         QuickInput() // none yet, or not readable
     }
@@ -308,17 +313,25 @@ class AppContainer(context: Context) {
     }
 
     fun setCurrency(currency: DisplayCurrency) {
+        // NEW_RIAL is retained in codecs for old backups/drafts, never as a selectable unit.
+        val available = if (currency == DisplayCurrency.NEW_RIAL) DisplayCurrency.TOMAN else currency
         val old = _currency.value
-        if (currency == old) return
-        prefs.edit().putString(KEY_CURRENCY, currency.name).apply()
+        if (available == old) return
+        prefs.edit().putString(KEY_CURRENCY, available.name).apply()
         // The calculator's amounts were typed in the old currency: the same amounts, in the new one.
-        quickDraft.value = QuickDrafts.convert(quickDraft.value, old, currency)
-        _currency.value = currency
+        quickDraft.value = QuickDrafts.convert(quickDraft.value, old, available)
+        _currency.value = available
     }
 
-    private fun readCurrency(): DisplayCurrency =
-        prefs.getString(KEY_CURRENCY, null)?.let { name -> DisplayCurrency.entries.firstOrNull { it.name == name } }
-            ?: DisplayCurrency.TOMAN
+    private fun readCurrency(): DisplayCurrency = when (prefs.getString(KEY_CURRENCY, null)) {
+        DisplayCurrency.RIAL.name -> DisplayCurrency.RIAL
+        DisplayCurrency.TOMAN.name, null -> DisplayCurrency.TOMAN
+        else -> {
+            // Drafts keep their original unit and decode into the chosen unit without changing rials.
+            prefs.edit().putString(KEY_CURRENCY, DisplayCurrency.TOMAN.name).apply()
+            DisplayCurrency.TOMAN
+        }
+    }
 
     /**
      * This phone's id, kept in a file of its own. Android's backup and the move to a new phone leave

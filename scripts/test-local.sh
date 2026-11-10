@@ -23,7 +23,7 @@ for module in $MODULES; do
   CP="${CP:+$CP:}$OUT/$module.jar"
   if [ -d "$ROOT/$module/src/test/kotlin" ]; then
     echo "Compiling $module tests..."
-    "$KOTLINC" -nowarn -cp "$CP:$LIB/kotlin-test.jar:$OUT/stub" -d "$OUT/$module-test" "$ROOT/$module/src/test/kotlin"
+    "$KOTLINC" -nowarn -Xfriend-paths="$OUT/$module.jar" -cp "$CP:$LIB/kotlin-test.jar:$OUT/stub" -d "$OUT/$module-test" "$ROOT/$module/src/test/kotlin"
     TEST_DIRS+=("$OUT/$module-test")
   fi
 done

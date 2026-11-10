@@ -67,6 +67,13 @@ jobs:
             echo "::error title=Signing::The APK is not signed with the app's own key"
             exit 1
           fi
+      - name: Keep signed APK as downloadable workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: foodcost-signed-apk
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
       - name: Keep Play Store AAB as private workflow artifact
         uses: actions/upload-artifact@v4
         with:
@@ -156,7 +163,7 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          lines=$( { grep -E "^e: |error:|What went wrong|FAILED" build.log; grep -E "FAILURES|Exception|Error|expected|Caused by|at ir\.foodcost|Tests run" walkthrough.log unreadable.log recovery.log; grep -E "FATAL|AndroidRuntime|ir\.foodcost" logcat.txt; } 2>/dev/null | head -90 || true)
+          lines=$( { grep -E "^e: |error:|What went wrong|FAILED" build.log; grep -E "FAILURES|Exception|Error|expected|Caused by|at ir\.foodcost|Tests run" walkthrough.log settings.log currency.log exit.log unreadable.log recovery.log; grep -E "FATAL|AndroidRuntime|ir\.foodcost" logcat.txt; } 2>/dev/null | head -90 || true)
           message=$(printf '%s' "$lines" | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}')
           echo "::error title=Walk-through failed::${message}"
       - name: Publish the screenshots
@@ -175,3 +182,11 @@ jobs:
           done
           gh release create "$tag" screenshots/*.png --draft --target "$GITHUB_SHA" \
             --title "$name" --notes "Screenshots of the automated walk-through at ${GITHUB_SHA::7}."
+      - name: Keep screenshots as downloadable workflow artifact
+        if: always() && hashFiles('screenshots/*.png') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: foodcost-redesign-screenshots
+          path: screenshots/
+          if-no-files-found: error
+          retention-days: 30

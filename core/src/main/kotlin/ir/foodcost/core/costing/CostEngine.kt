@@ -214,7 +214,7 @@ class CostEngine(
                 index[v] = counter
                 low[v] = counter
                 counter++
-                stack.addLast(v)
+                stack.add(v)
                 onStack += v
                 for (w in edges[v].orEmpty()) {
                     if (w !in index) {

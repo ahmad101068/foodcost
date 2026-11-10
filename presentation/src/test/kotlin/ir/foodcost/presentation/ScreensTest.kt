@@ -73,7 +73,7 @@ class ScreensTest {
         val row = model.rows.single()
         assertEquals("چلوکباب کوبیده", row.name)
         assertEquals(PriceStatus.OK, row.status)
-        assertEquals("سالم", row.statusLabel)
+        assertEquals("مناسب", row.statusLabel)
         assertEquals("۴۲۲٬۴۰۸ تومان", row.foodCost)
         assertEquals("۱٬۳۵۰٬۰۰۰ تومان", row.menuPrice)
         assertEquals("۱٬۳۳۰٬۰۰۰ تومان", row.suggestedPrice)

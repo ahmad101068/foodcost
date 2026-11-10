@@ -17,6 +17,7 @@ import ir.foodcost.core.pricing.OnlineTerms
 import ir.foodcost.core.pricing.Overhead
 import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.core.pricing.PricingMethod
+import ir.foodcost.core.pricing.PricingScope
 import ir.foodcost.core.pricing.PricingSettings
 import ir.foodcost.core.reports.MenuSnapshot
 import ir.foodcost.core.units.Conversions
@@ -333,6 +334,9 @@ object OperationCodec {
     private fun encodePricing(p: PricingSettings): JsonObject = jsonObject(
         "defaultMethod" to encodeMethod(p.defaultMethod),
         "methodByCategory" to JsonObject(p.methodByCategory.mapValues { (_, m) -> encodeMethod(m) }),
+        // The legacy policy is omitted so re-encoding old rows keeps their canonical identity.
+        // GENERAL changes which stored rules apply, and requires backup version 8 below.
+        "scope" to p.scope.takeIf { it != PricingScope.MENU_SECTIONS }?.name?.json,
         "vatPercent" to p.vatPercent.json,
         "menuPriceIncludesVat" to p.menuPriceIncludesVat.json,
         "rounding" to jsonObject("stepRials" to p.rounding.stepRials.json, "direction" to p.rounding.direction.name.json),
@@ -358,6 +362,7 @@ object OperationCodec {
         return PricingSettings(
             defaultMethod = decodeMethod(o.obj("defaultMethod")),
             methodByCategory = o.obj("methodByCategory").fields.mapValues { (k, v) -> decodeMethod(v.asObject(k)) },
+            scope = if (o.has("scope")) enumOf<PricingScope>(o.string("scope")) else PricingScope.MENU_SECTIONS,
             vatPercent = o.decimal("vatPercent"),
             menuPriceIncludesVat = o.bool("menuPriceIncludesVat"),
             rounding = PriceRounding(rounding.long("stepRials"), enumOf<PriceRounding.Direction>(rounding.string("direction"))),
@@ -458,15 +463,17 @@ object Backup {
      * The newest version read. 2 since a change can say from which day it counts, 3 when a close
      * says what it had seen, 4 since changes are numbered, 5 since a close lists its unnumbered
      * changes and writes its gaps as ranges, 6 since a recipe's kind counts from its day, 7 for an
-     * emergency backup, which also carries as text the stored rows its phone could not read. A
+     * emergency backup, which also carries as text the stored rows its phone could not read, and
+     * 8 for a general-only pricing policy, which ignores saved section and recipe rules. A
      * version of the app that reads only the earlier ones refuses a newer file whole rather than
      * misread it: one before 2 would count dated changes on every day, one before 4 would drop the
      * numbers, one before 5 would let a change the close had not seen into a closed day, one before
      * 6 would count a dated kind on every day, closed days included, and one before 7 would take an
-     * emergency backup for a whole one, without a word about what it lacks. Older files read as
+     * emergency backup for a whole one, without a word about what it lacks; one before 8 would
+     * silently apply saved overrides when only the general rule should apply. Older files read as
      * they always did.
      */
-    const val VERSION = 7
+    const val VERSION = 8
 
     /**
      * A stored row its phone could not read, carried in an emergency backup as it was stored, so
@@ -478,7 +485,7 @@ object Backup {
     fun write(operations: List<Operation>, unreadable: List<Unreadable> = emptyList()): String = Json.write(
         jsonObject(
             "format" to FORMAT.json,
-            "version" to (if (unreadable.isEmpty()) versionFor(operations) else 7).json,
+            "version" to maxOf(versionFor(operations), if (unreadable.isEmpty()) 0 else 7).json,
             "operations" to jsonArray(operations.map(OperationCodec::encode)),
             "unreadable" to unreadable.takeIf { it.isNotEmpty() }?.let { rows ->
                 jsonArray(rows.map { jsonObject("id" to it.id.json, "text" to it.text.json) })
@@ -511,6 +518,7 @@ object Backup {
 
     /** The oldest version that reads [operations] right, so a file of older changes still opens in 0.7.0. */
     private fun versionFor(operations: List<Operation>): Int = when {
+        operations.any { (it.change as? Change.SettingsSaved)?.pricing?.scope == PricingScope.GENERAL } -> 8
         operations.any { (it.change as? Change.RecipeSaved)?.let { c -> c.kindDated && c.kind is Opt.Value && c.effectiveFrom != null } == true } -> 6
         operations.any { (it.change as? Change.PeriodClosed)?.seen != null } -> 5
         operations.any { it.seq != null } -> 4

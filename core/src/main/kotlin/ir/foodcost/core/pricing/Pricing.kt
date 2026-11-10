@@ -75,6 +75,9 @@ data class OnlineTerms(
     val isSet: Boolean get() = commissionPercent.signum() > 0 || discountPercent.signum() > 0 || priceUpliftPercent.signum() > 0
 }
 
+/** Exactly one pricing policy is active; the other policy's saved values remain available. */
+enum class PricingScope { GENERAL, MENU_SECTIONS }
+
 data class PricingSettings(
     val defaultMethod: PricingMethod = PricingMethod.TargetFoodCost(BigDecimal(35)),
     val methodByCategory: Map<String, PricingMethod> = emptyMap(),
@@ -96,6 +99,8 @@ data class PricingSettings(
      * a method of their own are the keys of [methodByCategory]. They change no figure.
      */
     val generalSections: List<String> = emptyList(),
+    /** Legacy settings keep their recipe/category precedence until the user explicitly changes it. */
+    val scope: PricingScope = PricingScope.MENU_SECTIONS,
 ) {
     init {
         require(vatPercent.signum() >= 0 && vatPercent < Decimals.HUNDRED) { "VAT must be in [0, 100)" }
@@ -107,9 +112,15 @@ data class PricingSettings(
     /** Every menu section: those with a method of their own, then those priced with the general one. */
     val sections: List<String> get() = (methodByCategory.keys + generalSections).distinct()
 
-    /** The item's own rule, else its category's, else the general one. */
-    fun methodFor(recipe: Recipe): PricingMethod =
-        recipe.pricing ?: recipe.category?.let { methodByCategory[it] } ?: defaultMethod
+    /**
+     * General mode applies one rule to every dish. Section mode retains a dish's own rule,
+     * otherwise its section's rule, with the general rule as a fallback for an unmapped dish.
+     * Inactive rules remain stored so changing the scope is reversible.
+     */
+    fun methodFor(recipe: Recipe): PricingMethod = when (scope) {
+        PricingScope.GENERAL -> defaultMethod
+        PricingScope.MENU_SECTIONS -> recipe.pricing ?: recipe.category?.let { methodByCategory[it] } ?: defaultMethod
+    }
 
     /** 1.10 when menu prices include 10% VAT; otherwise 1. */
     val vatFactor: BigDecimal

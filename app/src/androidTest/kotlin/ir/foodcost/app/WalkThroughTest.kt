@@ -2,6 +2,8 @@ package ir.foodcost.app
 
 import android.graphics.Bitmap
 import android.os.ParcelFileDescriptor
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
@@ -16,9 +18,12 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -26,11 +31,15 @@ import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import ir.foodcost.core.model.RecipeKind
+import ir.foodcost.core.pricing.PricingMethod
+import ir.foodcost.core.pricing.PricingScope
+import ir.foodcost.core.pricing.PricingSettings
 import ir.foodcost.presentation.Labels
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.math.BigDecimal
 
 /**
  * Walks through the app the way the hall owner uses it: the koobideh priced in the calculator with
@@ -46,6 +55,7 @@ class WalkThroughTest {
     val rule = createEmptyComposeRule()
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
+    private val container get() = (instrumentation.targetContext.applicationContext as FoodCostApplication).container
     private val shots = File(instrumentation.targetContext.filesDir, "screenshots").apply {
         deleteRecursively()
         mkdirs()
@@ -73,8 +83,12 @@ class WalkThroughTest {
     }
 
     private fun walk() {
-        // The empty calculator opens with the keyboard on the first field.
+        // Start the visual flow explicitly: emulator IME state need not give the
+        // first field focus after another test or an activity recreation.
+        waitForTag("row-0-name")
+        scrolled(rule.onNodeWithTag("row-0-name")).performClick()
         waitForFocus("row-0-name")
+        show("calculator-dashboard")
         shot("01-calculator-empty")
 
         // Prices per kilo in toman, grams per portion: 364,105 toman a portion with 3% for spices.
@@ -90,6 +104,7 @@ class WalkThroughTest {
         typeRow(3, "برنج", "350000", "200")
         waitForFigure("cost", "۳۶۴٬۱۰۵")
         waitForFigure("suggested", "۱٬۱۵۰٬۰۰۰")
+        show("calculator-dashboard")
         shot("02-calculator")
 
         // Sold at 630,000 toman (VAT included): 572,727 net, a 63.6% food cost, 208,622 left. Under-priced.
@@ -99,7 +114,8 @@ class WalkThroughTest {
         waitForFigure("net-sales", "۵۷۲٬۷۲۷")
         waitForFigure("food-cost", "۶۳٫۶٪")
         waitForFigure("gross-profit", "۲۰۸٬۶۲۲")
-        waitFor("زیر قیمت")
+        waitFor("خیلی پایین")
+        show("calculator-dashboard")
         shot("03-under-priced")
 
         // A tap on a figure explains the word with the dish's own numbers; the glossary is a tap away.
@@ -113,6 +129,7 @@ class WalkThroughTest {
         back()
 
         // A takeaway box of 15,000 toman: one tap adds it, and takeaway shows beside the restaurant.
+        openCalculatorDetails()
         click("ظرف و بسته‌بندی")
         waitForFocus("extra-0-amount")
         typeTag("extra-0-amount", "15000")
@@ -132,12 +149,26 @@ class WalkThroughTest {
         // The dishes tab shows the plate and that its price no longer covers it.
         click("غذاها")
         waitFor("چلوکباب کوبیده")
-        waitFor("زیر قیمت")
+        waitFor("خیلی پایین")
         waitFor("۱ غذا باید گران‌تر شود")
         shot("08-dishes")
 
         // The saved dish opens in the calculator. A meat price with a zero too many is flagged at once.
-        click("چلوکباب کوبیده")
+        val savedDish = requireNotNull(container.state.value?.recipes?.values?.firstOrNull {
+            it.name == "چلوکباب کوبیده" && !it.archived
+        }) { "The freshly saved dish is missing from the ledger" }
+        // The saved quick-calculator recipe must be compatible before navigating. This
+        // distinguishes a malformed saved recipe from a lost card tap in emulator tests.
+        val savedState = requireNotNull(container.state.value)
+        checkNotNull(ir.foodcost.presentation.QuickCalculator.open(
+            savedState, savedDish.id, java.time.LocalDate.now(),
+            ir.foodcost.presentation.MoneyFormat(container.currency.value),
+        )) { "Saved dish is not readable by the quick calculator" }
+        // Invoke the card's accessibility action directly. On small emulator screens, the
+        // floating Add control can intercept the synthetic center tap of a large lazy-list card.
+        waitForTag("food-${savedDish.id.value}")
+        scrolled(rule.onNodeWithTag("food-${savedDish.id.value}"))
+            .performSemanticsAction(SemanticsActions.OnClick)
         waitForTag("row-0-price")
         replaceTag("row-0-price", "16000000")
         waitForPart("۱۰ برابر قیمت قبلی")
@@ -160,8 +191,12 @@ class WalkThroughTest {
 
         // A new onion price from the list, in one field.
         click("مواد")
+        // LazyColumn only exposes on-screen cards to the semantics tree. Scroll to the saved
+        // meat ingredient before asserting its price; alphabetical order puts rice first.
+        rule.onNodeWithTag("ingredients-list").performScrollToNode(hasText("گوشت"))
         waitFor("هر کیلو ۱٬۶۰۰٬۰۰۰ تومان")
         shot("12-ingredients")
+        rule.onNodeWithTag("ingredients-list").performScrollToNode(hasContentDescription("قیمت تازهٔ پیاز"))
         rule.onNodeWithContentDescription("قیمت تازهٔ پیاز").performClick()
         replaceTag("quick-price", "90000")
         click("ذخیره")
@@ -169,6 +204,7 @@ class WalkThroughTest {
         shot("13-quick-price")
 
         // The detailed screens are still there: a purchase by the bag, and plain rice as a preparation.
+        rule.onNodeWithTag("ingredients-list").performScrollToNode(hasText("برنج"))
         click("برنج")
         click("قیمت تازه")
         replace("مقدار خرید", "10")
@@ -191,7 +227,9 @@ class WalkThroughTest {
         back()
 
         // The three pricing methods put the same price, retaining the recurring markup's precision.
-        click("تنظیمات")
+        settingsOverview()
+        clickTag("settings-section-pricing")
+        clickTag("pricing-scope-general")
         waitFor("ذخیرهٔ قیمت‌گذاری")
         click("حاشیهٔ سود")
         waitFor("65")
@@ -202,12 +240,27 @@ class WalkThroughTest {
         shot("16-settings")
         click("فودکاست هدف")
         waitFor("35")
+        clickTag("settings-save-pricing")
+        waitForPricing { it.scope == PricingScope.GENERAL }
+        waitForPart("تنظیمات ذخیره شد")
 
         // The guide to using the app, from the settings.
+        clickTag("settings-back")
+        clickTag("settings-section-help")
         click("کار با برنامه")
         waitFor("حساب یک غذا")
         shot("17-help-guide")
         back()
+
+        // The scope selector is exclusive: section targets are editable only in section mode.
+        clickTag("settings-back")
+        clickTag("settings-section-pricing")
+        clickTag("pricing-scope-sections")
+        clickTag("settings-save-pricing")
+        waitForPricing { it.scope == PricingScope.MENU_SECTIONS }
+        waitForPart("تنظیمات ذخیره شد")
+        clickTag("settings-back")
+        clickTag("settings-section-sections")
 
         // Main dishes aim at a 30% food cost; a tap on the section puts the keyboard on its target.
         click("غذای اصلی")
@@ -215,18 +268,26 @@ class WalkThroughTest {
         typeTag("category-0-percent", "30")
         show("category-0-name")
         shot("18-sections")
+        clickTag("settings-save-sections")
+        waitForPricing { it.methodByCategory["غذای اصلی"] == PricingMethod.TargetFoodCost(BigDecimal(30)) }
+        waitForPart("تنظیمات ذخیره شد")
 
         // Online sales with a 20% commission: the online column joins the restaurant and takeaway.
+        clickTag("settings-back")
+        clickTag("settings-section-costs")
         type("کمیسیون سامانه", "20")
-        click("ذخیرهٔ قیمت‌گذاری")
+        clickTag("settings-save-costs")
+        waitForPricing { it.online.commissionPercent.compareTo(BigDecimal(20)) == 0 }
         waitForPart("تنظیمات ذخیره شد")
         click("ماشین‌حساب")
+        openCalculatorDetails()
         waitFor("آنلاین")
         quiet()
         show("channel-remaining")
         shot("19-online")
 
         // The koobideh put among the main dishes is priced at their 30%: 1,340,000 toman.
+        clickTag("menu-section-selector")
         click("غذای اصلی")
         waitForPart("۱٬۳۴۰٬۰۰۰")
         show("dish-name")
@@ -236,8 +297,13 @@ class WalkThroughTest {
         darkTheme()
 
         // Switched to rials, the calculation is the same plate: 364,105 toman is 3,641,050 rials.
-        click("تنظیمات")
+        settingsOverview()
+        clickTag("settings-section-currency")
+        waitFor("تومان")
+        rule.onAllNodesWithText("ریال جدید").assertCountEquals(0)
         click("ریال")
+        clickTag("settings-back")
+        clickTag("settings-section-backup")
         backupPassword()
         click("ماشین‌حساب")
         waitForFigure("cost", "۳٬۶۴۱٬۰۵۰")
@@ -339,6 +405,34 @@ class WalkThroughTest {
         typeTag("row-$index-name", name)
         typeTag("row-$index-price", price)
         typeTag("row-$index-qty", qty)
+    }
+
+    private fun settingsOverview() {
+        click("تنظیمات")
+        rule.waitUntil(timeoutMillis = 15_000) {
+            rule.onAllNodesWithTag("settings-overview").fetchSemanticsNodes().isNotEmpty() ||
+                rule.onAllNodesWithTag("settings-back").fetchSemanticsNodes().isNotEmpty()
+        }
+        if (rule.onAllNodesWithTag("settings-overview").fetchSemanticsNodes().isEmpty()) clickTag("settings-back")
+        waitForTag("settings-overview")
+    }
+
+    private fun openCalculatorDetails() {
+        if (rule.onAllNodesWithTag("channel-remaining").fetchSemanticsNodes().isEmpty()) {
+            clickTag("calculator-details-toggle")
+        }
+    }
+
+    private fun waitForPricing(check: (PricingSettings) -> Boolean) {
+        rule.waitUntil(timeoutMillis = 15_000) { container.state.value?.pricing?.let(check) == true }
+    }
+
+    private fun clickTag(tag: String) {
+        waitForTag(tag)
+        // Buttons and tiles may be partially obscured by Snackbar or the bottom bar.
+        // The semantics action hits the correct control without a screen-coordinate race.
+        scrolled(rule.onNodeWithTag(tag)).performSemanticsAction(SemanticsActions.OnClick)
+        rule.waitForIdle()
     }
 
     private fun waitFor(text: String) {

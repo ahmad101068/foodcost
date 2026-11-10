@@ -18,6 +18,7 @@ import ir.foodcost.core.pricing.CostBasis
 import ir.foodcost.core.pricing.OnlineTerms
 import ir.foodcost.core.pricing.Overhead
 import ir.foodcost.core.pricing.PricingMethod
+import ir.foodcost.core.pricing.PricingScope
 import ir.foodcost.core.pricing.PricingSettings
 import ir.foodcost.core.units.Conversions
 import ir.foodcost.core.units.Dimension
@@ -288,6 +289,9 @@ data class CategoryTargetInput(
 /** The pricing rules and misc share, ready to save. */
 data class SettingsDraft(val costing: CostingRules, val pricing: PricingSettings)
 
+/** The independently saved settings pages. Costs includes overhead and online sales terms. */
+enum class SettingsPart { PRICING, SECTIONS, COSTS }
+
 /** The settings form, as typed. Amounts are in [MoneyFormat]'s currency. */
 data class SettingsInput(
     val method: MethodChoice,
@@ -314,6 +318,8 @@ data class SettingsInput(
     val carried: Boolean = false,
     /** The first value in an unchanged sequence of method switches, avoiding round-trip drift. */
     val conversionOrigin: PricingMethod? = null,
+    /** Only the selected policy affects suggested prices; inactive settings stay stored. */
+    val scope: PricingScope = PricingScope.MENU_SECTIONS,
 ) {
     fun plusCategory(name: String): SettingsInput = copy(categories = categories + CategoryTargetInput(name))
 
@@ -391,6 +397,7 @@ data class SettingsInput(
             SettingsDraft(
                 costing = currentCosting.copy(defaultMiscPercent = misc!!),
                 pricing = currentPricing.copy(
+                    scope = scope,
                     defaultMethod = newMethod,
                     vatPercent = vat!!,
                     menuPriceIncludesVat = menuPriceIncludesVat,
@@ -402,6 +409,97 @@ data class SettingsInput(
                 ),
             )
         }
+    }
+
+    /**
+     * Save only the visible page. Unfinished input on another page cannot block this save or
+     * replace that page's last confirmed values. Inactive pricing values remain available for
+     * a later scope switch; an unmapped section continues to use the saved general fallback.
+     */
+    fun checkPart(
+        part: SettingsPart,
+        currentPricing: PricingSettings,
+        currentCosting: CostingRules,
+        money: MoneyFormat,
+    ): Checked<SettingsDraft> {
+        val saved = of(currentPricing, currentCosting, money)
+        val activeGeneral = scope == PricingScope.GENERAL
+        val dormantSections = if (part == SettingsPart.SECTIONS && currentPricing.scope == PricingScope.GENERAL) {
+            inactiveSections(saved.categories)
+        } else null
+        val page = when (part) {
+            SettingsPart.PRICING -> saved.copy(
+                scope = scope,
+                method = if (activeGeneral) method else saved.method,
+                percent = if (activeGeneral) percent else saved.percent,
+                basis = if (activeGeneral) basis else saved.basis,
+                carried = activeGeneral && carried,
+                vatPercent = vatPercent,
+                menuPriceIncludesVat = menuPriceIncludesVat,
+                roundingStepRials = roundingStepRials,
+                roundingDirection = roundingDirection,
+            )
+            SettingsPart.SECTIONS -> saved.copy(
+                categories = dormantSections?.first ?: categories,
+            )
+            SettingsPart.COSTS -> saved.copy(
+                miscPercent = miscPercent,
+                monthlyFixed = monthlyFixed,
+                monthlyPortions = monthlyPortions,
+                onlineCommission = onlineCommission,
+                onlineDiscount = onlineDiscount,
+                onlineUplift = onlineUplift,
+            )
+        }
+        return when (val checked = page.check(currentPricing, currentCosting, money)) {
+            is Checked.Invalid -> checked
+            is Checked.Valid -> {
+                val draft = checked.value
+                val pricing = when (part) {
+                    SettingsPart.PRICING -> currentPricing.copy(
+                        scope = scope,
+                        defaultMethod = if (activeGeneral) draft.pricing.defaultMethod else currentPricing.defaultMethod,
+                        vatPercent = draft.pricing.vatPercent,
+                        menuPriceIncludesVat = menuPriceIncludesVat,
+                        rounding = draft.pricing.rounding,
+                    )
+                    SettingsPart.SECTIONS -> currentPricing.copy(
+                        methodByCategory = if (dormantSections == null) draft.pricing.methodByCategory else {
+                            draft.pricing.methodByCategory.mapValues { (name, method) ->
+                                dormantSections.second[name]?.let { currentPricing.methodByCategory[it] } ?: method
+                            }
+                        },
+                        generalSections = draft.pricing.generalSections,
+                    )
+                    SettingsPart.COSTS -> currentPricing.copy(
+                        overhead = draft.pricing.overhead,
+                        online = draft.pricing.online,
+                    )
+                }
+                Checked.Valid(SettingsDraft(if (part == SettingsPart.COSTS) draft.costing else currentCosting, pricing))
+            }
+        }
+    }
+
+    /** Section names stay editable in general mode, but their disabled pricing controls do not. */
+    private fun inactiveSections(saved: List<CategoryTargetInput>): Pair<List<CategoryTargetInput>, Map<String, String>> {
+        val requestedNames = categories.map { Persian.searchKey(it.name) }.toSet()
+        val savedByName = saved.associateBy { Persian.searchKey(it.name) }
+        val availableRenames = saved.filter { Persian.searchKey(it.name) !in requestedNames }.toMutableList()
+        val sourceNames = LinkedHashMap<String, String>()
+        val rows = categories.map { row ->
+            val existing = savedByName[Persian.searchKey(row.name)]
+            // A renamed row carries its old disabled fields. Match those before treating a new
+            // name as a plain section, so renaming does not discard its dormant target.
+            val renamed = if (existing == null) availableRenames.firstOrNull {
+                it.percent == row.percent && it.method == row.method && it.basis == row.basis && it.useGeneral == row.useGeneral
+            } else null
+            if (renamed != null) availableRenames.remove(renamed)
+            val prior = existing ?: renamed
+            if (prior != null) sourceNames[row.name.trim()] = prior.name
+            prior?.copy(name = row.name) ?: row.copy(percent = "", useGeneral = true)
+        }
+        return rows to sourceNames
     }
 
     /**
@@ -544,6 +642,7 @@ data class SettingsInput(
             fun percentOrBlank(v: BigDecimal) = if (v.signum() == 0) "" else Numbers.editable(v)
             return SettingsInput(
                 method = choice,
+                scope = pricing.scope,
                 percent = Numbers.editable(value),
                 vatPercent = Numbers.editable(pricing.vatPercent),
                 menuPriceIncludesVat = pricing.menuPriceIncludesVat,

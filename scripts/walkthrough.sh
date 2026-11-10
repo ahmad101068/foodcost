@@ -30,6 +30,15 @@ alone() {
   grep -qE "^OK \([0-9]+ tests?\)" alone.log || failed=1
 }
 
+# Settings and exit checks each begin in a fresh instrumentation process. Closing the
+# calculator in the exit test must not close the activity used by the long walkthrough.
+: > settings.log
+alone ir.foodcost.app.SettingsScopeTest settings.log
+: > currency.log
+alone ir.foodcost.app.CurrencyPreferenceTest currency.log
+: > exit.log
+alone ir.foodcost.app.ExitConfirmationTest exit.log
+
 # A stored change that cannot be read: no figure is shown and every screen says why, and the user
 # can go on without it. Each test on data it makes and removes itself.
 : > unreadable.log

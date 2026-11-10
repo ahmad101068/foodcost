@@ -220,7 +220,7 @@ class ClosedPeriodPropertyTest {
             if (refusedInARow > pending.size) {
                 val rest = pending.flatten()
                 pending.clear()
-                pending.addLast(rest)
+                pending.add(rest)
                 refusedInARow = 0
             }
             val piece = pending.removeFirst()
@@ -234,7 +234,7 @@ class ClosedPeriodPropertyTest {
                 // A close came before what it had seen: refused whole, and sent again later.
                 if (to.state != before || to.operations() != stored) fail("seed $seed: a refused piece left something behind")
                 if (pending.isEmpty()) fail("seed $seed: the whole rest of a ledger's changes was refused: ${e.message}")
-                pending.addLast(piece)
+                pending.add(piece)
                 refusedInARow++
                 refused++
             }
