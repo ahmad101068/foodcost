@@ -106,20 +106,19 @@ fun SettingsScreen(
                 Segmented(MethodChoice.entries, input.method, { methodName(it) }) { input = input.withMethod(it) }
                 TextInput(
                     value = input.percent,
-                    onValueChange = { input = input.copy(percent = it, carried = false) },
+                    onValueChange = { input = input.copy(percent = it, carried = false, conversionOrigin = null) },
                     label = methodName(input.method),
                     error = errors[Field.PERCENT],
                     supporting = listOfNotNull(
                         methodHint(input.method),
-                        // From a margin or markup on every cost there is no food cost equivalent: the number is the old one.
-                        if (input.carried) "این عدد از روش قبلی مانده است. فودکاست فقط بهای مواد را می‌سنجد و با «همهٔ هزینه‌ها» برابری ثابتی ندارد؛ عدد را دوباره بنویسید." else input.equivalents(),
+                        if (input.carried) SettingsInput.CARRIED_MESSAGE else input.equivalents(),
                     ).joinToString("\n"),
                     number = true,
                     suffix = "٪",
                 )
                 if (input.method != MethodChoice.FOOD_COST) {
                     Text("روی چه هزینه‌ای؟", style = MaterialTheme.typography.labelLarge)
-                    Segmented(CostBasis.entries, input.basis, { basisName(it) }) { input = input.copy(basis = it) }
+                    Segmented(CostBasis.entries, input.basis, { basisName(it) }) { input = input.copy(basis = it, conversionOrigin = null) }
                     Text(
                         if (input.basis == CostBasis.FOOD_COST) {
                             "فقط بهای مواد؛ هزینه‌های دیگر از مانده کم می‌شوند."

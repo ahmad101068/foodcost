@@ -214,7 +214,8 @@ class Pricer(private val settings: PricingSettings) {
 
         var net = when (method) {
             is PricingMethod.TargetFoodCost -> food.over(method.percent.asFraction())
-            is PricingMethod.TargetMargin -> base(method.basis).over(BigDecimal.ONE - method.percent.asFraction())
+            // Subtract first: rounding a margin very close to 100 into a fraction can produce 1.
+            is PricingMethod.TargetMargin -> base(method.basis).over((Decimals.HUNDRED - method.percent).asFraction())
             is PricingMethod.Markup -> base(method.basis).multiply(BigDecimal.ONE + method.percent.asFraction())
         }
         settings.minimumGrossProfitRials?.let { net = net.max(food + BigDecimal(it)) }
@@ -273,7 +274,7 @@ class Pricer(private val settings: PricingSettings) {
         val net = BigDecimal(menuPrice).over(settings.vatFactor)
         return when (val m = settings.methodFor(recipe)) {
             is PricingMethod.TargetFoodCost -> MaxCost(net.multiply(m.percent.asFraction()), CostBasis.FOOD_COST)
-            is PricingMethod.TargetMargin -> MaxCost(net.multiply(BigDecimal.ONE - m.percent.asFraction()), m.basis)
+            is PricingMethod.TargetMargin -> MaxCost(net.multiply((Decimals.HUNDRED - m.percent).asFraction()), m.basis)
             is PricingMethod.Markup -> MaxCost(net.over(BigDecimal.ONE + m.percent.asFraction()), m.basis)
         }
     }
