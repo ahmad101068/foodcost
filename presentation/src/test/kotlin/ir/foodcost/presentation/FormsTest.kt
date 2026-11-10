@@ -261,7 +261,7 @@ class FormsTest {
         val pricing = PricingSettings(defaultMethod = PricingMethod.TargetMargin(BigDecimal("30"), CostBasis.FULL_COST))
         val initial = SettingsInput.of(pricing, CostingRules(), toman)
         val unknownFood = initial.withMethod(MethodChoice.FOOD_COST)
-        assertEquals("", unknownFood.percent)
+        assertEquals("30", unknownFood.percent)
         assertEquals(true, unknownFood.carried)
         assertEquals(null, unknownFood.equivalentPercentages()?.get(MethodChoice.FOOD_COST))
         assertEquals("30", unknownFood.equivalentPercentages()?.get(MethodChoice.MARGIN)?.toPlainString())
@@ -331,7 +331,7 @@ class FormsTest {
 
         // A food cost target measures the food alone: from every cost it has no equivalent, so the number is kept and marked.
         val foodCost = full.withMethod(MethodChoice.FOOD_COST)
-        assertEquals("" to true, foodCost.percent to foodCost.carried)
+        assertEquals("30" to true, foodCost.percent to foodCost.carried)
         assertEquals("30", foodCost.withMethod(MethodChoice.MARGIN).percent)
         assertEquals(CostBasis.FULL_COST, foodCost.withMethod(MethodChoice.MARGIN).basis)
         // Back to a margin from a food cost target, it starts on the food alone, where it puts the same price.
