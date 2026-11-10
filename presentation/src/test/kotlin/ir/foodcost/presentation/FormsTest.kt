@@ -271,7 +271,7 @@ class FormsTest {
         val saved = valid(input.check(PricingSettings(), CostingRules(), toman)).pricing
         assertEquals(emptyMap(), saved.methodByCategory)
         assertEquals(listOf("نوشیدنی گرم"), saved.generalSections)
-        assertEquals(listOf(CategoryTargetInput("نوشیدنی گرم")), SettingsInput.of(saved, CostingRules(), toman).categories)
+        assertEquals(listOf(MenuSectionInput("نوشیدنی گرم")), SettingsInput.of(saved, CostingRules(), toman).categories)
         fun error(form: SettingsInput) =
             assertIs<Checked.Invalid>(form.check(PricingSettings(), CostingRules(), toman)).errors[Field.CATEGORY]
         assertEquals("بخش «نوشيدني گرم» دو بار آمده است.", error(input.plusCategory("نوشيدني گرم")))
@@ -285,7 +285,7 @@ class FormsTest {
             generalSections = listOf("پیش‌غذا"),
         )
         val form = SettingsInput.of(old, CostingRules(), toman)
-        assertEquals(listOf(CategoryTargetInput("نوشیدنی سرد"), CategoryTargetInput("پیش‌غذا")), form.categories)
+        assertEquals(listOf(MenuSectionInput("نوشیدنی سرد"), MenuSectionInput("پیش‌غذا")), form.categories)
         val saved = valid(form.check(old, CostingRules(), toman)).pricing
         assertEquals(emptyMap(), saved.methodByCategory)
         assertEquals(listOf("نوشیدنی سرد", "پیش‌غذا"), saved.generalSections)

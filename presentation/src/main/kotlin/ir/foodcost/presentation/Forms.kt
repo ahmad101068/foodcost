@@ -278,7 +278,7 @@ enum class MethodChoice { FOOD_COST, MARGIN, MARKUP }
 enum class SettingsArea { GENERAL_PRICING, MENU_SECTIONS, FIXED_COSTS, ONLINE }
 
 /** A section name is for grouping only. There are no per-section pricing inputs. */
-data class CategoryTargetInput(val name: String = "") {
+data class MenuSectionInput(val name: String = "") {
     val isBlank: Boolean get() = name.isBlank()
 }
 
@@ -303,16 +303,16 @@ data class SettingsInput(
     val onlineDiscount: String = "",
     val onlineUplift: String = "",
     /** Optional menu section names. Every dish uses the general pricing method. */
-    val categories: List<CategoryTargetInput> = emptyList(),
+    val categories: List<MenuSectionInput> = emptyList(),
     /**
      * True when [percent] was kept from a margin or markup on every cost on a switch to a food
      * cost target, which has no equivalent of it; typing a number clears it.
      */
     val carried: Boolean = false,
 ) {
-    fun plusCategory(name: String): SettingsInput = copy(categories = categories + CategoryTargetInput(name))
+    fun plusCategory(name: String): SettingsInput = copy(categories = categories + MenuSectionInput(name))
 
-    fun withCategory(index: Int, category: CategoryTargetInput): SettingsInput =
+    fun withCategory(index: Int, category: MenuSectionInput): SettingsInput =
         copy(categories = categories.toMutableList().also { it[index] = category })
 
     fun withoutCategory(index: Int): SettingsInput = copy(categories = categories.filterIndexed { i, _ -> i != index })
@@ -536,13 +536,6 @@ data class SettingsInput(
             "غذای اصلی", "پیش‌غذا و سالاد", "نوشیدنی گرم", "نوشیدنی سرد", "دسر و کیک", "صبحانه",
         )
 
-        /** A section's rule as a food cost target, whichever way it was stored. */
-        private fun foodCostTarget(method: PricingMethod): BigDecimal? = when (method) {
-            is PricingMethod.TargetFoodCost -> method.percent
-            is PricingMethod.TargetMargin -> equivalent(method.percent, MethodChoice.MARGIN, MethodChoice.FOOD_COST)
-            is PricingMethod.Markup -> equivalent(method.percent, MethodChoice.MARKUP, MethodChoice.FOOD_COST)
-        }
-
         fun of(pricing: PricingSettings, costing: CostingRules, money: MoneyFormat): SettingsInput {
             val m = pricing.defaultMethod
             val (choice, value) = when (m) {
@@ -569,7 +562,7 @@ data class SettingsInput(
                 onlineCommission = percentOrBlank(pricing.online.commissionPercent),
                 onlineDiscount = percentOrBlank(pricing.online.discountPercent),
                 onlineUplift = percentOrBlank(pricing.online.priceUpliftPercent),
-                categories = pricing.sections.map(::CategoryTargetInput),
+                categories = pricing.sections.map(::MenuSectionInput),
             )
         }
     }
