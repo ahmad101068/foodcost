@@ -92,8 +92,8 @@ data class PricingSettings(
     val nearRatio: BigDecimal = BigDecimal("0.93"),
     val online: OnlineTerms = OnlineTerms(),
     /**
-     * Menu sections priced with [defaultMethod], kept so a dish can be put in one; the sections with
-     * a method of their own are the keys of [methodByCategory]. They change no figure.
+     * Plain labels for organizing the menu. The legacy [methodByCategory] remains readable
+     * for old backups, but its percentages no longer participate in any price calculation.
      */
     val generalSections: List<String> = emptyList(),
 ) {
@@ -104,12 +104,14 @@ data class PricingSettings(
         require(generalSections.none { it.isBlank() }) { "A menu section needs a name" }
     }
 
-    /** Every menu section: those with a method of their own, then those priced with the general one. */
+    /** Retain old section names even before the first settings save after upgrading. */
     val sections: List<String> get() = (methodByCategory.keys + generalSections).distinct()
 
-    /** The item's own rule, else its category's, else the general one. */
-    fun methodFor(recipe: Recipe): PricingMethod =
-        recipe.pricing ?: recipe.category?.let { methodByCategory[it] } ?: defaultMethod
+    /**
+     * One rule for ALL foods. Legacy section targets and per-recipe pricing overrides
+     * are ignored (not destructively removed from old history/backups).
+     */
+    fun methodFor(recipe: Recipe): PricingMethod = defaultMethod
 
     /** 1.10 when menu prices include 10% VAT; otherwise 1. */
     val vatFactor: BigDecimal

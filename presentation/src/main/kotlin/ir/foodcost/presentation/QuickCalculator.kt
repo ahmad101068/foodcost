@@ -341,7 +341,7 @@ object QuickCalculator {
             kind = savedDish?.kind ?: RecipeKind.MENU_ITEM,
             versions = listOf(RecipeVersion(today, portions, lines, miscPercent = input.miscPercent, extras = extras)),
             category = input.category,
-            pricing = savedDish?.pricing,
+            pricing = null, // Always price by the one general rule, even for legacy dishes.
         )
         val menuRials = money.parse(input.menuPrice)?.takeIf { it > 0 }
         val discount = discountRials(input, money, menuRials)
@@ -386,8 +386,6 @@ object QuickCalculator {
         val sale = discountedMenuRials?.takeIf { hasLines }?.let { pricer.sale(cost, SalesChannel.DINE_IN, it) }
         val maxCost = discountedMenuRials?.takeIf { hasLines }?.let { pricer.maxCost(recipe, it) }
         val overhead = state.pricing.overhead?.perPortion?.takeIf { it.signum() > 0 && recipe.kind != RecipeKind.PREP }
-        // «فودکاست هدف ۲۰٪ برای نوشیدنی گرم» when the dish's section has a target of its own.
-        val section = recipe.category?.takeIf { recipe.pricing == null && it in state.pricing.methodByCategory }
         return QuickResult(
             rows = rows,
             hasLines = hasLines,
@@ -396,7 +394,7 @@ object QuickCalculator {
             otherCosts = other.takeIf { hasLines && it.signum() > 0 }?.let { money.full(it) },
             overheadShare = overhead?.let { money.full(it) },
             miscNote = "با ${Numbers.percent(cost.miscPercent)} برای نمک، ادویه و روغن",
-            method = Labels.method(s.method) + (section?.let { " برای $it" } ?: ""),
+            method = Labels.method(s.method),
             pricesFoodOnly = basisOf(s.method) == CostBasis.FOOD_COST,
             suggested = when {
                 !hasLines -> null

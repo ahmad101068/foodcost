@@ -134,6 +134,178 @@ class FormsTest {
     }
 
     @Test
+    fun `general pricing displays three live equivalent rates as the user types`() {
+        val base = SettingsInput.of(PricingSettings(), CostingRules(), toman)
+        val margin = base.copy(method = MethodChoice.MARGIN, percent = "۳۰", basis = CostBasis.FOOD_COST)
+        assertEquals(
+            mapOf(
+                MethodChoice.FOOD_COST to "70",
+                MethodChoice.MARGIN to "30",
+                MethodChoice.MARKUP to "42.86",
+            ),
+            margin.equivalentPercentages()?.mapValues { it.value?.toPlainString() },
+        )
+        val food = margin.copy(method = MethodChoice.FOOD_COST, percent = "35")
+        assertEquals("65", food.equivalentPercentages()?.get(MethodChoice.MARGIN)?.toPlainString())
+        assertEquals("185.71", food.equivalentPercentages()?.get(MethodChoice.MARKUP)?.toPlainString())
+        val markup = margin.copy(method = MethodChoice.MARKUP, percent = "200")
+        assertEquals("33.33", markup.equivalentPercentages()?.get(MethodChoice.FOOD_COST)?.toPlainString())
+        assertEquals("66.67", markup.equivalentPercentages()?.get(MethodChoice.MARGIN)?.toPlainString())
+
+        // A full-cost margin implies a share of ALL costs, not a food-cost figure.
+        val full = margin.copy(basis = CostBasis.FULL_COST)
+        assertEquals(null, full.equivalentPercentages()?.get(MethodChoice.FOOD_COST))
+        assertEquals("42.86", full.equivalentPercentages()?.get(MethodChoice.MARKUP)?.toPlainString())
+        assertEquals(null, margin.copy(percent = "").equivalentPercentages())
+        assertEquals(null, margin.copy(percent = "abc").equivalentPercentages())
+        assertEquals(null, margin.copy(carried = true).equivalentPercentages())
+    }
+
+    @Test
+    fun `saving a menu label must not overwrite unsaved changes to general pricing`() {
+        val current = PricingSettings(
+            defaultMethod = PricingMethod.TargetMargin(BigDecimal("30"), CostBasis.FULL_COST),
+            vatPercent = BigDecimal("10"),
+            methodByCategory = mapOf("نوشیدنی گرم" to PricingMethod.TargetFoodCost(BigDecimal("20"))),
+        )
+        val costing = CostingRules()
+        val pending = SettingsInput.of(current, costing, toman)
+            .copy(method = MethodChoice.FOOD_COST, percent = "25", vatPercent = "9", onlineCommission = "35")
+            .plusCategory("غذای اصلی")
+
+        val savedMenu = valid(pending.forSaveArea(SettingsArea.MENU_SECTIONS, current, costing, toman).check(current, costing, toman))
+        assertEquals(current.defaultMethod, savedMenu.pricing.defaultMethod)
+        assertEquals(current.vatPercent, savedMenu.pricing.vatPercent)
+        assertEquals(current.online, savedMenu.pricing.online)
+        assertEquals(costing, savedMenu.costing)
+        assertEquals(emptyMap(), savedMenu.pricing.methodByCategory)
+        assertEquals(listOf("نوشیدنی گرم", "غذای اصلی"), savedMenu.pricing.generalSections)
+    }
+
+    @Test
+    fun `saving global pricing converts old section targets to label only`() {
+        val current = PricingSettings(methodByCategory = mapOf("غذای اصلی" to PricingMethod.TargetFoodCost(BigDecimal("30"))))
+        val costing = CostingRules()
+        val pending = SettingsInput.of(current, costing, toman)
+            .withMethod(MethodChoice.MARGIN).copy(percent = "40")
+            .plusCategory("نوشیدنی گرم") // Still unsaved and should not leak into global save.
+        val saved = valid(pending.forSaveArea(SettingsArea.GENERAL_PRICING, current, costing, toman).check(current, costing, toman))
+        assertEquals(PricingMethod.TargetMargin(BigDecimal("40")), saved.pricing.defaultMethod)
+        assertEquals(emptyMap(), saved.pricing.methodByCategory)
+        assertEquals(listOf("غذای اصلی"), saved.pricing.generalSections)
+        assertEquals(current.online, saved.pricing.online)
+    }
+
+    @Test
+    fun `full cost margin cannot silently become food target or be reconverted from carried value`() {
+        val current = PricingSettings(defaultMethod = PricingMethod.TargetMargin(BigDecimal("30"), CostBasis.FULL_COST))
+        val costing = CostingRules()
+        val form = SettingsInput.of(current, costing, toman)
+        val changed = form.withMethod(MethodChoice.FOOD_COST)
+        assertEquals(true, changed.carried)
+        assertEquals(setOf(Field.PERCENT), errors(changed.check(current, costing, toman)))
+        assertEquals(setOf(Field.PERCENT), errors(changed.forSaveArea(SettingsArea.GENERAL_PRICING, current, costing, toman).check(current, costing, toman)))
+        assertEquals("42.86", changed.withMethod(MethodChoice.MARKUP).percent)
+        assertEquals(CostBasis.FULL_COST, changed.withMethod(MethodChoice.MARKUP).basis)
+        assertEquals("30", changed.withMethod(MethodChoice.MARGIN).percent)
+        val lastRates = changed.equivalentPercentages()
+        assertEquals(null, lastRates?.get(MethodChoice.FOOD_COST))
+        assertEquals("30", lastRates?.get(MethodChoice.MARGIN)?.toPlainString())
+        assertEquals("42.86", lastRates?.get(MethodChoice.MARKUP)?.toPlainString())
+        val explicit = changed.copy(percent = "35", carried = false)
+        assertEquals(PricingMethod.TargetFoodCost(BigDecimal("35")), valid(explicit.check(current, costing, toman)).pricing.defaultMethod)
+    }
+
+    @Test
+    fun `switching all costs then food target restores previous food cost instead of losing rates`() {
+        val origin = SettingsInput.of(PricingSettings(), CostingRules(), toman)
+        // Food cost 35% = margin 65% = markup 185.71% (food-only basis).
+        val margin = origin.withMethod(MethodChoice.MARGIN)
+        assertEquals("65", margin.percent)
+        val allCosts = margin.withBasis(CostBasis.FULL_COST)
+        assertEquals("65", allCosts.percent)
+        assertEquals(null, allCosts.equivalentPercentages()?.get(MethodChoice.FOOD_COST))
+        val allMarkup = allCosts.withMethod(MethodChoice.MARKUP)
+        assertEquals("185.71", allMarkup.percent)
+
+        // The original 35% food-only target is remembered from before the basis switch.
+        val foodAgain = allMarkup.withMethod(MethodChoice.FOOD_COST)
+        assertEquals("35", foodAgain.percent)
+        assertEquals(false, foodAgain.carried)
+        assertEquals(CostBasis.FOOD_COST, foodAgain.basis)
+        assertEquals("65", foodAgain.equivalentPercentages()?.get(MethodChoice.MARGIN)?.toPlainString())
+        assertEquals("185.71", foodAgain.equivalentPercentages()?.get(MethodChoice.MARKUP)?.toPlainString())
+
+        // Revisit all-cost pricing: it has its own remembered markup, not a blank field.
+        val allAgain = foodAgain.withMethod(MethodChoice.MARGIN).withBasis(CostBasis.FULL_COST)
+        assertEquals("65", allAgain.percent)
+        assertEquals("185.71", allAgain.withMethod(MethodChoice.MARKUP).percent)
+    }
+
+    @Test
+    fun `user edited rates are retained independently for food and full cost bases`() {
+        val original = SettingsInput.of(PricingSettings(), CostingRules(), toman)
+            .withMethod(MethodChoice.MARGIN).copy(percent = "30")
+        val allCosts = original.withBasis(CostBasis.FULL_COST).copy(percent = "40")
+        assertEquals("66.67", allCosts.withMethod(MethodChoice.MARKUP).percent)
+        val foodOnly = allCosts.withBasis(CostBasis.FOOD_COST)
+        assertEquals("30", foodOnly.percent)
+        assertEquals("70", foodOnly.equivalentPercentages()?.get(MethodChoice.FOOD_COST)?.toPlainString())
+        val fullAgain = foodOnly.withBasis(CostBasis.FULL_COST)
+        assertEquals("40", fullAgain.percent)
+        assertEquals("66.67", fullAgain.withMethod(MethodChoice.MARKUP).percent)
+    }
+
+    @Test
+    fun `unknown full cost to food conversion does not erase the old rate or invent food cost`() {
+        val pricing = PricingSettings(defaultMethod = PricingMethod.TargetMargin(BigDecimal("30"), CostBasis.FULL_COST))
+        val initial = SettingsInput.of(pricing, CostingRules(), toman)
+        val unknownFood = initial.withMethod(MethodChoice.FOOD_COST)
+        assertEquals("30", unknownFood.percent)
+        assertEquals(true, unknownFood.carried)
+        assertEquals(null, unknownFood.equivalentPercentages()?.get(MethodChoice.FOOD_COST))
+        assertEquals("30", unknownFood.equivalentPercentages()?.get(MethodChoice.MARGIN)?.toPlainString())
+        assertEquals(setOf(Field.PERCENT), errors(unknownFood.check(pricing, CostingRules(), toman)))
+        val recovered = unknownFood.withMethod(MethodChoice.MARGIN)
+        assertEquals("30", recovered.percent)
+        assertEquals(CostBasis.FULL_COST, recovered.basis)
+        // An explicit food target is valid; it will never be guessed from total cost.
+        val chosenFood = unknownFood.copy(percent = "28", carried = false)
+        assertEquals(PricingMethod.TargetFoodCost(BigDecimal("28")), valid(chosenFood.check(pricing, CostingRules(), toman)).pricing.defaultMethod)
+    }
+
+    @Test
+    fun `invalid or partial numbers do not get discarded across basis switches`() {
+        val initial = SettingsInput.of(PricingSettings(), CostingRules(), toman)
+            .withMethod(MethodChoice.MARGIN).copy(percent = "abc")
+        val onAll = initial.withBasis(CostBasis.FULL_COST)
+        assertEquals("abc", onAll.percent)
+        assertEquals("abc", onAll.withBasis(CostBasis.FOOD_COST).percent)
+        val blank = initial.copy(percent = "").withBasis(CostBasis.FULL_COST)
+        assertEquals("", blank.withBasis(CostBasis.FOOD_COST).percent)
+    }
+
+    @Test
+    fun `saving online or fixed cost settings preserves global pricing and menu labels`() {
+        val current = PricingSettings(
+            defaultMethod = PricingMethod.TargetFoodCost(BigDecimal("35")),
+            methodByCategory = mapOf("غذای اصلی" to PricingMethod.TargetFoodCost(BigDecimal("30"))),
+            generalSections = listOf("پیش‌غذا"),
+        )
+        val costing = CostingRules()
+        val staged = SettingsInput.of(current, costing, toman).copy(
+            method = MethodChoice.MARGIN, percent = "60", onlineCommission = "18",
+            monthlyFixed = "450000000", monthlyPortions = "6000",
+        )
+        for (area in listOf(SettingsArea.ONLINE, SettingsArea.FIXED_COSTS)) {
+            val saved = valid(staged.forSaveArea(area, current, costing, toman).check(current, costing, toman))
+            assertEquals(current.defaultMethod, saved.pricing.defaultMethod)
+            assertEquals(emptyMap(), saved.pricing.methodByCategory)
+            assertEquals(listOf("غذای اصلی", "پیش‌غذا"), saved.pricing.generalSections)
+        }
+    }
+
+    @Test
     fun `the month's fixed costs, online terms and the margin basis are read, checked and shown back`() {
         val input = SettingsInput.of(PricingSettings(), CostingRules(), toman).copy(
             monthlyFixed = "450000000", monthlyPortions = "6000",
@@ -160,55 +332,42 @@ class FormsTest {
         // A food cost target measures the food alone: from every cost it has no equivalent, so the number is kept and marked.
         val foodCost = full.withMethod(MethodChoice.FOOD_COST)
         assertEquals("30" to true, foodCost.percent to foodCost.carried)
+        assertEquals("30", foodCost.withMethod(MethodChoice.MARGIN).percent)
+        assertEquals(CostBasis.FULL_COST, foodCost.withMethod(MethodChoice.MARGIN).basis)
         // Back to a margin from a food cost target, it starts on the food alone, where it puts the same price.
         val back = foodCost.copy(percent = "35", carried = false).withMethod(MethodChoice.MARGIN)
         assertEquals(Triple("65", CostBasis.FOOD_COST, false), Triple(back.percent, back.basis, back.carried))
     }
 
     @Test
-    fun `menu sections get their own food cost target, checked and shown back`() {
+    fun `menu labels are validated as names only and use the general pricing method`() {
         val input = SettingsInput.of(PricingSettings(), CostingRules(), toman)
             .plusCategory("نوشیدنی گرم")
-            .let { it.withCategory(0, it.categories[0].copy(percent = "۲۰")) }
             .plusCategory("")
         assertEquals(listOf("غذای اصلی", "پیش‌غذا و سالاد", "نوشیدنی سرد", "دسر و کیک", "صبحانه"), input.categoryPresets())
-        val pricing = valid(input.check(PricingSettings(), CostingRules(), toman)).pricing
-        assertEquals(mapOf("نوشیدنی گرم" to PricingMethod.TargetFoodCost(BigDecimal(20))), pricing.methodByCategory)
-        assertEquals(listOf(CategoryTargetInput("نوشیدنی گرم", "20")), SettingsInput.of(pricing, CostingRules(), toman).categories)
-
-        fun error(form: SettingsInput) = assertIs<Checked.Invalid>(form.check(PricingSettings(), CostingRules(), toman)).errors[Field.CATEGORY]
-        assertEquals("فودکاست هدف «دسر و کیک» باید بیشتر از ۰ و کمتر از ۱۰۰ باشد.", error(input.plusCategory("دسر و کیک")))
-        assertEquals("بخش «نوشيدني گرم» دو بار آمده است.", error(input.plusCategory("نوشيدني گرم").let { it.withCategory(2, it.categories[2].copy(percent = "25")) }))
-        assertEquals("نام بخش را بنویسید.", error(input.withCategory(1, CategoryTargetInput("", "30"))))
-        assertEquals(emptyMap(), valid(input.withoutCategory(0).check(PricingSettings(), CostingRules(), toman)).pricing.methodByCategory)
-
-        // A section stored as a margin retains its actual method and percentage.
-        val margin = PricingSettings(methodByCategory = mapOf("نوشیدنی سرد" to PricingMethod.TargetMargin(BigDecimal(75))))
-        assertEquals(listOf(CategoryTargetInput("نوشیدنی سرد", "75", MethodChoice.MARGIN)), SettingsInput.of(margin, CostingRules(), toman).categories)
+        val saved = valid(input.check(PricingSettings(), CostingRules(), toman)).pricing
+        assertEquals(emptyMap(), saved.methodByCategory)
+        assertEquals(listOf("نوشیدنی گرم"), saved.generalSections)
+        assertEquals(listOf(MenuSectionInput("نوشیدنی گرم")), SettingsInput.of(saved, CostingRules(), toman).categories)
+        fun error(form: SettingsInput) =
+            assertIs<Checked.Invalid>(form.check(PricingSettings(), CostingRules(), toman)).errors[Field.CATEGORY]
+        assertEquals("بخش «نوشيدني گرم» دو بار آمده است.", error(input.plusCategory("نوشيدني گرم")))
+        assertEquals(emptyList(), valid(input.withoutCategory(0).check(PricingSettings(), CostingRules(), toman)).pricing.generalSections)
     }
 
     @Test
-    fun `a section priced with the general method is kept by its name alone, to put dishes in`() {
-        // The audit of 0.7.8: such a section was dropped on saving, so it could not be chosen for a dish.
-        val pricing = PricingSettings(
+    fun `old section percentages disappear from editing but original names survive`() {
+        val old = PricingSettings(
             methodByCategory = mapOf("نوشیدنی سرد" to PricingMethod.TargetMargin(BigDecimal(75), CostBasis.FULL_COST)),
             generalSections = listOf("پیش‌غذا"),
         )
-        val form = SettingsInput.of(pricing, CostingRules(), toman)
-        assertEquals(
-            listOf(CategoryTargetInput("نوشیدنی سرد", "75", MethodChoice.MARGIN, CostBasis.FULL_COST), CategoryTargetInput("پیش‌غذا", useGeneral = true)),
-            form.categories,
-        )
-        val back = valid(form.check(pricing, CostingRules(), toman)).pricing
-        assertEquals(pricing.methodByCategory, back.methodByCategory)
-        assertEquals(listOf("پیش‌غذا"), back.generalSections)
-        assertEquals(listOf("نوشیدنی سرد", "پیش‌غذا"), back.sections)
-        // Its number is not read: one left from a method chosen before does not stop the save.
-        val leftover = form.withCategory(1, form.categories[1].copy(percent = "abc"))
-        assertEquals(listOf("پیش‌غذا"), valid(leftover.check(pricing, CostingRules(), toman)).pricing.generalSections)
-        // One name twice, with a method and without, is refused; a nameless one is left out.
-        fun error(f: SettingsInput) = assertIs<Checked.Invalid>(f.check(pricing, CostingRules(), toman)).errors[Field.CATEGORY]
-        assertEquals("بخش «نوشیدنی سرد» دو بار آمده است.", error(form.withCategory(1, CategoryTargetInput("نوشیدنی سرد", useGeneral = true))))
-        assertEquals(emptyList(), valid(form.withCategory(1, CategoryTargetInput(" ", useGeneral = true)).check(pricing, CostingRules(), toman)).pricing.generalSections)
+        val form = SettingsInput.of(old, CostingRules(), toman)
+        assertEquals(listOf(MenuSectionInput("نوشیدنی سرد"), MenuSectionInput("پیش‌غذا")), form.categories)
+        val saved = valid(form.check(old, CostingRules(), toman)).pricing
+        assertEquals(emptyMap(), saved.methodByCategory)
+        assertEquals(listOf("نوشیدنی سرد", "پیش‌غذا"), saved.generalSections)
+        assertEquals(PricingMethod.TargetFoodCost(BigDecimal(35)), saved.defaultMethod)
+        assertEquals("بخش «نوشیدنی سرد» دو بار آمده است.",
+            assertIs<Checked.Invalid>(form.plusCategory("نوشیدنی سرد").check(old, CostingRules(), toman)).errors[Field.CATEGORY])
     }
 }

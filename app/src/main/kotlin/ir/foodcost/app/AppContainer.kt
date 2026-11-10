@@ -316,9 +316,17 @@ class AppContainer(context: Context) {
         _currency.value = currency
     }
 
-    private fun readCurrency(): DisplayCurrency =
-        prefs.getString(KEY_CURRENCY, null)?.let { name -> DisplayCurrency.entries.firstOrNull { it.name == name } }
-            ?: DisplayCurrency.TOMAN
+    private fun readCurrency(): DisplayCurrency = when (prefs.getString(KEY_CURRENCY, null)) {
+        DisplayCurrency.RIAL.name -> DisplayCurrency.RIAL
+        DisplayCurrency.TOMAN.name, null -> DisplayCurrency.TOMAN
+        else -> {
+            // Older installations may have selected NEW_RIAL. Keep its conversion support in
+            // QuickDrafts.decode, but migrate the display choice to an available unit without
+            // changing stored rial amounts or the numeric meaning of a saved calculator draft.
+            prefs.edit().putString(KEY_CURRENCY, DisplayCurrency.TOMAN.name).apply()
+            DisplayCurrency.TOMAN
+        }
+    }
 
     /**
      * This phone's id, kept in a file of its own. Android's backup and the move to a new phone leave

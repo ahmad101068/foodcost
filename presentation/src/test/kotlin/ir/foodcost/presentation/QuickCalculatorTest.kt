@@ -405,23 +405,23 @@ class QuickCalculatorTest {
     }
 
     @Test
-    fun `a dish in a section with its own target is priced by it, and keeps its section`() {
+    fun `legacy menu targets are ignored and section names remain for organizing`() {
         val ledger = ledger()
         ledger.saveSettings(ledger.state.costing, ledger.state.pricing.copy(methodByCategory = mapOf("غذای اصلی" to PricingMethod.TargetFoodCost(BigDecimal(30)))))
         assertEquals(listOf("غذای اصلی"), QuickCalculator.categories(ledger.state, QuickInput()))
 
         val main = koobideh("630000").copy(category = "غذای اصلی")
         val result = QuickCalculator.compute(main, ledger.state, toman, today)
-        assertEquals("۱٬۳۴۰٬۰۰۰ تومان", result.suggested) // 364,105 at 30%, with VAT, rounded up
-        assertEquals("فودکاست هدف ۳۰٪ برای غذای اصلی", result.method)
+        assertEquals("۱٬۱۵۰٬۰۰۰ تومان", result.suggested) // Always uses global 35%, not the legacy 30% override
+        assertEquals("فودکاست هدف ۳۵٪", result.method)
         assertEquals("۱٬۱۵۰٬۰۰۰ تومان", QuickCalculator.compute(koobideh(), ledger.state, toman, today).suggested)
 
         val id = QuickCalculator.save(ledger, valid(QuickCalculator.check(main, ledger.state, toman, today)), today)
         assertEquals("غذای اصلی", ledger.state.recipes.getValue(id).category)
         assertEquals("غذای اصلی", QuickCalculator.open(ledger.state, id, today, toman)?.category)
         val row = MenuStatusScreen.build(ledger.state, today, toman).rows.single()
-        assertEquals("۱٬۳۴۰٬۰۰۰ تومان", row.suggestedPrice)
-        assertEquals("غذای اصلی، هدف ۳۰٪", row.category)
+        assertEquals("۱٬۱۵۰٬۰۰۰ تومان", row.suggestedPrice)
+        assertEquals("غذای اصلی", row.category)
 
         // Saved again without a section, the dish leaves it; a section not in the settings is still offered.
         QuickCalculator.save(ledger, valid(QuickCalculator.check(main.copy(recipeId = id, category = null), ledger.state, toman, today)), today)
@@ -578,7 +578,7 @@ class QuickCalculatorTest {
     }
 
     @Test
-    fun `a dish can go in any section of the settings, with a method of its own or the general one, or one already in use`() {
+    fun `all menu sections use the general price even when legacy target exists`() {
         val ledger = ledger()
         ledger.saveSettings(
             ledger.state.costing,
@@ -594,6 +594,9 @@ class QuickCalculatorTest {
         val inGeneral = QuickCalculator.compute(koobideh().copy(category = "پیش‌غذا"), ledger.state, toman, today)
         val inNone = QuickCalculator.compute(koobideh(), ledger.state, toman, today)
         assertEquals(inNone.suggestedRials, inGeneral.suggestedRials)
+        val inOldSection = QuickCalculator.compute(koobideh().copy(category = "نوشیدنی سرد"), ledger.state, toman, today)
+        assertEquals(inNone.suggestedRials, inOldSection.suggestedRials)
+        assertEquals(inNone.method, inOldSection.method)
     }
 
     @Test

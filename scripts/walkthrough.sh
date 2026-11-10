@@ -30,6 +30,11 @@ alone() {
   grep -qE "^OK \([0-9]+ tests?\)" alone.log || failed=1
 }
 
+# This must be a separate instrumentation invocation. The application container persists
+# across activity recreations, so sharing the walk-through process makes these tests order-dependent.
+: > exit.log
+alone ir.foodcost.app.ExitConfirmationTest exit.log
+
 # A stored change that cannot be read: no figure is shown and every screen says why, and the user
 # can go on without it. Each test on data it makes and removes itself.
 : > unreadable.log

@@ -2,6 +2,7 @@ package ir.foodcost.app
 
 import android.graphics.Bitmap
 import android.os.ParcelFileDescriptor
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
@@ -16,6 +17,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.SemanticsNodeInteraction
@@ -73,7 +75,10 @@ class WalkThroughTest {
     }
 
     private fun walk() {
-        // The empty calculator opens with the keyboard on the first field.
+        // Wait for the calculator to render, then explicitly focus its first field.
+        // Emulator keyboard focus is not guaranteed to survive activity recreation.
+        waitForTag("row-0-name")
+        rule.onNodeWithTag("row-0-name").performClick()
         waitForFocus("row-0-name")
         shot("01-calculator-empty")
 
@@ -160,6 +165,7 @@ class WalkThroughTest {
 
         // A new onion price from the list, in one field.
         click("مواد")
+        rule.onNodeWithTag("ingredients-list").performScrollToNode(hasText("هر کیلو ۱٬۶۰۰٬۰۰۰ تومان"))
         waitFor("هر کیلو ۱٬۶۰۰٬۰۰۰ تومان")
         shot("12-ingredients")
         rule.onNodeWithContentDescription("قیمت تازهٔ پیاز").performClick()
@@ -192,6 +198,12 @@ class WalkThroughTest {
 
         // The three pricing methods put the same price: a 35% food cost is a 185.71% markup.
         click("تنظیمات")
+        click("ویرایش قیمت‌گذاری")
+        // Use the in-app return control in the visual walkthrough. API 34 emulators can
+        // swallow synthetic Back keys when an input method was recently open.
+        click("بازگشت به تنظیمات")
+        waitFor("وضعیت فعلی قیمت‌گذاری")
+        click("ویرایش قیمت‌گذاری")
         waitFor("ذخیرهٔ قیمت‌گذاری")
         click("مارک‌آپ")
         waitFor("185.71")
@@ -199,21 +211,28 @@ class WalkThroughTest {
         quiet()
         shot("16-settings")
         click("فودکاست هدف")
+        click("بازگشت به تنظیمات")
+        click("عمومی و راهنما")
 
         // The guide to using the app, from the settings.
         click("کار با برنامه")
         waitFor("حساب یک غذا")
         shot("17-help-guide")
         back()
+        // Returning from the help route recreates the settings overview.
+        click("دسته‌بندی منو")
 
-        // Main dishes aim at a 30% food cost; a tap on the section puts the keyboard on its target.
+        // Sections contain only names, never their own pricing target.
         click("غذای اصلی")
-        waitForFocus("category-0-percent")
-        typeTag("category-0-percent", "30")
+        waitForTag("category-0-name")
         show("category-0-name")
         shot("18-sections")
+        click("ذخیرهٔ دسته‌بندی")
+        waitForPart("تنظیمات ذخیره شد")
 
         // Online sales with a 20% commission: the online column joins the restaurant and takeaway.
+        click("بازگشت به تنظیمات")
+        click("فروش آنلاین")
         type("کمیسیون سامانه", "20")
         click("ذخیرهٔ قیمت‌گذاری")
         waitForPart("تنظیمات ذخیره شد")
@@ -223,9 +242,9 @@ class WalkThroughTest {
         show("channel-remaining")
         shot("19-online")
 
-        // The koobideh put among the main dishes is priced at their 30%: 1,340,000 toman.
+        // Choosing a section leaves the 35% general pricing unchanged.
         click("غذای اصلی")
-        waitForPart("۱٬۳۴۰٬۰۰۰")
+        waitForPart("۱٬۱۵۰٬۰۰۰")
         show("dish-name")
         shot("20-section-price")
 
@@ -234,6 +253,14 @@ class WalkThroughTest {
 
         // Switched to rials, the calculation is the same plate: 364,105 toman is 3,641,050 rials.
         click("تنظیمات")
+        click("عمومی و راهنما")
+        // Only the current rial and toman should be offered.
+        rule.onAllNodesWithText("ریال جدید").assertCountEquals(0)
+        // The screen's own return control is deterministic after the emulator switches
+        // dark mode and may still be finishing keyboard dismissal.
+        click("بازگشت به تنظیمات")
+        waitFor("وضعیت فعلی قیمت‌گذاری")
+        click("عمومی و راهنما")
         click("ریال")
         backupPassword()
         click("ماشین‌حساب")

@@ -1,5 +1,8 @@
 package ir.foodcost.app.ui
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +26,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import ir.foodcost.app.AppContainer
 import ir.foodcost.app.ui.theme.FoodCostTheme
 import ir.foodcost.core.model.IngredientId
@@ -59,9 +63,17 @@ private fun AppContent(container: AppContainer, state: LedgerState, currency: Di
     val money = remember(currency) { MoneyFormat(currency) }
     val today by container.today.collectAsState()
 
-    // Back goes up one screen; on another tab it goes to the calculator before leaving the app.
-    BackHandler(enabled = nav.canGoBack || nav.tab != Tab.CALC) {
-        if (nav.canGoBack) nav.back() else nav.tab(Tab.CALC)
+    var confirmExit by remember { mutableStateOf(false) }
+    val activity = LocalContext.current.findActivity()
+
+    // Intercept Back even at the calculator root: otherwise Android closes the activity
+    // without asking. Child settings sections register their own later BackHandler.
+    BackHandler {
+        when {
+            nav.canGoBack -> nav.back()
+            nav.tab != Tab.CALC -> nav.tab(Tab.CALC)
+            else -> confirmExit = true
+        }
     }
 
     when (val screen = nav.current) {
@@ -76,6 +88,23 @@ private fun AppContent(container: AppContainer, state: LedgerState, currency: Di
         is Screen.EditIngredient -> IngredientEditScreen(screen.id?.let { IngredientId(it) }, state, today, nav, actions)
         is Screen.NewPrice -> PriceEntryScreen(IngredientId(screen.ingredientId), state, money, today, nav, actions)
         is Screen.Help -> HelpScreen(screen, container, money, nav, actions)
+    }
+
+    if (confirmExit) {
+        AlertDialog(
+            onDismissRequest = { confirmExit = false },
+            title = { Text("خروج از برنامه") },
+            text = { Text("آیا می‌خواهید از برنامه خارج شوید؟") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmExit = false
+                    activity?.finish()
+                }) { Text("خروج") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmExit = false }) { Text("انصراف") }
+            },
+        )
     }
 
     // A data file too damaged to read was set aside, not deleted: said until the user has read it.
@@ -132,4 +161,14 @@ private fun AppContent(container: AppContainer, state: LedgerState, currency: Di
             },
         )
     }
+}
+
+/** A Compose context may be wrapped; find the real host to close only on confirmation. */
+private fun Context.findActivity(): Activity? {
+    var current: Context = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return current as? Activity
 }

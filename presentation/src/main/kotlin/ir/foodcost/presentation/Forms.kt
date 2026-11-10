@@ -272,21 +272,21 @@ fun checkMenuPrice(text: String, money: MoneyFormat): Checked<Long> {
 enum class MethodChoice { FOOD_COST, MARGIN, MARKUP }
 
 /**
- * A menu section, as typed: one with a pricing method of its own, as drinks usually aim lower than
- * plates, or with [useGeneral] one priced like the rest, there to put dishes in.
+ * Settings are edited on different screens. Saving one screen must not silently commit
+ * pending edits on another screen or reset an unrelated pricing override.
  */
-data class CategoryTargetInput(
-    val name: String = "",
-    val percent: String = "",
-    val method: MethodChoice = MethodChoice.FOOD_COST,
-    val basis: CostBasis = CostBasis.FOOD_COST,
-    val useGeneral: Boolean = false,
-) {
-    val isBlank: Boolean get() = name.isBlank() && (useGeneral || percent.isBlank())
+enum class SettingsArea { GENERAL_PRICING, MENU_SECTIONS, FIXED_COSTS, ONLINE }
+
+/** A section name is for grouping only. There are no per-section pricing inputs. */
+data class MenuSectionInput(val name: String = "") {
+    val isBlank: Boolean get() = name.isBlank()
 }
 
 /** The pricing rules and misc share, ready to save. */
 data class SettingsDraft(val costing: CostingRules, val pricing: PricingSettings)
+
+/** Temporary form memory. It is NOT written into the persisted pricing settings. */
+data class PricingRateDraft(val method: MethodChoice, val percent: String)
 
 /** The settings form, as typed. Amounts are in [MoneyFormat]'s currency. */
 data class SettingsInput(
@@ -305,20 +305,47 @@ data class SettingsInput(
     val onlineCommission: String = "",
     val onlineDiscount: String = "",
     val onlineUplift: String = "",
-    /** The menu sections: priced with a method of their own, or with the general one. */
-    val categories: List<CategoryTargetInput> = emptyList(),
+    /** Optional menu section names. Every dish uses the general pricing method. */
+    val categories: List<MenuSectionInput> = emptyList(),
     /**
      * True when [percent] was kept from a margin or markup on every cost on a switch to a food
      * cost target, which has no equivalent of it; typing a number clears it.
      */
     val carried: Boolean = false,
+    /** Most recently entered food-only rate, available after visiting "all costs". */
+    val rememberedFoodOnly: PricingRateDraft? = null,
+    /** Most recently entered all-cost rate, recoverable after trying a food-cost target. */
+    val rememberedFullCost: PricingRateDraft? = null,
 ) {
-    fun plusCategory(name: String): SettingsInput = copy(categories = categories + CategoryTargetInput(name))
+    fun plusCategory(name: String): SettingsInput = copy(categories = categories + MenuSectionInput(name))
 
-    fun withCategory(index: Int, category: CategoryTargetInput): SettingsInput =
+    fun withCategory(index: Int, category: MenuSectionInput): SettingsInput =
         copy(categories = categories.toMutableList().also { it[index] = category })
 
     fun withoutCategory(index: Int): SettingsInput = copy(categories = categories.filterIndexed { i, _ -> i != index })
+
+    /**
+     * Rebuild the form from persisted settings and apply only fields owned by the selected
+     * screen. The existing `check` validates the merged form and `saveSettings` can persist
+     * it atomically without leaking unsaved changes from other settings sections.
+     */
+    fun forSaveArea(area: SettingsArea, pricing: PricingSettings, costing: CostingRules, money: MoneyFormat): SettingsInput {
+        val saved = of(pricing, costing, money)
+        return when (area) {
+            SettingsArea.GENERAL_PRICING -> saved.copy(
+                method = method, percent = percent, basis = basis, carried = carried,
+                vatPercent = vatPercent, menuPriceIncludesVat = menuPriceIncludesVat,
+                roundingStepRials = roundingStepRials, roundingDirection = roundingDirection,
+                miscPercent = miscPercent,
+            )
+            SettingsArea.MENU_SECTIONS -> saved.copy(categories = categories)
+            SettingsArea.FIXED_COSTS -> saved.copy(monthlyFixed = monthlyFixed, monthlyPortions = monthlyPortions)
+            SettingsArea.ONLINE -> saved.copy(
+                onlineCommission = onlineCommission, onlineDiscount = onlineDiscount,
+                onlineUplift = onlineUplift,
+            )
+        }
+    }
 
     /** The suggested sections not added yet. */
     fun categoryPresets(): List<String> {
@@ -335,6 +362,11 @@ data class SettingsInput(
 
     fun check(currentPricing: PricingSettings, currentCosting: CostingRules, money: MoneyFormat): Checked<SettingsDraft> {
         val p = Problems()
+        // A margin on *all* costs cannot be converted into a food-only cost target.
+        // Merely carrying over the numeric value would silently produce a wrong menu price.
+        if (carried && method == MethodChoice.FOOD_COST) {
+            p.add(Field.PERCENT, "این درصد معادل فودکاست نیست؛ درصد فودکاست هدف را خودتان وارد کنید.")
+        }
         val value = p.decimal(percent, Field.PERCENT, percentMessage()) {
             when (method) {
                 MethodChoice.FOOD_COST -> it.signum() > 0 && it < HUNDRED
@@ -365,28 +397,15 @@ data class SettingsInput(
         val uplift = p.decimal(onlineUplift.ifBlank { "0" }, Field.UPLIFT, "درصد گران‌تر بودن آنلاین نمی‌تواند منفی باشد.") {
             it.signum() >= 0
         }
-        val byCategory = LinkedHashMap<String, PricingMethod>()
         val general = ArrayList<String>()
         val seen = HashSet<String>()
         categories.forEach { category ->
             if (category.isBlank) return@forEach
             val name = category.name.trim()
-            val target = Numbers.parse(category.percent)
-            val validTarget = when (category.method) {
-                MethodChoice.FOOD_COST -> target != null && target.signum() > 0 && target < HUNDRED
-                MethodChoice.MARGIN -> target != null && target.signum() >= 0 && target < HUNDRED
-                MethodChoice.MARKUP -> target != null && target.signum() >= 0
-            }
             when {
                 name.isEmpty() -> p.add(Field.CATEGORY, "نام بخش را بنویسید.")
                 !seen.add(Persian.searchKey(name)) -> p.add(Field.CATEGORY, "بخش «$name» دو بار آمده است.")
-                category.useGeneral -> general += name
-                !validTarget -> p.add(Field.CATEGORY, if (category.method == MethodChoice.FOOD_COST) "فودکاست هدف «$name» باید بیشتر از ۰ و کمتر از ۱۰۰ باشد." else "درصد روش قیمت‌گذاری «$name» معتبر نیست.")
-                else -> byCategory[name] = when (category.method) {
-                    MethodChoice.FOOD_COST -> PricingMethod.TargetFoodCost(target!!)
-                    MethodChoice.MARGIN -> PricingMethod.TargetMargin(target!!, category.basis)
-                    MethodChoice.MARKUP -> PricingMethod.Markup(target!!, category.basis)
-                }
+                else -> general += name
             }
         }
         return p.result {
@@ -404,32 +423,112 @@ data class SettingsInput(
                     rounding = PriceRounding(roundingStepRials, roundingDirection),
                     overhead = overhead,
                     online = OnlineTerms(commission!!, discount!!, uplift!!),
-                    methodByCategory = byCategory,
+                    // Clear obsolete targets when saving any settings area; retain section names.
+                    methodByCategory = emptyMap(),
                     generalSections = general,
                 ),
             )
         }
     }
 
+    /** Convert a remembered rate to the selected method without misrepresenting its cost basis. */
+    private fun PricingRateDraft.asMethod(choice: MethodChoice): String {
+        if (method == choice) return percent
+        return Numbers.parse(percent)?.let { equivalent(it, method, choice) }?.let(Numbers::editable) ?: percent
+    }
+
     /**
-     * The form with [choice] as its method and the number turned into that method's equivalent,
-     * so switching the method leaves the suggested price as it was: a 35% food cost is a 65% margin
-     * and a 185.71% markup. A margin and a markup convert on whichever cost they are taken, every
-     * cost included: a 40% margin is a 66.67% markup. A margin or markup coming from a food cost
-     * target starts on the food alone, where it puts the same price. Only a margin or markup on
-     * every cost turning into a food cost target, which measures the food alone, has no equivalent:
-     * the number is kept and marked [carried]. A number that cannot be read is left as typed.
+     * Switch the cost BASIS while keeping a separate editable rate for each basis.
+     * There is no universal conversion from a percentage of all costs to one of food alone;
+     * when visiting a basis for the first time the same numeric input is merely carried
+     * across as a starting value, never presented as a mathematical equivalent.
+     */
+    fun withBasis(choice: CostBasis): SettingsInput {
+        if (method == MethodChoice.FOOD_COST || choice == basis) return this
+        val remembered = if (choice == CostBasis.FOOD_COST) rememberedFoodOnly else rememberedFullCost
+        val restored = remembered?.asMethod(method) ?: percent
+        return if (basis == CostBasis.FOOD_COST) {
+            copy(basis = choice, percent = restored, carried = false,
+                rememberedFoodOnly = PricingRateDraft(method, percent))
+        } else {
+            copy(basis = choice, percent = restored, carried = false,
+                rememberedFullCost = PricingRateDraft(method, percent))
+        }
+    }
+
+    /**
+     * Switch between equivalent margin/markup/food-cost rates on the SAME basis.
+     * A food-cost percentage cannot be derived from a full-cost margin/markup alone.
+     * In that case restore the previously entered food-only percentage, if known.
+     * Otherwise allow explicit entry while preserving the full-cost numbers for return.
      */
     fun withMethod(choice: MethodChoice): SettingsInput {
         if (choice == method) return this
-        if (choice == MethodChoice.FOOD_COST && basis == CostBasis.FULL_COST) return copy(method = choice, carried = true)
+
+        if (carried) {
+            val previous = rememberedFullCost
+            // Returning to the previous full-cost mode must never clear its last value.
+            return copy(
+                method = choice,
+                percent = previous?.asMethod(choice) ?: percent,
+                basis = if (previous != null) CostBasis.FULL_COST else basis,
+                carried = false,
+            )
+        }
+
+        if (choice == MethodChoice.FOOD_COST && basis == CostBasis.FULL_COST) {
+            val previousFood = rememberedFoodOnly
+            return copy(
+                method = choice,
+                basis = CostBasis.FOOD_COST,
+                // Keep the last visible number as an unconfirmed reference rather than
+                // suddenly clearing the input. It is NOT a food-cost conversion and cannot
+                // be saved until the user explicitly enters a food-cost target.
+                percent = previousFood?.asMethod(MethodChoice.FOOD_COST) ?: percent,
+                carried = previousFood == null,
+                rememberedFullCost = PricingRateDraft(method, percent),
+            )
+        }
+
         val converted = Numbers.parse(percent)?.let { equivalent(it, method, choice) }
         return copy(
             method = choice,
-            percent = converted?.let { Numbers.editable(it) } ?: percent,
+            percent = converted?.let(Numbers::editable) ?: percent,
             basis = if (method == MethodChoice.FOOD_COST) CostBasis.FOOD_COST else basis,
             carried = false,
         )
+    }
+
+    /**
+     * The three live rates shown side by side in general pricing. They update on every keystroke
+     * and use the SAME math as switching methods, without modifying the saved pricing method.
+     *
+     * A margin/markup based on ALL costs has no mathematically determined FOOD cost percentage:
+     * it would also require the actual share of food in those costs. Null signals "not derivable",
+     * never an invented food-cost figure.
+     */
+    fun equivalentPercentages(): Map<MethodChoice, BigDecimal?>? {
+        if (carried) {
+            // Still show the remembered full-cost margin and markup, but never fabricate food cost.
+            val old = rememberedFullCost ?: return null
+            val previousValue = Numbers.parse(old.percent) ?: return null
+            return MethodChoice.entries.associateWith { choice ->
+                if (choice == MethodChoice.FOOD_COST) null else equivalent(previousValue, old.method, choice)
+            }
+        }
+        val value = Numbers.parse(percent) ?: return null
+        if (value.signum() < 0 ||
+            (method != MethodChoice.MARKUP && value >= HUNDRED) ||
+            (method == MethodChoice.FOOD_COST && value.signum() == 0)
+        ) return null
+
+        return MethodChoice.entries.associateWith { choice ->
+            if (choice == MethodChoice.FOOD_COST && method != MethodChoice.FOOD_COST && basis == CostBasis.FULL_COST) {
+                null
+            } else {
+                equivalent(value, method, choice)
+            }
+        }
     }
 
     /**
@@ -493,13 +592,6 @@ data class SettingsInput(
             "غذای اصلی", "پیش‌غذا و سالاد", "نوشیدنی گرم", "نوشیدنی سرد", "دسر و کیک", "صبحانه",
         )
 
-        /** A section's rule as a food cost target, whichever way it was stored. */
-        private fun foodCostTarget(method: PricingMethod): BigDecimal? = when (method) {
-            is PricingMethod.TargetFoodCost -> method.percent
-            is PricingMethod.TargetMargin -> equivalent(method.percent, MethodChoice.MARGIN, MethodChoice.FOOD_COST)
-            is PricingMethod.Markup -> equivalent(method.percent, MethodChoice.MARKUP, MethodChoice.FOOD_COST)
-        }
-
         fun of(pricing: PricingSettings, costing: CostingRules, money: MoneyFormat): SettingsInput {
             val m = pricing.defaultMethod
             val (choice, value) = when (m) {
@@ -526,26 +618,7 @@ data class SettingsInput(
                 onlineCommission = percentOrBlank(pricing.online.commissionPercent),
                 onlineDiscount = percentOrBlank(pricing.online.discountPercent),
                 onlineUplift = percentOrBlank(pricing.online.priceUpliftPercent),
-                categories = pricing.methodByCategory.map { (name, method) ->
-                    CategoryTargetInput(
-                        name = name,
-                        percent = Numbers.editable(when (method) {
-                            is PricingMethod.TargetFoodCost -> method.percent
-                            is PricingMethod.TargetMargin -> method.percent
-                            is PricingMethod.Markup -> method.percent
-                        }),
-                        method = when (method) {
-                            is PricingMethod.TargetFoodCost -> MethodChoice.FOOD_COST
-                            is PricingMethod.TargetMargin -> MethodChoice.MARGIN
-                            is PricingMethod.Markup -> MethodChoice.MARKUP
-                        },
-                        basis = when (method) {
-                            is PricingMethod.TargetFoodCost -> CostBasis.FOOD_COST
-                            is PricingMethod.TargetMargin -> method.basis
-                            is PricingMethod.Markup -> method.basis
-                        },
-                    )
-                } + pricing.generalSections.filter { it !in pricing.methodByCategory }.map { CategoryTargetInput(name = it, useGeneral = true) },
+                categories = pricing.sections.map(::MenuSectionInput),
             )
         }
     }

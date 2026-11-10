@@ -1,6 +1,12 @@
 package ir.foodcost.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Surface
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -47,6 +53,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import ir.foodcost.app.ui.theme.FoodSectionColors
+import ir.foodcost.app.ui.theme.foodSectionColors
 import ir.foodcost.app.ui.theme.statusColors
 import ir.foodcost.core.model.ComponentRef
 import ir.foodcost.core.model.QtyBasis
@@ -87,9 +95,13 @@ import java.time.LocalDate
 fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav: Navigator, actions: AppActions) {
     var query by rememberSaveable { mutableStateOf("") }
     var creating by rememberSaveable { mutableStateOf(false) }
+    var categoryFilter by rememberSaveable { mutableStateOf("همه") }
     var creatingBase by rememberSaveable { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<Pair<RecipeId, String>?>(null) }
     val model = remember(state, money, today, query) { DishesScreen.build(state, today, money, query) }
+    val categories = listOf("همه") + model.plates.mapNotNull { it.category }.distinct()
+    val filteredPlates = if (categoryFilter == "همه") model.plates else model.plates.filter { it.category == categoryFilter }
+    val sectionColors = foodSectionColors()
     TabScaffold(
         title = "غذاها",
         nav = nav,
@@ -104,6 +116,29 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item { SearchField(query, { query = it }, "جستجوی غذا") }
+            item {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    categories.forEach { choice ->
+                        FilterChip(selected = categoryFilter == choice, onClick = { categoryFilter = choice }, label = { Text(choice, fontWeight = FontWeight.Bold) }, shape = RoundedCornerShape(12.dp), colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(selectedContainerColor = sectionColors.statPrimary, selectedLabelColor = sectionColors.statValue))
+                    }
+                }
+            }
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = sectionColors.container),
+                ) {
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("خلاصه منو", style = MaterialTheme.typography.titleLarge, color = sectionColors.heading)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            MenuStat("تعداد غذا", Persian.digits(model.plates.size), Modifier.weight(1f), sectionColors)
+                            MenuStat("دستور پایه", Persian.digits(model.preparations.size), Modifier.weight(1f), sectionColors)
+                            MenuStat("نیازمند اصلاح", if (actions.unreadableRows > 0) "—" else Persian.digits(model.needsRepricing), Modifier.weight(1f), sectionColors)
+                        }
+                    }
+                }
+            }
             item {
                 TextButton(onClick = { creatingBase = true }) {
                     Text("دستور پایه (برای ترکیبات مشترک)")
@@ -128,7 +163,7 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
             }
             if (model.plates.isNotEmpty()) {
                 item { SectionTitle("غذاهای منو", Modifier.padding(start = 4.dp)) }
-                items(model.plates, key = { it.recipeId.value }) { row ->
+                items(filteredPlates, key = { it.recipeId.value }) { row ->
                     PlateCard(
                         row,
                         dataUnreliable = actions.unreadableRows > 0,
@@ -189,6 +224,14 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
 }
 
 @Composable
+private fun MenuStat(label: String, value: String, modifier: Modifier, colors: FoodSectionColors) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Text(label, color = colors.statLabel, style = MaterialTheme.typography.labelSmall)
+        Text(value, color = colors.statValue, style = MaterialTheme.typography.titleLarge)
+    }
+}
+
+@Composable
 private fun UnverifiedFinancialData() {
     Text(
         BackupTexts.UNVERIFIED_RESULT,
@@ -217,11 +260,12 @@ private fun PriceVerdict(needsRepricing: Int) {
 
 @Composable
 private fun PlateCard(row: MenuRow, dataUnreliable: Boolean, onClick: () -> Unit, onDelete: () -> Unit) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), colors = whiteCardColors()) {
+    val sectionColors = foodSectionColors()
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = whiteCardColors()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(row.name, style = MaterialTheme.typography.titleMedium)
+                    Text(row.name, style = MaterialTheme.typography.titleMedium, color = sectionColors.itemTitle)
                     listOfNotNull(row.kindLabel, row.category).joinToString("، ").ifEmpty { null }?.let {
                         Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }

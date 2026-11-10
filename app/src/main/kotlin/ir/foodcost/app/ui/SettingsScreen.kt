@@ -1,6 +1,7 @@
 package ir.foodcost.app.ui
 
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -15,6 +16,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -26,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,8 +57,10 @@ import ir.foodcost.presentation.Field
 import ir.foodcost.presentation.Labels
 import ir.foodcost.presentation.MethodChoice
 import ir.foodcost.presentation.MoneyFormat
+import ir.foodcost.presentation.Numbers
 import ir.foodcost.presentation.Persian
 import ir.foodcost.presentation.SettingsInput
+import ir.foodcost.presentation.SettingsArea
 import java.time.LocalDate
 
 /** The settings tab: currency, pricing rules and backup. */
@@ -63,13 +75,16 @@ fun SettingsScreen(
 ) {
     val currency by container.currency.collectAsState()
     var input by remember(state.pricing, state.costing, money) { mutableStateOf(SettingsInput.of(state.pricing, state.costing, money)) }
+    val persisted = remember(state.pricing, state.costing, money) { SettingsInput.of(state.pricing, state.costing, money) }
     var errors by remember { mutableStateOf(emptyMap<Field, String>()) }
+    var section by rememberSaveable { mutableStateOf("خانه") }
+    // Intercept the system back button while inside settings, before the app-level handler
+    // navigates to the calculator. The on-screen return button uses the same destination.
+    BackHandler(enabled = section != "خانه") { section = "خانه" }
     val context = LocalContext.current
     val categoryNames = remember { HashMap<Int, FocusRequester>() }
-    val categoryPercents = remember { HashMap<Int, FocusRequester>() }
     fun categoryName(i: Int): FocusRequester = categoryNames.getOrPut(i) { FocusRequester() }
-    fun categoryPercent(i: Int): FocusRequester = categoryPercents.getOrPut(i) { FocusRequester() }
-    var focusCategory by remember { mutableStateOf<Pair<Int, Boolean>?>(null) }
+    var focusCategory by remember { mutableStateOf<Int?>(null) }
 
     TabScaffold(title = "تنظیمات", nav = nav, actions = actions) { padding ->
         // While the data waits for the user's choice, or a backup is due, the backup card comes first:
@@ -80,8 +95,56 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (backupFirst) BackupCard(container, today, actions)
+            if (section == "خانه") {
+                SettingsCard("وضعیت فعلی قیمت‌گذاری") {
+                    Text("روش عمومی ذخیره‌شده: ${methodName(persisted.method)}", style = MaterialTheme.typography.titleMedium)
+                    Text("درصد: ${persisted.percent}٪   |   مبنا: ${basisName(persisted.basis)}")
+                    Text("مالیات: ${persisted.vatPercent}٪", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("بخش‌های منو: ${state.pricing.sections.size} (فقط دسته‌بندی)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (input.copy(rememberedFoodOnly = null, rememberedFullCost = null) != persisted) {
+                        Text("ویرایش‌هایی در تنظیمات وجود دارد که هنوز ذخیره نشده‌اند.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
+                    OutlinedButton(onClick = { section = "قیمت‌گذاری" }, modifier = Modifier.fillMaxWidth()) {
+                        Text("ویرایش قیمت‌گذاری")
+                    }
+                }
+                listOf(
+                    Triple("قیمت‌گذاری", "فودکاست، مارجین، مارک‌آپ، مالیات و گرد کردن", Icons.Filled.Settings),
+                    Triple("دسته‌بندی منو", "بخش‌بندی غذاها بدون قیمت‌گذاری جداگانه", Icons.Filled.List),
+                    Triple("فروش آنلاین", "کمیسیون، تخفیف و افزایش قیمت", Icons.Filled.ShoppingCart),
+                    Triple("هزینه‌های ثابت", "سربار ماهانه و سهم هر پرس", Icons.Filled.ShoppingCart),
+                    Triple("پشتیبان‌گیری", "ساخت و بازگرداندن فایل اطلاعات", Icons.Filled.Info),
+                    Triple("عمومی و راهنما", "واحد پول، راهنما و اطلاعات برنامه", Icons.Filled.Info),
+                ).forEach { (name, description, symbol) ->
+                    Card(
+                        onClick = { section = name },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Icon(symbol, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(name, style = MaterialTheme.typography.titleMedium)
+                                Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Icon(Icons.Filled.ArrowForward, contentDescription = null)
+                        }
+                    }
+                }
+            } else {
+                OutlinedButton(onClick = { section = "خانه" }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Filled.ArrowForward, contentDescription = null)
+                    Text("بازگشت به تنظیمات")
+                }
+            }
+            if (!backupFirst && section == "پشتیبان‌گیری") BackupCard(container, today, actions)
 
-            SettingsCard("راهنما") {
+            if (section == "عمومی و راهنما") SettingsCard("راهنما") {
                 Text(
                     "معنی واژه‌هایی مثل فودکاست، مارجین، مارک‌آپ و بهای تمام‌شده، و راهنمای کار با برنامه.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -92,8 +155,8 @@ fun SettingsScreen(
                 }
             }
 
-            SettingsCard("واحد پول") {
-                Segmented(DisplayCurrency.entries, currency, { Labels.currency(it) }) { container.setCurrency(it) }
+            if (section == "عمومی و راهنما") SettingsCard("واحد پول") {
+                Segmented(listOf(DisplayCurrency.RIAL, DisplayCurrency.TOMAN), currency, { Labels.currency(it) }) { container.setCurrency(it) }
                 Text(
                     "مبلغ‌ها همیشه به ریال ذخیره می‌شوند؛ این فقط شکل نمایش و ورود مبلغ است.",
                     style = MaterialTheme.typography.bodySmall,
@@ -101,7 +164,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsCard("قیمت‌گذاری") {
+            if (section == "قیمت‌گذاری") SettingsCard("قیمت‌گذاری") {
                 // The three are ways to put the same price: switching turns the number into its equivalent.
                 Segmented(MethodChoice.entries, input.method, { methodName(it) }) { input = input.withMethod(it) }
                 TextInput(
@@ -112,19 +175,57 @@ fun SettingsScreen(
                     supporting = listOfNotNull(
                         methodHint(input.method),
                         // From a margin or markup on every cost there is no food cost equivalent: the number is the old one.
-                        if (input.carried) "این عدد از روش قبلی مانده است. فودکاست فقط بهای مواد را می‌سنجد و با «همهٔ هزینه‌ها» برابری ثابتی ندارد؛ عدد را دوباره بنویسید." else input.equivalents(),
+                        if (input.carried) "عدد نمایش‌داده‌شده فقط آخرین درصدِ مبنای «همه هزینه‌ها» است، نه فودکاست معادل. برای تعیین فودکاست هدف، این عدد را ویرایش کنید. تا آن زمان ذخیره غیرفعال است و درصدهای قبلی محفوظ می‌مانند." else input.equivalents(),
                     ).joinToString("\n"),
                     number = true,
                     suffix = "٪",
                 )
+                val equivalents = input.equivalentPercentages()
+                if (equivalents != null) {
+                    Text(if (input.carried) "مقادیر قبلی (مبنای همه هزینه‌ها)" else "معادل‌های خودکار درصد", style = MaterialTheme.typography.titleSmall)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        MethodChoice.entries.forEach { choice ->
+                            Card(
+                                modifier = Modifier.weight(1f).testTag("pricing-rate-${choice.name.lowercase()}"),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (choice == input.method) {
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceContainerLow
+                                    },
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                            ) {
+                                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(methodName(choice), style = MaterialTheme.typography.labelSmall)
+                                    Text(
+                                        equivalents[choice]?.let { Numbers.percent(it) } ?: "—",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (input.method != MethodChoice.FOOD_COST && input.basis == CostBasis.FULL_COST) {
+                        Text(
+                            "فودکاست واقعی از حاشیه سود روی همه هزینه‌ها به‌تنهایی به دست نمی‌آید؛ برای محاسبه آن سهم مواد اولیه نیز لازم است.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else if (input.percent.isNotBlank() && !input.carried) {
+                    Text("برای مشاهده معادل‌ها، درصد معتبر وارد کنید.", style = MaterialTheme.typography.bodySmall)
+                }
+
                 if (input.method != MethodChoice.FOOD_COST) {
                     Text("روی چه هزینه‌ای؟", style = MaterialTheme.typography.labelLarge)
-                    Segmented(CostBasis.entries, input.basis, { basisName(it) }) { input = input.copy(basis = it) }
+                    Segmented(CostBasis.entries, input.basis, { basisName(it) }) { input = input.withBasis(it) }
                     Text(
                         if (input.basis == CostBasis.FOOD_COST) {
                             "فقط بهای مواد؛ هزینه‌های دیگر از مانده کم می‌شوند."
                         } else {
-                            "مواد، هزینه‌های دیگر هر غذا و سهم سربار ماهانه. عدد با عوض کردن مبنا همان می‌ماند ولی قیمت‌ها عوض می‌شوند؛ روی همهٔ هزینه‌ها، عدد به سود نزدیک‌تر است و معمولاً خیلی کوچک‌تر از «فقط مواد»."
+                            "مواد، هزینه‌های دیگر هر غذا و سهم سربار ماهانه. درصد این مبنا جداگانه حفظ می‌شود؛ در صورت بازگشت به «فقط مواد»، مقدار قبلی بازیابی خواهد شد. این دو مبنا الزاماً درصد معادل ندارند."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -159,10 +260,9 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsCard("قیمت‌گذاری اختصاصی بخش‌های منو") {
+            if (section == "دسته‌بندی منو") SettingsCard("دسته‌بندی منو") {
                 Text(
-                    "بخش‌های منو را اینجا بسازید تا غذاها را در آن‌ها بگذارید. هر بخش می‌تواند فودکاست هدف، حاشیهٔ سود یا مارک‌آپ مخصوص داشته باشد، " +
-                        "یا مثل بقیه با روش عمومی بالا قیمت بخورد. برای غذای بدون بخش هم روش عمومی بالا اعمال می‌شود.",
+                    "بخش‌های منو فقط برای مرتب‌کردن غذاها هستند. تمام غذاها، با هر نام بخشی، از روش و درصد قیمت‌گذاری عمومی استفاده می‌کنند.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 input.categories.forEachIndexed { i, category ->
@@ -171,48 +271,11 @@ fun SettingsScreen(
                             value = category.name,
                             onValueChange = { input = input.withCategory(i, category.copy(name = it)) },
                             label = "نام بخش",
-                            modifier = Modifier.weight(1.4f).focusRequester(categoryName(i)).testTag("category-$i-name"),
-                            imeAction = ImeAction.Next,
+                            modifier = Modifier.weight(1f).focusRequester(categoryName(i)).testTag("category-$i-name"),
+                            imeAction = ImeAction.Done,
                         )
-                        if (!category.useGeneral) {
-                            TextInput(
-                                value = category.percent,
-                                onValueChange = { input = input.withCategory(i, category.copy(percent = it)) },
-                                label = methodName(category.method),
-                                modifier = Modifier.weight(1f).focusRequester(categoryPercent(i)).testTag("category-$i-percent"),
-                                number = true,
-                                suffix = "٪",
-                                imeAction = ImeAction.Done,
-                            )
-                        }
                         IconButton(onClick = { input = input.withoutCategory(i) }) {
                             Icon(Icons.Filled.Close, contentDescription = "حذف بخش")
-                        }
-                    }
-                    Text("روش قیمت‌گذاری «${category.name.ifBlank { "بخش جدید" }}»", style = MaterialTheme.typography.labelMedium)
-                    // null: priced like the rest, with the general method above.
-                    val methods: List<MethodChoice?> = listOf(null) + MethodChoice.entries
-                    ChoiceChips(methods, category.method.takeIf { !category.useGeneral }, { it?.let(::methodName) ?: "روش عمومی" }) { chosen ->
-                        val next = when {
-                            chosen == null -> category.copy(useGeneral = true)
-                            category.useGeneral || chosen != category.method ->
-                                category.copy(useGeneral = false, method = chosen, percent = "", basis = CostBasis.FOOD_COST)
-                            else -> category
-                        }
-                        if (next != category) input = input.withCategory(i, next)
-                    }
-                    when {
-                        category.useGeneral -> Text(
-                            "این بخش مثل بقیهٔ غذاها با روش عمومی بالا قیمت می‌خورد و برای دسته‌بندی غذاهاست.",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        category.method == MethodChoice.FOOD_COST ->
-                            Text("مبنای فودکاست هدف: فقط هزینهٔ مواد اولیه", style = MaterialTheme.typography.bodySmall)
-                        else -> {
-                            Text("مبنای محاسبه درصد", style = MaterialTheme.typography.labelMedium)
-                            Segmented(CostBasis.entries, category.basis, { basisName(it) }) { chosen ->
-                                input = input.withCategory(i, category.copy(basis = chosen))
-                            }
                         }
                     }
                 }
@@ -223,7 +286,7 @@ fun SettingsScreen(
                     input.categoryPresets().forEach { name ->
                         AssistChip(
                             onClick = {
-                                focusCategory = input.categories.size to true
+                                focusCategory = input.categories.size
                                 input = input.plusCategory(name)
                             },
                             label = { Text(name) },
@@ -232,24 +295,23 @@ fun SettingsScreen(
                     }
                     AssistChip(
                         onClick = {
-                            focusCategory = input.categories.size to false
+                            focusCategory = input.categories.size
                             input = input.plusCategory("")
                         },
                         label = { Text("بخش دیگر") },
                         leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
                     )
                 }
-                // A new section takes the keyboard: on its target when it came with a name, else on its name.
                 LaunchedEffect(focusCategory, input.categories.size) {
-                    val (i, named) = focusCategory ?: return@LaunchedEffect
+                    val i = focusCategory ?: return@LaunchedEffect
                     if (i < input.categories.size) {
-                        runCatching { (if (named) categoryPercent(i) else categoryName(i)).requestFocus() }
+                        runCatching { categoryName(i).requestFocus() }
                         focusCategory = null
                     }
                 }
             }
 
-            SettingsCard("هزینه‌های ثابت ماهانه") {
+            if (section == "هزینه‌های ثابت") SettingsCard("هزینه‌های ثابت ماهانه") {
                 Text(
                     "حقوق، اجاره، گاز و برق و بقیهٔ هزینه‌های ثابت یک ماه، تقسیم بر پرس‌هایی که در ماه فروخته می‌شود، سهم هر پرس از سربار است. اختیاری است.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -277,7 +339,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsCard("فروش آنلاین") {
+            if (section == "فروش آنلاین") SettingsCard("فروش آنلاین") {
                 Text(
                     "اگر غذا از راه سامانه‌های سفارش آنلاین هم فروخته می‌شود، ماشین‌حساب کنار فروش حضوری، مانده‌اش را هم نشان می‌دهد.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -309,10 +371,17 @@ fun SettingsScreen(
                 )
             }
 
-            // One button for the three cards above: pricing, fixed costs and online sales.
-            Button(
+            // Each section commits only its own fields. Pending edits elsewhere are excluded.
+            if (section in listOf("قیمت‌گذاری", "دسته‌بندی منو", "هزینه‌های ثابت", "فروش آنلاین")) Button(
                 onClick = {
-                    when (val checked = input.check(state.pricing, state.costing, money)) {
+                    val area = when (section) {
+                        "قیمت‌گذاری" -> SettingsArea.GENERAL_PRICING
+                        "دسته‌بندی منو" -> SettingsArea.MENU_SECTIONS
+                        "هزینه‌های ثابت" -> SettingsArea.FIXED_COSTS
+                        else -> SettingsArea.ONLINE
+                    }
+                    val scoped = input.forSaveArea(area, state.pricing, state.costing, money)
+                    when (val checked = scoped.check(state.pricing, state.costing, money)) {
                         is Checked.Invalid -> {
                             errors = checked.errors
                             // The field may be scrolled out of sight above the button.
@@ -327,11 +396,11 @@ fun SettingsScreen(
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("ذخیرهٔ قیمت‌گذاری") }
+            ) { Text(if (section == "دسته‌بندی منو") "ذخیرهٔ دسته‌بندی" else "ذخیرهٔ قیمت‌گذاری") }
 
-            if (!backupFirst) BackupCard(container, today, actions)
 
-            SettingsCard("دربارهٔ برنامه") {
+
+            if (section == "عمومی و راهنما") SettingsCard("دربارهٔ برنامه") {
                 Text("فودکاست، نسخهٔ ${Persian.digits(versionLabel(context))}", style = MaterialTheme.typography.bodyMedium)
                 Text(
                     "فودکاست برای یک نفر روی یک گوشی است: هر تغییری به نام مالک ثبت می‌شود و کاربر یا نقش جدا ندارد. " +
