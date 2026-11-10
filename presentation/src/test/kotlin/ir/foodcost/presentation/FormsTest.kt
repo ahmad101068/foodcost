@@ -331,7 +331,9 @@ class FormsTest {
 
         // A food cost target measures the food alone: from every cost it has no equivalent, so the number is kept and marked.
         val foodCost = full.withMethod(MethodChoice.FOOD_COST)
-        assertEquals("30" to true, foodCost.percent to foodCost.carried)
+        assertEquals("" to true, foodCost.percent to foodCost.carried)
+        assertEquals("30", foodCost.withMethod(MethodChoice.MARGIN).percent)
+        assertEquals(CostBasis.FULL_COST, foodCost.withMethod(MethodChoice.MARGIN).basis)
         // Back to a margin from a food cost target, it starts on the food alone, where it puts the same price.
         val back = foodCost.copy(percent = "35", carried = false).withMethod(MethodChoice.MARGIN)
         assertEquals(Triple("65", CostBasis.FOOD_COST, false), Triple(back.percent, back.basis, back.carried))
