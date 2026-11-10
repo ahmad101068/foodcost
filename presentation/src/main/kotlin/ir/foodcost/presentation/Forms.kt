@@ -481,7 +481,10 @@ data class SettingsInput(
             return copy(
                 method = choice,
                 basis = CostBasis.FOOD_COST,
-                percent = previousFood?.asMethod(MethodChoice.FOOD_COST) ?: "",
+                // Keep the last visible number as an unconfirmed reference rather than
+                // suddenly clearing the input. It is NOT a food-cost conversion and cannot
+                // be saved until the user explicitly enters a food-cost target.
+                percent = previousFood?.asMethod(MethodChoice.FOOD_COST) ?: percent,
                 carried = previousFood == null,
                 rememberedFullCost = PricingRateDraft(method, percent),
             )
