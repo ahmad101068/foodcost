@@ -67,8 +67,8 @@ class ReportsTest {
     fun `an event quote gives the price per guest and what to buy for every guest`() {
         val quote = FoodCostCalculator(catalog, pricing = pricing).quoteEvent(rid("wedding"), 200, D1)
         assertAmount("1900000", quote.evaluation.cost.foodCostPerPortion) // half a kebab and a salad
-        assertEquals(5_300_000L, quote.pricePerGuest) // 4,750,000 net, 5,225,000 with VAT, rounded up
-        assertEquals(1_060_000_000L, quote.total)
+        assertEquals(6_000_000L, quote.pricePerGuest) // Global 35%: 1,900,000 ÷ 0.35 plus VAT, rounded up
+        assertEquals(1_200_000_000L, quote.total)
 
         val meat = quote.requirements.items.first { it.ingredient.id == iid("meat") }
         assertAmount("100000", meat.purchaseQty) // 100 kg
