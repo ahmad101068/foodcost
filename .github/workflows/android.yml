@@ -68,6 +68,15 @@ jobs:
             echo "::error title=Signing::The APK is not signed with the app's own key"
             exit 1
           fi
+      # A signed APK artifact gives testers a downloadable ZIP even while the release
+      # is deliberately kept as a draft. It contains the original signed APK unchanged.
+      - name: Keep signed APK as downloadable workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: foodcost-signed-apk
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
       - name: Keep Play Store AAB as private workflow artifact
         uses: actions/upload-artifact@v4
         with:
