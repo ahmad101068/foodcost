@@ -286,6 +286,68 @@ class SettingsConversionTest {
         assertEquals("یعنی مارک‌آپ ۴۲٫۹٪، روی همهٔ هزینه‌ها", margin.equivalents())
     }
 
+    @Test
+    fun `twenty full cost round trips restore the exact percentage originally entered`() {
+        var current = input(MethodChoice.MARGIN, "30", CostBasis.FULL_COST)
+        repeat(20) {
+            current = current.withMethod(MethodChoice.MARKUP).withMethod(MethodChoice.MARGIN)
+            assertEquals("30", current.percent)
+            assertEquals(CostBasis.FULL_COST, current.basis)
+            assertEquals(PricingMethod.TargetMargin(BigDecimal(30), CostBasis.FULL_COST), saved(current).pricing.defaultMethod)
+        }
+    }
+
+    @Test
+    fun `copying a new percentage uses that number instead of the previous conversion history`() {
+        val markup = input(MethodChoice.MARGIN, "30", CostBasis.FULL_COST).withMethod(MethodChoice.MARKUP)
+        val edited = markup.copy(percent = "50")
+        val margin = edited.withMethod(MethodChoice.MARGIN)
+        assertAmount("33.33333333333333333333333333333333", Numbers.parse(margin.percent), "1E-29")
+        assertEquals(CostBasis.FULL_COST, margin.basis)
+        assertEquals("50", margin.withMethod(MethodChoice.MARKUP).percent)
+        assertEquals(suggestion(input(MethodChoice.MARKUP, "50", CostBasis.FULL_COST)).menuPrice, suggestion(margin).menuPrice)
+    }
+
+    @Test
+    fun `copying a new basis starts conversions from the percentage on that basis`() {
+        val markup = input(MethodChoice.MARGIN, "30", CostBasis.FULL_COST).withMethod(MethodChoice.MARKUP)
+        val changedBasis = markup.copy(basis = CostBasis.FOOD_COST)
+        val fresh = input(MethodChoice.MARKUP, markup.percent, CostBasis.FOOD_COST)
+        val converted = changedBasis.withMethod(MethodChoice.MARGIN)
+        assertEquals(fresh.withMethod(MethodChoice.MARGIN).percent, converted.percent)
+        assertEquals(CostBasis.FOOD_COST, converted.basis)
+        assertEquals(markup.percent, converted.withMethod(MethodChoice.MARKUP).percent)
+        assertEquals(suggestion(fresh).menuPrice, suggestion(converted).menuPrice)
+        saved(converted)
+    }
+
+    @Test
+    fun `clearing conversion history after manual input starts from the displayed number`() {
+        val markup = input(MethodChoice.MARGIN, "30", CostBasis.FULL_COST).withMethod(MethodChoice.MARKUP)
+        val edited = markup.copy(percent = markup.percent, carried = false, conversionOrigin = null)
+        val fresh = input(MethodChoice.MARKUP, markup.percent, CostBasis.FULL_COST)
+        assertNull(edited.conversionOrigin)
+        val margin = edited.withMethod(MethodChoice.MARGIN)
+        assertEquals(fresh.withMethod(MethodChoice.MARGIN).percent, margin.percent)
+        assertEquals(markup.percent, margin.withMethod(MethodChoice.MARKUP).percent)
+        saved(margin)
+    }
+
+    @Test
+    fun `reopening saved settings starts a new conversion sequence from the saved method`() {
+        val markup = input(MethodChoice.MARGIN, "30", CostBasis.FULL_COST).withMethod(MethodChoice.MARKUP)
+        val draft = saved(markup)
+        val reopened = SettingsInput.of(draft.pricing, draft.costing, money)
+        assertEquals(MethodChoice.MARKUP, reopened.method)
+        assertEquals(markup.percent, reopened.percent)
+        assertNull(reopened.conversionOrigin)
+        val fresh = input(MethodChoice.MARKUP, reopened.percent, CostBasis.FULL_COST)
+        val margin = reopened.withMethod(MethodChoice.MARGIN)
+        assertEquals(fresh.withMethod(MethodChoice.MARGIN).percent, margin.percent)
+        assertEquals(reopened.percent, margin.withMethod(MethodChoice.MARKUP).percent)
+        assertEquals(suggestion(reopened).menuPrice, suggestion(margin).menuPrice)
+    }
+
     private fun suggestion(input: SettingsInput, extraRials: Long = 0): PriceSuggestion {
         val date = LocalDate.of(2026, 11, 10)
         val ingredient = IngredientId("food")

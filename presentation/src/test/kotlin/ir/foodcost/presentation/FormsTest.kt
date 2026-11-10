@@ -124,7 +124,7 @@ class FormsTest {
         val margin = foodCost.withMethod(MethodChoice.MARGIN)
         assertEquals(MethodChoice.MARGIN to "65", margin.method to margin.percent)
         val markup = margin.withMethod(MethodChoice.MARKUP)
-        assertEquals("185.71", markup.percent)
+        assertEquals("۱۸۵٫۷۱٪", Numbers.percent(BigDecimal(markup.percent), 2))
         assertEquals("یعنی فودکاست ۳۵٪ و حاشیهٔ سود ۶۵٪", markup.equivalents())
         assertEquals("35", markup.withMethod(MethodChoice.FOOD_COST).percent)
 
@@ -153,7 +153,7 @@ class FormsTest {
         val full = input.copy(method = MethodChoice.MARGIN, percent = "30", basis = CostBasis.FULL_COST)
         assertEquals(PricingMethod.TargetMargin(BigDecimal(30), CostBasis.FULL_COST), valid(full.check(PricingSettings(), CostingRules(), toman)).pricing.defaultMethod)
         val markup = full.withMethod(MethodChoice.MARKUP)
-        assertEquals("42.86" to CostBasis.FULL_COST, markup.percent to markup.basis)
+        assertEquals("۴۲٫۸۶٪" to CostBasis.FULL_COST, Numbers.percent(BigDecimal(markup.percent), 2) to markup.basis)
         assertEquals("30", markup.withMethod(MethodChoice.MARGIN).percent)
         assertEquals("یعنی مارک‌آپ ۴۲٫۹٪، روی همهٔ هزینه‌ها", full.equivalents())
 
