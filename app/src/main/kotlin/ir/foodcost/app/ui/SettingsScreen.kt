@@ -175,7 +175,7 @@ fun SettingsScreen(
                     supporting = listOfNotNull(
                         methodHint(input.method),
                         // From a margin or markup on every cost there is no food cost equivalent: the number is the old one.
-                        if (input.carried) "حاشیه سود روی همه هزینه‌ها به فودکاست هدف تبدیل مستقیم ندارد. درصد فودکاست را وارد کنید؛ درصدهای قبلی حاشیه سود و مارک‌آپ محفوظ هستند." else input.equivalents(),
+                        if (input.carried) "عدد نمایش‌داده‌شده فقط آخرین درصدِ مبنای «همه هزینه‌ها» است، نه فودکاست معادل. برای تعیین فودکاست هدف، این عدد را ویرایش کنید. تا آن زمان ذخیره غیرفعال است و درصدهای قبلی محفوظ می‌مانند." else input.equivalents(),
                     ).joinToString("\n"),
                     number = true,
                     suffix = "٪",
