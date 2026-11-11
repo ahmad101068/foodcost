@@ -1,6 +1,7 @@
 package ir.foodcost.app
 
 import android.content.Context
+import android.os.ParcelFileDescriptor
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -119,7 +120,14 @@ class ExitConfirmationTest {
 
     private fun physicalBack(scenario: ActivityScenario<MainActivity>) {
         focusedWindow(scenario)
-        check(UiDevice.getInstance(instrumentation).pressBack()) { "System Back was not injected" }
+        // UiDevice's injection can return false on the CI image. Shell input still routes an
+        // actual system key through the focused window/IME; it does not call the app's handler.
+        val output = ParcelFileDescriptor.AutoCloseInputStream(
+            instrumentation.uiAutomation.executeShellCommand("input keyevent KEYCODE_BACK"),
+        ).use { it.readBytes().toString(Charsets.UTF_8) }
+        check(!output.contains("Error", ignoreCase = true) && !output.contains("Exception")) {
+            "System Back command failed: $output"
+        }
         compose.waitForIdle()
     }
 
