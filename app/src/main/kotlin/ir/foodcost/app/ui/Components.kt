@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -33,6 +35,9 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -56,6 +61,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextMeasurer
@@ -86,10 +92,13 @@ fun TabScaffold(
     floatingActionButton: @Composable () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
+    var snackbarHeight by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    val direction = LocalLayoutDirection.current
     Scaffold(
         topBar = {
             Column {
-                TopAppBar(title = { Text(title) }, actions = topActions)
+                TopAppBar(title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) }, actions = topActions)
                 UnreadableWarning(actions, nav)
                 BackupReminderLine(actions, nav)
             }
@@ -103,13 +112,27 @@ fun TabScaffold(
                         icon = { Icon(tab.icon, contentDescription = null) },
                         // One line, smaller with the phone's large text, rather than a word broken in two.
                         label = { FitText(tab.label, MaterialTheme.typography.labelMedium) },
+                        colors = NavigationBarItemDefaults.colors(
+                            indicatorColor = MaterialTheme.colorScheme.primary,
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
                     )
                 }
             }
         },
         floatingActionButton = floatingActionButton,
-        snackbarHost = { SnackbarHost(actions.snackbar) },
-        content = content,
+        snackbarHost = { SnackbarHost(actions.snackbar, Modifier.onSizeChanged { snackbarHeight = it.height }) },
+        content = { padding ->
+            // A snackbar must never cover a card or Save control, including with 2x text.
+            val extra = with(density) { if (actions.snackbar.currentSnackbarData != null) snackbarHeight.toDp() else 0.dp }
+            content(PaddingValues(
+                start = padding.calculateStartPadding(direction), end = padding.calculateEndPadding(direction),
+                top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + extra,
+            ))
+        },
     )
 }
 
@@ -165,6 +188,9 @@ fun DetailScaffold(
     floatingActionButton: @Composable () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
+    var snackbarHeight by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    val direction = LocalLayoutDirection.current
     Scaffold(
         topBar = {
             Column {
@@ -181,8 +207,14 @@ fun DetailScaffold(
             }
         },
         floatingActionButton = floatingActionButton,
-        snackbarHost = { SnackbarHost(actions.snackbar) },
-        content = content,
+        snackbarHost = { SnackbarHost(actions.snackbar, Modifier.onSizeChanged { snackbarHeight = it.height }) },
+        content = { padding ->
+            val extra = with(density) { if (actions.snackbar.currentSnackbarData != null) snackbarHeight.toDp() else 0.dp }
+            content(PaddingValues(
+                start = padding.calculateStartPadding(direction), end = padding.calculateEndPadding(direction),
+                top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + extra,
+            ))
+        },
     )
 }
 
@@ -196,6 +228,16 @@ fun AddButton(text: String, onClick: () -> Unit) {
         Icon(Icons.Filled.Add, contentDescription = null)
         Spacer(Modifier.width(12.dp))
         Text(text)
+    }
+}
+
+/** An add action in the header leaves the list's entire touch area clear. */
+@Composable
+fun HeaderAddButton(text: String, onClick: () -> Unit) {
+    FilledTonalButton(onClick = onClick, shape = RoundedCornerShape(14.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
+        Icon(Icons.Filled.Add, contentDescription = null)
+        Spacer(Modifier.width(4.dp))
+        Text(text, style = MaterialTheme.typography.labelLarge)
     }
 }
 
@@ -367,6 +409,11 @@ fun TextInput(
         label = { Text(label) },
         modifier = modifier.fillMaxWidth().onSizeChanged { width = it.width },
         textStyle = textStyle,
+        shape = RoundedCornerShape(14.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        ),
         singleLine = true,
         isError = error != null,
         suffix = if (suffix != null) {
@@ -426,6 +473,11 @@ fun SearchField(query: String, onQueryChange: (String) -> Unit, placeholder: Str
         onValueChange = onQueryChange,
         modifier = modifier.fillMaxWidth().padding(vertical = 8.dp),
         singleLine = true,
+        shape = RoundedCornerShape(18.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        ),
         placeholder = { Text(placeholder) },
         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
         trailingIcon = if (query.isNotEmpty()) {

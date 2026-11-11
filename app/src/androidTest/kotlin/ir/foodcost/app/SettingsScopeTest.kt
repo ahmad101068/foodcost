@@ -12,8 +12,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ActivityScenario
@@ -161,9 +159,7 @@ class SettingsScopeTest {
 
     private fun clickTag(tag: String) {
         waitForTag(tag)
-        // A recently shown Snackbar can cover the physical centre of the bottom Save button.
-        // Invoke the same accessibility action rather than sending an obstructed coordinate.
-        scrolled(rule.onNodeWithTag(tag)).performSemanticsAction(SemanticsActions.OnClick)
+        scrolled(rule.onNodeWithTag(tag)).performClick()
         rule.waitForIdle()
     }
 

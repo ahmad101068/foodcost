@@ -100,13 +100,13 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
         title = "مواد اولیه",
         nav = nav,
         actions = actions,
-        floatingActionButton = {
-            AddButton("ماده تازه", onClick = { nav.open(Screen.EditIngredient(null)) })
+        topActions = {
+            HeaderAddButton("ماده تازه", onClick = { nav.open(Screen.EditIngredient(null)) })
         },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.padding(padding).testTag("ingredients-list"),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item { SearchField(query, { query = it }, "جستجوی ماده") }
@@ -117,7 +117,6 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
                     colors = CardDefaults.cardColors(containerColor = colors.container),
                 ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("مدیریت مواد اولیه", style = MaterialTheme.typography.titleLarge, color = colors.heading)
                         Text("قیمت و بازده مواد مصرفی", style = MaterialTheme.typography.bodyMedium, color = colors.subheading)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             IngredientSummaryStat("مواد ثبت‌شده", Persian.digits(allRows.size), colors.statPrimary, colors, Modifier.weight(1f))
@@ -141,7 +140,7 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
                         label = { Text("همه") },
                         modifier = Modifier.testTag("ingredients-filter-all"),
                         shape = RoundedCornerShape(12.dp),
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = colors.statPrimary, selectedLabelColor = colors.statValue),
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = MaterialTheme.colorScheme.onPrimary),
                     )
                     FilterChip(
                         selected = showMissingOnly,
@@ -150,7 +149,7 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
                         enabled = !dataUnreliable,
                         modifier = Modifier.testTag("ingredients-filter-missing"),
                         shape = RoundedCornerShape(12.dp),
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = colors.statPrimary, selectedLabelColor = colors.statValue),
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = MaterialTheme.colorScheme.onPrimary),
                     )
                 }
             }
@@ -269,6 +268,7 @@ private fun IngredientListItem(row: IngredientRow, dataUnreliable: Boolean, onCl
         modifier = Modifier.fillMaxWidth().testTag("ingredient-" + row.id.value),
         shape = RoundedCornerShape(18.dp),
         colors = whiteCardColors(),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(row.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = colors.itemTitle)

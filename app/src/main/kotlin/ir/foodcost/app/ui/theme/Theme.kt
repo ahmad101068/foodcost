@@ -32,25 +32,25 @@ val Vazirmatn = FontFamily(
  * Green means a suitable price, cream means near the target, and red means well below it.
  */
 private object Palette {
-    val Lapis = Color(0xFF174F46)
+    val Lapis = Color(0xFF005747)
     val LapisDeep = Color(0xFF123A33)
     val Saffron = Color(0xFFE9D3A6)
-    val Paper = Color(0xFFF7F8F4)
+    val Paper = Color(0xFFFAF9F5)
     val Ink = Color(0xFF202A25)
 }
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF174F46),
+    primary = Color(0xFF005747),
     onPrimary = Color(0xFFFFFFFF),
     primaryContainer = Color(0xFFDFEEE7),
     onPrimaryContainer = Color(0xFF173D35),
-    secondary = Color(0xFF755D2E),
+    secondary = Color(0xFF456B5E),
     onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFFFF1D7),
-    onSecondaryContainer = Color(0xFF4B3716),
-    tertiary = Color(0xFF3D6B22),
+    secondaryContainer = Color(0xFFE8F3ED),
+    onSecondaryContainer = Color(0xFF214D3D),
+    tertiary = Color(0xFF287044),
     onTertiary = Color(0xFFFFFFFF),
-    tertiaryContainer = Color(0xFFD7EDBF),
+    tertiaryContainer = Color(0xFFE2F4E7),
     onTertiaryContainer = Color(0xFF0E2000),
     error = Color(0xFFB3261E),
     onError = Color(0xFFFFFFFF),
@@ -62,9 +62,9 @@ private val LightColors = lightColorScheme(
     onSurface = Palette.Ink,
     surfaceVariant = Color(0xFFE9EDE8),
     onSurfaceVariant = Color(0xFF526158),
-    surfaceTint = Color(0xFF174F46),
-    outline = Color(0xFF7C8880),
-    outlineVariant = Color(0xFFCCD5CD),
+    surfaceTint = Color(0xFF005747),
+    outline = Color(0xFF819189),
+    outlineVariant = Color(0xFFD9E0DA),
     inverseSurface = Color(0xFF2F3036),
     inverseOnSurface = Color(0xFFF1F0F5),
     inversePrimary = Color(0xFFA4D5C4),
@@ -89,7 +89,7 @@ private val DarkColors = darkColorScheme(
     tertiary = Color(0xFFA9D58A),
     onTertiary = Color(0xFF1A3700),
     tertiaryContainer = Color(0xFF2B5214),
-    onTertiaryContainer = Color(0xFFD7EDBF),
+    onTertiaryContainer = Color(0xFFE2F4E7),
     error = Color(0xFFFFB4AB),
     onError = Color(0xFF690005),
     errorContainer = Color(0xFF93000A),
@@ -105,7 +105,7 @@ private val DarkColors = darkColorScheme(
     outlineVariant = Color(0xFF3D4A41),
     inverseSurface = Color(0xFFE3E2E9),
     inverseOnSurface = Color(0xFF2F3036),
-    inversePrimary = Color(0xFF174F46),
+    inversePrimary = Color(0xFF005747),
     surfaceDim = Color(0xFF111914),
     surfaceBright = Color(0xFF354239),
     surfaceContainerLowest = Color(0xFF0C140F),
@@ -173,6 +173,16 @@ fun displayColors(): DisplayColors =
 /** Background and text colors for a price status. */
 data class StatusColors(val container: Color, val content: Color)
 
+/** Sales, food cost and remaining money have separate accents, as on the approved dashboard. */
+data class DashboardColors(val sales: StatusColors, val food: StatusColors)
+
+@Composable
+fun dashboardColors(): DashboardColors = if (isSystemInDarkTheme()) {
+    DashboardColors(StatusColors(Color(0xFF252E4C), Color(0xFFC5D0FF)), StatusColors(Color(0xFF432F23), Color(0xFFFFC599)))
+} else {
+    DashboardColors(StatusColors(Color(0xFFF0F2FF), Color(0xFF32468C)), StatusColors(Color(0xFFFFF2E7), Color(0xFFAC501D)))
+}
+
 @Composable
 fun statusColors(status: PriceStatus): StatusColors {
     val dark = isSystemInDarkTheme()
@@ -207,8 +217,8 @@ fun foodSectionColors(): FoodSectionColors =
         )
     } else {
         FoodSectionColors(
-            Color(0xFFE5EFE9), Color(0xFF214F40), Color(0xFF506C5D),
-            Color(0xFFD5E7DC), Color(0xFFDBEADF), Color(0xFF476454),
+            Color(0xFFF2F7F3), Color(0xFF214F40), Color(0xFF506C5D),
+            Color(0xFFE5F3EA), Color(0xFFFFF4DF), Color(0xFF476454),
             Color(0xFF1F4D3D), Color(0xFF275A46),
         )
     }

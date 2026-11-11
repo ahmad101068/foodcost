@@ -117,13 +117,13 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
         title = "غذاها",
         nav = nav,
         actions = actions,
-        floatingActionButton = {
-            AddButton("افزودن غذا", onClick = { creating = true })
+        topActions = {
+            HeaderAddButton("افزودن غذا", onClick = { creating = true })
         },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.padding(padding).testTag("food-list"),
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item { SearchField(query, { query = it }, "جستجوی غذا") }
@@ -134,7 +134,7 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
                     colors = CardDefaults.cardColors(containerColor = colors.container),
                 ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("خلاصهٔ منو", style = MaterialTheme.typography.titleLarge, color = colors.heading)
+                        Text("خلاصهٔ منو", style = MaterialTheme.typography.labelLarge, color = colors.subheading)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             MenuSummaryStat("غذا", Persian.digits(model.plates.size), colors, Modifier.weight(1f))
                             MenuSummaryStat("دستور پایه", Persian.digits(model.preparations.size), colors, Modifier.weight(1f))
@@ -160,7 +160,7 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
                             label = { Text("همه") },
                             modifier = Modifier.testTag("food-filter-all"),
                             shape = RoundedCornerShape(12.dp),
-                            colors = FilterChipDefaults.filterChipColors(selectedContainerColor = colors.statPrimary, selectedLabelColor = colors.statValue),
+                            colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = MaterialTheme.colorScheme.onPrimary),
                         )
                         categories.forEach { category ->
                             FilterChip(
@@ -169,7 +169,7 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
                                 label = { Text(category) },
                                 modifier = Modifier.testTag("food-filter-category-" + category),
                                 shape = RoundedCornerShape(12.dp),
-                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = colors.statPrimary, selectedLabelColor = colors.statValue),
+                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = MaterialTheme.colorScheme.onPrimary),
                             )
                         }
                     }
@@ -272,7 +272,7 @@ private fun MenuSummaryStat(label: String, value: String, colors: FoodSectionCol
         shape = RoundedCornerShape(14.dp),
         color = statusPalette?.container ?: colors.statPrimary,
     ) {
-        Column(Modifier.heightIn(min = 88.dp).padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.heightIn(min = 76.dp).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = statusPalette?.content ?: colors.statLabel)
             Text(value, style = MaterialTheme.typography.titleLarge, color = statusPalette?.content ?: colors.statValue)
         }
@@ -314,6 +314,7 @@ private fun PlateCard(row: MenuRow, dataUnreliable: Boolean, onClick: () -> Unit
         modifier = Modifier.fillMaxWidth().testTag("food-" + row.recipeId.value),
         shape = RoundedCornerShape(18.dp),
         colors = whiteCardColors(),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

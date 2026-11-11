@@ -97,9 +97,40 @@ class ExitConfirmationTest {
     }
 
     private fun requestRootBack(scenario: ActivityScenario<MainActivity>) {
-        // Dispatch the app's Back callback directly, independent of the emulator IME's state.
-        scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        // Separate hiding the IME from the real system Back whose navigation we are testing.
+        scenario.onActivity {
+            val keyboard = it.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            keyboard.hideSoftInputFromWindow(it.window.decorView.windowToken, 0)
+            it.currentFocus?.clearFocus()
+        }
+        waitForIme(scenario, visible = false)
+        UiDevice.getInstance(instrumentation).pressBack()
         compose.waitForIdle()
+    }
+
+    @Test fun physicalBackClosesTheKeyboardBeforeRequestingExit() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            waitForTag("row-0-name")
+            compose.onNodeWithTag("row-0-name").performScrollTo().performClick()
+            waitForIme(scenario, visible = true)
+            UiDevice.getInstance(instrumentation).pressBack()
+            waitForIme(scenario, visible = false)
+            compose.onNodeWithTag("exit-confirmation").assertDoesNotExist()
+            assertEquals(Lifecycle.State.RESUMED, scenario.state)
+            UiDevice.getInstance(instrumentation).pressBack()
+            waitForTag("exit-confirmation")
+        }
+    }
+
+    private fun waitForIme(scenario: ActivityScenario<MainActivity>, visible: Boolean) {
+        compose.waitUntil(timeoutMillis = 15_000) {
+            var showing = false
+            scenario.onActivity {
+                showing = androidx.core.view.ViewCompat.getRootWindowInsets(it.window.decorView)
+                    ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true
+            }
+            showing == visible
+        }
     }
 
     private fun openSettingsOverview() {

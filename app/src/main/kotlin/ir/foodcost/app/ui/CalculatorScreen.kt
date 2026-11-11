@@ -41,6 +41,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.geometry.Offset
@@ -472,9 +473,10 @@ fun CalculatorScreen(
  */
 @Composable
 private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, dataUnreliable: Boolean, modifier: Modifier = Modifier, onExplain: (String) -> Unit) {
-    val navy = MaterialTheme.colorScheme.primary
+    val accents = ir.foodcost.app.ui.theme.dashboardColors()
+    val navy = accents.sales.content
     val green = MaterialTheme.colorScheme.tertiary
-    val orange = MaterialTheme.colorScheme.secondary
+    val orange = accents.food.content
     val priceColors = statusColors(result.status)
     val gaugeTrack = MaterialTheme.colorScheme.outlineVariant
     val hasPrice = result.netSales != null
@@ -494,8 +496,8 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1.15f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DashboardMetric(if (hasPrice) "فروش خالص هر پرس" else "قیمت پیشنهادی هر پرس", result.netSales ?: result.suggested ?: "—", navy, MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f), Modifier.testTag(if (hasPrice) "net-sales" else "suggested"), money, onClick = { onExplain(if (hasPrice) Glossary.NET_SALES else Glossary.SUGGESTED) })
-                    DashboardMetric("هزینه مواد هر پرس", result.costPerPortion, orange, MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f), Modifier.testTag("cost"), money, onClick = { onExplain(Glossary.FOOD) })
+                    DashboardMetric(if (hasPrice) "فروش خالص هر پرس" else "قیمت پیشنهادی هر پرس", result.netSales ?: result.suggested ?: "—", navy, accents.sales.container, Modifier.testTag(if (hasPrice) "net-sales" else "suggested"), money, onClick = { onExplain(if (hasPrice) Glossary.NET_SALES else Glossary.SUGGESTED) })
+                    DashboardMetric("هزینه مواد هر پرس", result.costPerPortion, orange, accents.food.container, Modifier.testTag("cost"), money, onClick = { onExplain(Glossary.FOOD) })
                     if (hasPrice) {
                         DashboardMetric(
                             if (result.remaining != null) "مانده پس از هزینه‌ها" else if (result.grossProfitNegative) "زیان ناخالص" else "سود ناخالص",
@@ -724,27 +726,6 @@ private fun ExtrasCard(
 private fun PriceDetails(result: QuickResult, money: MoneyFormat, onExplain: (List<String>) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.testTag("pricing-dashboard")) {
         if (result.channels.isNotEmpty()) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                result.channels.take(2).forEach { channel ->
-                    Card(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)),
-                    ) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                            Text(channel.label, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-                            Text("قیمت: ${channel.price ?: "—"}", style = MaterialTheme.typography.bodySmall)
-                            Text("مانده: ${channel.remaining ?: "—"}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                            Text("نسبت هزینه: ${channel.foodCostPercent ?: "—"}", style = MaterialTheme.typography.bodySmall)
-                            channel.priceForSameRemaining?.let {
-                                Text("قیمت برای همان مانده: $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if (result.channels.isNotEmpty()) {
             Card(colors = whiteCardColors(), modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp)) {
                     ChannelTable(result.channels, money) { onExplain(listOf(Glossary.CHANNELS)) }
@@ -807,6 +788,33 @@ private fun Explained(text: String, onClick: () -> Unit) {
 /** The channels side by side, amounts without their unit so the columns fit. */
 @Composable
 private fun ChannelTable(channels: List<QuickChannel>, money: MoneyFormat, onExplain: () -> Unit) {
+    // Phones and enlarged text need full-width values instead of four competing columns.
+    val stacked = LocalDensity.current.fontScale >= 1.3f || androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 600
+    if (stacked) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            channels.forEachIndexed { index, channel ->
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("channel-card-$index"),
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(channel.label, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                        Text("قیمت: ${channel.price ?: "—"}", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("channel-$index-price"))
+                        Text("هزینه: ${channel.cost ?: "—"}", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("channel-$index-cost"))
+                        Text("مانده: ${channel.remaining ?: "—"}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.testTag(if (index == 0) "channel-remaining" else "channel-$index-remaining"))
+                        Text("فودکاست: ${channel.foodCostPercent ?: "—"}", style = MaterialTheme.typography.bodyMedium)
+                        channel.priceForSameRemaining?.let {
+                            Text("برای همان مانده: $it", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
+        }
+        Explained("«برای همان مانده» یعنی قیمتی که در آن کانال همان مانده‌ای را می‌دهد که فروش حضوری.", onExplain)
+        return
+    }
     fun bare(text: String?) = text?.removeSuffix(" ${money.unit}") ?: "—"
     @Composable
     fun line(label: String, values: List<String>, tag: String? = null, strong: Boolean = false) {

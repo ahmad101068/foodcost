@@ -26,6 +26,9 @@ concurrency:
 
 jobs:
   apk:
+    permissions:
+      contents: write
+      actions: write # Remove legacy binary artifacts after keeping the new build in a draft.
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -67,20 +70,6 @@ jobs:
             echo "::error title=Signing::The APK is not signed with the app's own key"
             exit 1
           fi
-      - name: Keep signed APK as downloadable workflow artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: foodcost-signed-apk
-          path: app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
-          retention-days: 30
-      - name: Keep Play Store AAB as private workflow artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: foodcost-play-aab
-          path: app/build/outputs/bundle/release/app-release.aab
-          if-no-files-found: error
-          retention-days: 30
       # Annotations can be read through the API without downloading the logs.
       - name: Report failures
         if: failure()
@@ -94,13 +83,15 @@ jobs:
         run: |
           apk=app/build/outputs/apk/release/app-release.apk
           echo "::notice title=APK built::$(du -k "$apk" | cut -f1) KB, version $(grep -m1 'val appVersion = ' app/build.gradle.kts | cut -d'"' -f2), build $GITHUB_RUN_NUMBER"
-      - name: Keep the APK in a draft release
+      - name: Keep signed binaries in an unpublished draft release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         # One draft per branch, so a feature branch never replaces the APK built from main.
         run: |
           cp app/build/outputs/apk/release/app-release.apk foodcost.apk
+          cp app/build/outputs/bundle/release/app-release.aab foodcost.aab
+          sha256sum foodcost.apk foodcost.aab > checksums.sha256
           if [ "$GITHUB_REF_NAME" = "main" ]; then
             name="APK for testing"; tag="apk-for-testing"
           else
@@ -109,8 +100,19 @@ jobs:
           for id in $(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq ".[] | select(.draft and .name == \"$name\") | .id"); do
             gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"
           done
-          gh release create "$tag" foodcost.apk --draft --target "$GITHUB_SHA" \
+          gh release create "$tag" foodcost.apk foodcost.aab checksums.sha256 signature.txt --draft --target "$GITHUB_SHA" \
             --title "$name" --notes-file .github/preview-notes.md
+
+      - name: Remove legacy binary artifacts from the public Actions listing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.name == "foodcost-signed-apk" or .name == "foodcost-play-aab") | .id' > legacy-artifacts.txt
+          while IFS= read -r artifact_id; do
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id"
+          done < legacy-artifacts.txt
 
   # Walks through the app on an Android emulator and keeps a screenshot of each step,
   # published as a draft release (visible only to the repository's owners).

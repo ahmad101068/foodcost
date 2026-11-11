@@ -61,9 +61,38 @@ class CurrencyPreferenceTest {
         assertEquals(old.parse(before.extras.single().amount), current.parse(after.extras.single().amount))
         assertEquals("630000", after.menuPrice)
 
-        container.saveDraft()
+        // No saveDraft/onStop/edit: startup itself must make the migration restart-safe.
         assertTrue(draftFile.readText().contains("\"currency\":\"TOMAN\""))
         assertEquals(after, QuickDrafts.decode(draftFile.readText(), DisplayCurrency.TOMAN))
+        val restarted = AppContainer(context)
+        assertEquals(after, restarted.quickDraft.value)
+        assertEquals(DisplayCurrency.TOMAN, restarted.currency.value)
+    }
+
+    @Test fun failedMigrationWriteRetainsTheOldUnitAndCanRetryAfterRestart() {
+        prefs.edit().putString("currency", DisplayCurrency.NEW_RIAL.name).commit()
+        val legacy = QuickDrafts.encode(QuickInput(menuPrice = "630"), DisplayCurrency.NEW_RIAL)
+            .replace("\"currency\":\"NEW_RIAL\",", "")
+        draftFile.writeText(legacy)
+        // A nonempty directory blocks AtomicFile.startWrite without damaging the old base file.
+        val blocker = File(context.filesDir, "calculator-draft.json.new")
+        blocker.mkdirs()
+        File(blocker, "blocked").writeText("full-storage simulation")
+        try {
+            val first = AppContainer(context)
+            assertEquals("630000", first.quickDraft.value.menuPrice)
+            assertEquals(DisplayCurrency.NEW_RIAL.name, prefs.getString("currency", null))
+            assertEquals(legacy, draftFile.readText())
+            val restarted = AppContainer(context)
+            assertEquals("630000", restarted.quickDraft.value.menuPrice)
+            assertEquals(DisplayCurrency.NEW_RIAL.name, prefs.getString("currency", null))
+            blocker.deleteRecursively()
+            restarted.saveDraft()
+            assertEquals(DisplayCurrency.TOMAN.name, prefs.getString("currency", null))
+            assertEquals("630000", AppContainer(context).quickDraft.value.menuPrice)
+        } finally {
+            blocker.deleteRecursively()
+        }
     }
 
     private fun clean() {

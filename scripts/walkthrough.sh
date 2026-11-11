@@ -68,5 +68,12 @@ else
   failed=1
 fi
 
+# Every numbered acceptance image, including the previously missing largest-text dishes, is required.
+for number in $(seq -w 0 30); do
+  if ! compgen -G "screenshots/$number-*.png" > /dev/null; then
+    echo "Missing required screenshot $number" | tee -a walkthrough.log
+    failed=1
+  fi
+done
 ls -la screenshots
 exit $failed

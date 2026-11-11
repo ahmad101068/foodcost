@@ -3,6 +3,9 @@ package ir.foodcost.app.ui
 import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -27,6 +30,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -449,8 +457,21 @@ fun SettingsScreen(
 @Composable
 private fun SettingsDestination(title: String, subtitle: String, tag: String, onClick: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth().testTag("settings-section-$tag"),
-        shape = RoundedCornerShape(18.dp), colors = whiteCardColors()) {
-        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+        shape = RoundedCornerShape(18.dp), colors = whiteCardColors(),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+                Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+                    if (tag == "currency") Text("﷼", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                    else Icon(when (tag) {
+                        "costs" -> Icons.Filled.ShoppingCart
+                        "sections" -> Icons.Filled.List
+                        "backup" -> Icons.Filled.Refresh
+                        "help" -> Icons.Filled.Info
+                        else -> Icons.Filled.Settings
+                    }, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                }
+            }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -463,6 +484,7 @@ private fun SettingsDestination(title: String, subtitle: String, tag: String, on
 @Composable
 private fun PricingScopeCard(title: String, subtitle: String, selected: Boolean, tag: String, onClick: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth().testTag(tag), shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
         colors = CardDefaults.cardColors(containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             RadioButton(selected = selected, onClick = null)

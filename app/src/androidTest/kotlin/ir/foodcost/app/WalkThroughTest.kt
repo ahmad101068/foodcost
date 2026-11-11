@@ -2,6 +2,10 @@ package ir.foodcost.app
 
 import android.graphics.Bitmap
 import android.os.ParcelFileDescriptor
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
@@ -22,8 +26,6 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.SemanticsNodeInteraction
-import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -164,11 +166,10 @@ class WalkThroughTest {
             savedState, savedDish.id, java.time.LocalDate.now(),
             ir.foodcost.presentation.MoneyFormat(container.currency.value),
         )) { "Saved dish is not readable by the quick calculator" }
-        // Invoke the card's accessibility action directly. On small emulator screens, the
-        // floating Add control can intercept the synthetic center tap of a large lazy-list card.
+        // A real touch must open the card while the previous save feedback is still visible.
         waitForTag("food-${savedDish.id.value}")
         scrolled(rule.onNodeWithTag("food-${savedDish.id.value}"))
-            .performSemanticsAction(SemanticsActions.OnClick)
+            .performClick()
         waitForTag("row-0-price")
         replaceTag("row-0-price", "16000000")
         waitForPart("۱۰ برابر قیمت قبلی")
@@ -312,10 +313,11 @@ class WalkThroughTest {
 
     /**
      * The amounts in rials with the phone's text larger and largest, for a look that no amount is
-     * cut off. A missing picture fails nothing.
+     * cut off. Every required picture must be produced.
      */
     private fun largeText() {
         try {
+            if (rule.onAllNodesWithText("بعداً").fetchSemanticsNodes().isNotEmpty()) click("بعداً")
             textSize("1.5")
             show("cost")
             shot("24-larger-text")
@@ -326,11 +328,21 @@ class WalkThroughTest {
             shot("26-largest-text-rows")
             show("channel-remaining")
             shot("27-largest-text-channels")
+            for (index in 0..2) {
+                for (field in listOf("price", "cost", "remaining")) {
+                    val tag = if (index == 0 && field == "remaining") "channel-remaining" else "channel-$index-$field"
+                    val node = rule.onNodeWithTag(tag).performScrollTo().assertIsDisplayed()
+                    val layouts = mutableListOf<TextLayoutResult>()
+                    node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { check(it(layouts)) }
+                    check(layouts.isNotEmpty() && layouts.none { it.hasVisualOverflow }) { "$tag overflows at 2x text" }
+                }
+            }
+            shot("27b-largest-text-online")
             click("غذاها")
-            waitFor("چلوکباب کوبیده")
+            waitForTag("food-list")
+            rule.onNodeWithTag("food-list").performScrollToNode(hasText("چلوکباب کوبیده", substring = true))
+            rule.onAllNodesWithText("چلوکباب کوبیده").onFirst().assertIsDisplayed()
             shot("28-largest-text-dishes")
-        } catch (e: Throwable) {
-            // The walk itself is done.
         } finally {
             shell("settings put system font_scale 1.0")
         }
@@ -357,7 +369,7 @@ class WalkThroughTest {
         waitForTag("cost")
     }
 
-    /** The calculation handed to the phone's share sheet as text. A missing picture fails nothing. */
+    /** The calculation handed to the phone's share sheet as text. Every required picture must be produced. */
     private fun share() {
         val device = UiDevice.getInstance(instrumentation)
         val app = instrumentation.targetContext.packageName
@@ -366,8 +378,6 @@ class WalkThroughTest {
             device.wait(Until.gone(By.pkg(app).depth(0)), 5_000)
             Thread.sleep(1500)
             shot("21-share")
-        } catch (e: Throwable) {
-            // The walk itself is done.
         } finally {
             if (device.currentPackageName != app) device.pressBack()
             device.wait(Until.hasObject(By.pkg(app).depth(0)), 5_000)
@@ -375,7 +385,7 @@ class WalkThroughTest {
         }
     }
 
-    /** Two pictures in the dark theme, for a look at its colors. A missing picture fails nothing. */
+    /** Two pictures in the dark theme, for a look at its colors. Every required picture must be produced. */
     private fun darkTheme() {
         try {
             shell("cmd uimode night yes")
@@ -384,8 +394,6 @@ class WalkThroughTest {
             shot("22-dark-calculator")
             click("غذاها")
             shot("23-dark-dishes")
-        } catch (e: Throwable) {
-            // The walk itself is done.
         } finally {
             shell("cmd uimode night no")
         }
@@ -429,9 +437,7 @@ class WalkThroughTest {
 
     private fun clickTag(tag: String) {
         waitForTag(tag)
-        // Buttons and tiles may be partially obscured by Snackbar or the bottom bar.
-        // The semantics action hits the correct control without a screen-coordinate race.
-        scrolled(rule.onNodeWithTag(tag)).performSemanticsAction(SemanticsActions.OnClick)
+        scrolled(rule.onNodeWithTag(tag)).performClick()
         rule.waitForIdle()
     }
 
@@ -537,7 +543,9 @@ class WalkThroughTest {
         dismissSystemDialogs()
         // The emulator draws slowly; without the pause a picture can still show the screen before.
         Thread.sleep(1200)
-        val bitmap = instrumentation.uiAutomation.takeScreenshot() ?: return
-        File(shots, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot()) { "Screenshot $name was not captured" }
+        File(shots, "$name.png").outputStream().use {
+            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) { "Screenshot $name could not be encoded" }
+        }
     }
 }
