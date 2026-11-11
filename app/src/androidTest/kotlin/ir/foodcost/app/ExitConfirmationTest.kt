@@ -83,10 +83,8 @@ class ExitConfirmationTest {
             compose.onNodeWithTag("settings-section-pricing").performScrollTo().performClick()
             compose.onNodeWithTag("pricing-scope-general").performScrollTo().performClick()
             compose.onNodeWithTag("general-pricing-percent").performScrollTo().performTextReplacement("41.25")
-            // Text replacement can start the IME resize after the preceding scroll finished.
-            // Settle that independent transition before testing the actual Back-button touch.
-            hideKeyboard(scenario)
-            compose.onNodeWithTag("settings-back").performScrollTo().performClick()
+            // The fixed toolbar Back target must work with the keyboard still open.
+            compose.onNodeWithTag("settings-back").performClick()
             waitForTag("settings-overview")
             compose.onNodeWithTag("settings-section-help").performScrollTo().performClick()
             compose.onNodeWithText("کار با برنامه").performScrollTo().performClick()
@@ -94,7 +92,7 @@ class ExitConfirmationTest {
             requestRootBack(scenario)
             waitForTag("settings-back")
             compose.onNodeWithText("کار با برنامه").assertIsDisplayed()
-            compose.onNodeWithTag("settings-back").performScrollTo().performClick()
+            compose.onNodeWithTag("settings-back").performClick()
             compose.onNodeWithTag("settings-section-pricing").performScrollTo().performClick()
             compose.onNodeWithTag("general-pricing-percent").performScrollTo().assertTextContains("41.25")
         }
@@ -149,7 +147,7 @@ class ExitConfirmationTest {
         compose.onNodeWithText("تنظیمات").performClick()
         compose.waitForIdle()
         if (compose.onAllNodesWithTag("settings-overview").fetchSemanticsNodes().isEmpty()) {
-            compose.onNodeWithTag("settings-back").performScrollTo().performClick()
+            compose.onNodeWithTag("settings-back").performClick()
         }
         waitForTag("settings-overview")
     }

@@ -90,6 +90,7 @@ fun TabScaffold(
     actions: AppActions,
     topActions: @Composable RowScope.() -> Unit = {},
     floatingActionButton: @Composable () -> Unit = {},
+    navigationIcon: @Composable () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
     var snackbarHeight by remember { mutableIntStateOf(0) }
@@ -98,7 +99,7 @@ fun TabScaffold(
     Scaffold(
         topBar = {
             Column {
-                TopAppBar(title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) }, actions = topActions)
+                TopAppBar(title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) }, navigationIcon = navigationIcon, actions = topActions)
                 UnreadableWarning(actions, nav)
                 BackupReminderLine(actions, nav)
             }

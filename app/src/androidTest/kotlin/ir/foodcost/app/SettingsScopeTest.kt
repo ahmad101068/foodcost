@@ -150,7 +150,12 @@ class SettingsScopeTest {
     }
 
     private fun waitForTag(tag: String) {
-        rule.waitUntil(timeoutMillis = 15_000) { exists(tag) }
+        try {
+            rule.waitUntil(timeoutMillis = 15_000) { exists(tag) }
+        } catch (failure: androidx.compose.ui.test.ComposeTimeoutException) {
+            throw AssertionError("Missing $tag after physical navigation. Rendered semantics:\n" +
+                rule.onRoot(useUnmergedTree = true).printToString().take(16_000), failure)
+        }
     }
 
     private fun waitForText(text: String) {

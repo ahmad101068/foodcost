@@ -428,6 +428,7 @@ class WalkThroughTest {
         }
         if (rule.onAllNodesWithTag("settings-overview").fetchSemanticsNodes().isEmpty()) clickTag("settings-back")
         waitForTag("settings-overview")
+        shot("16a-settings-overview")
     }
 
     private fun openCalculatorDetails() {

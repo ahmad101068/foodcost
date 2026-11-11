@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Settings
@@ -54,6 +55,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -92,6 +95,8 @@ fun SettingsScreen(
     val currency by container.currency.collectAsState()
     var errors by remember(page) { mutableStateOf(emptyMap<Field, String>()) }
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     val categoryNames = remember { HashMap<Int, FocusRequester>() }
     val categoryPercents = remember { HashMap<Int, FocusRequester>() }
     fun categoryName(i: Int): FocusRequester = categoryNames.getOrPut(i) { FocusRequester() }
@@ -105,6 +110,8 @@ fun SettingsScreen(
     // Material Snackbar is anchored to the bottom and may cover the Save action while the user
     // quickly switches pages or pricing modes. Dismiss transient feedback on a new user choice.
     fun navigateTo(destination: SettingsPage) {
+        focusManager.clearFocus()
+        keyboard?.hide()
         actions.snackbar.currentSnackbarData?.dismiss()
         onPageChange(destination)
     }
@@ -133,7 +140,23 @@ fun SettingsScreen(
         }
     }
 
-    TabScaffold(title = "تنظیمات", nav = nav, actions = actions) { padding ->
+    val pageTitle = when (page) {
+        SettingsPage.OVERVIEW -> "تنظیمات"
+        SettingsPage.PRICING -> "قیمت‌گذاری"
+        SettingsPage.COSTS -> "هزینه‌ها و فروش آنلاین"
+        SettingsPage.SECTIONS -> "بخش‌های منو"
+        SettingsPage.CURRENCY -> "واحد پول"
+        SettingsPage.BACKUP -> "پشتیبان و بازیابی"
+        SettingsPage.HELP -> "راهنما و درباره برنامه"
+    }
+    TabScaffold(title = pageTitle, nav = nav, actions = actions, navigationIcon = {
+        if (page != SettingsPage.OVERVIEW) {
+            // This target stays still while the keyboard resizes the scrollable form below it.
+            IconButton(onClick = { navigateTo(SettingsPage.OVERVIEW) }, modifier = Modifier.testTag("settings-back")) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "بازگشت به تنظیمات")
+            }
+        }
+    }) { padding ->
         Column(
             Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()
                 .verticalScroll(rememberScrollState())
@@ -141,11 +164,6 @@ fun SettingsScreen(
                 .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            if (page != SettingsPage.OVERVIEW) {
-                TextButton(onClick = { navigateTo(SettingsPage.OVERVIEW) }, modifier = Modifier.testTag("settings-back")) {
-                    Text("بازگشت به تنظیمات")
-                }
-            }
             if (page == SettingsPage.OVERVIEW) {
                 Column(Modifier.testTag("settings-overview"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("مدیریت ساده و یکپارچه برنامه", style = MaterialTheme.typography.bodyLarge)

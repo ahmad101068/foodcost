@@ -11,6 +11,9 @@ softer card outlines and fields, distinct indigo sales / peach food-cost / green
 dashboard accents, focused settings destinations with icons, and lighter list summaries.
 The semicircle gauge and green/cream/red financial status rules are preserved.
 
+Settings subpages have their own title and a fixed toolbar Back target. Navigation clears the
+previous field's focus and keyboard, preventing IME resizing from moving the touch target.
+
 List add actions live in the header instead of covering recipe cards. Tab and detail screens
 reserve the measured snackbar height so controls remain reachable while feedback is visible.
 Phone and enlarged-text channel comparisons use full-width cards. Tablets retain the table.
