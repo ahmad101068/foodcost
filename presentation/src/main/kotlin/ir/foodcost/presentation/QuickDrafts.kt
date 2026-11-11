@@ -48,6 +48,7 @@ object QuickDrafts {
                 },
             ),
             "category" to input.category?.json,
+            "categoryChosen" to input.categoryChosen.json,
         ),
     )
 
@@ -118,6 +119,7 @@ object QuickDrafts {
             miscPercent = o.decimalOrNull("miscPercent"),
             extras = extras,
             category = o.stringOrNull("category"),
+            categoryChosen = if (o.has("categoryChosen")) o.bool("categoryChosen") else false,
         )
     }
 }

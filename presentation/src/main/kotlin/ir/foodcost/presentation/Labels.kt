@@ -81,9 +81,9 @@ object Labels {
     }
 
     fun status(status: PriceStatus): String = when (status) {
-        PriceStatus.OK -> "سالم"
-        PriceStatus.NEAR -> "نزدیک مرز"
-        PriceStatus.UNDER -> "زیر قیمت"
+        PriceStatus.OK -> "مناسب"
+        PriceStatus.NEAR -> "متوسط"
+        PriceStatus.UNDER -> "خیلی پایین"
         PriceStatus.NO_PRICE -> "بدون قیمت منو"
         PriceStatus.INCOMPLETE -> "ناقص"
         PriceStatus.EMPTY -> "بدون مواد"

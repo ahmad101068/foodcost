@@ -1,6 +1,7 @@
 package ir.foodcost.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -29,11 +32,14 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -52,8 +58,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import ir.foodcost.app.ui.theme.FoodSectionColors
+import ir.foodcost.app.ui.theme.foodSectionColors
 import ir.foodcost.core.model.IngredientId
 import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.core.units.Dimension
@@ -69,6 +78,7 @@ import ir.foodcost.presentation.IngredientScreens
 import ir.foodcost.presentation.JalaliDate
 import ir.foodcost.presentation.Labels
 import ir.foodcost.presentation.MoneyFormat
+import ir.foodcost.presentation.Persian
 import ir.foodcost.presentation.PriceInput
 import ir.foodcost.presentation.PriceRow
 import ir.foodcost.presentation.QuickCalculator
@@ -80,36 +90,90 @@ import java.time.LocalDate
 fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav: Navigator, actions: AppActions) {
     var query by rememberSaveable { mutableStateOf("") }
     var repricing by remember { mutableStateOf<IngredientRow?>(null) }
-    val rows = remember(state, money, today, query) { IngredientScreens.rows(state, today, money, query) }
+    var missingOnly by rememberSaveable { mutableStateOf(false) }
+    val allRows = remember(state, money, today) { IngredientScreens.rows(state, today, money) }
+    val dataUnreliable = actions.unreadableRows > 0
+    val showMissingOnly = missingOnly && !dataUnreliable
+    val rows = allRows.filter { Persian.matches(it.name, query) && (!showMissingOnly || it.unitPrice == null) }
+    val colors = foodSectionColors()
     TabScaffold(
         title = "مواد اولیه",
         nav = nav,
         actions = actions,
-        floatingActionButton = {
-            AddButton("ماده تازه", onClick = { nav.open(Screen.EditIngredient(null)) })
+        topActions = {
+            HeaderAddButton("ماده تازه", onClick = { nav.open(Screen.EditIngredient(null)) })
         },
     ) { padding ->
         LazyColumn(
-            modifier = Modifier.padding(padding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+            modifier = Modifier.padding(padding).testTag("ingredients-list"),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item { SearchField(query, { query = it }, "جستجوی ماده") }
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = colors.container),
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("قیمت و بازده مواد مصرفی", style = MaterialTheme.typography.bodyMedium, color = colors.subheading)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            IngredientSummaryStat("مواد ثبت‌شده", Persian.digits(allRows.size), colors.statPrimary, colors, Modifier.weight(1f))
+                            IngredientSummaryStat(
+                                "بدون قیمت",
+                                if (dataUnreliable) "—" else Persian.digits(allRows.count { it.unitPrice == null }),
+                                colors.statSecondary, colors, Modifier.weight(1f),
+                            )
+                        }
+                    }
+                }
+            }
+            item {
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = !showMissingOnly,
+                        onClick = { missingOnly = false },
+                        label = { Text("همه") },
+                        modifier = Modifier.testTag("ingredients-filter-all"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = MaterialTheme.colorScheme.onPrimary),
+                    )
+                    FilterChip(
+                        selected = showMissingOnly,
+                        onClick = { missingOnly = true },
+                        label = { Text("بدون قیمت") },
+                        enabled = !dataUnreliable,
+                        modifier = Modifier.testTag("ingredients-filter-missing"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = MaterialTheme.colorScheme.onPrimary),
+                    )
+                }
+            }
             if (rows.isEmpty()) {
                 item {
-                    if (query.isBlank()) {
-                        EmptyState(
+                    when {
+                        allRows.isEmpty() -> EmptyState(
                             title = "هنوز ماده‌ای ثبت نشده",
                             body = "هر چیزی که می‌خرید و در غذا به کار می‌رود را اینجا ثبت کنید: برنج، گوشت، روغن، زعفران و... بعد قیمت خرید هر کدام را وارد کنید.",
                         )
-                    } else {
-                        EmptyState(title = "ماده‌ای با این نام پیدا نشد", body = "نام دیگری را جستجو کنید یا ماده تازه بسازید.")
+                        showMissingOnly -> EmptyState(
+                            title = if (query.isBlank()) "مادهٔ بدون قیمت ندارید" else "مادهٔ بدون قیمت با این نام پیدا نشد",
+                            body = "برای دیدن همهٔ مواد، فیلتر را بردارید یا جستجو را تغییر دهید.",
+                            action = "نمایش همهٔ مواد",
+                            onAction = { missingOnly = false; query = "" },
+                        )
+                        else -> EmptyState(title = "ماده‌ای با این نام پیدا نشد", body = "نام دیگری را جستجو کنید یا ماده تازه بسازید.")
                     }
                 }
             }
             items(rows, key = { it.id.value }) { row ->
                 IngredientListItem(
                     row = row,
-                    dataUnreliable = actions.unreadableRows > 0,
+                    dataUnreliable = dataUnreliable,
                     onClick = { nav.open(Screen.Ingredient(row.id.value)) },
                     onReprice = { repricing = row },
                 )
@@ -134,6 +198,19 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
                 }
             },
         )
+    }
+}
+
+@Composable
+private fun IngredientSummaryStat(label: String, value: String, background: Color, colors: FoodSectionColors, modifier: Modifier) {
+    Surface(modifier = modifier, color = background, shape = RoundedCornerShape(14.dp)) {
+        Column(
+            Modifier.heightIn(min = 76.dp).padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = colors.statLabel)
+            Text(value, style = MaterialTheme.typography.titleLarge, color = colors.statValue)
+        }
     }
 }
 
@@ -185,26 +262,34 @@ private fun QuickPriceDialog(
 private fun IngredientListItem(row: IngredientRow, dataUnreliable: Boolean, onClick: () -> Unit, onReprice: () -> Unit) {
     val yieldLabel = row.yieldLabel
     val price = row.unitPrice
-    ListItem(
-        headlineContent = { Text(row.name) },
-        supportingContent = {
+    val colors = foodSectionColors()
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().testTag("ingredient-" + row.id.value),
+        shape = RoundedCornerShape(18.dp),
+        colors = whiteCardColors(),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(row.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = colors.itemTitle)
             Text(
                 (if (dataUnreliable) BackupTexts.UNVERIFIED_PRICE else price ?: row.priceProblem.orEmpty()),
-                color = if (dataUnreliable || price == null) MaterialTheme.colorScheme.error else Color.Unspecified,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (dataUnreliable || price == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
             )
-        },
-        trailingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (yieldLabel != null) Text(yieldLabel, style = MaterialTheme.typography.labelMedium)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                if (yieldLabel != null) {
+                    Surface(color = colors.container, shape = RoundedCornerShape(10.dp)) {
+                        Text(yieldLabel, style = MaterialTheme.typography.labelMedium, color = colors.heading, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+                    }
+                } else Spacer(Modifier.width(1.dp))
                 TextButton(
                     onClick = onReprice,
                     modifier = Modifier.semantics { contentDescription = "قیمت تازهٔ ${row.name}" },
-                ) { Text("قیمت تازه") }
+                ) { Text("قیمت‌روز", fontWeight = FontWeight.Bold) }
             }
-        },
-        modifier = Modifier.clickable(onClick = onClick),
-    )
-    HorizontalDivider()
+        }
+    }
 }
 
 /** One ingredient: its price today, the price history and where it is used. */

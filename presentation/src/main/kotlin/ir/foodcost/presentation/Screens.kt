@@ -18,12 +18,15 @@ import ir.foodcost.core.model.RecipeVersion
 import ir.foodcost.core.over
 import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.core.pricing.PricingMethod
+import ir.foodcost.core.pricing.PricingScope
+import ir.foodcost.core.pricing.PricingSettings
 import ir.foodcost.core.reports.MenuItemReport
 import ir.foodcost.core.units.Dimension
 import ir.foodcost.core.units.UnitConverter
 import ir.foodcost.core.units.Uom
 import ir.foodcost.data.ledger.LedgerState
 import ir.foodcost.data.ledger.PriceRecord
+import ir.foodcost.data.ledger.inForce
 import java.math.BigDecimal
 import java.time.LocalDate
 
@@ -70,12 +73,16 @@ object MenuStatusScreen {
     fun build(state: LedgerState, date: LocalDate, money: MoneyFormat): MenuStatusModel {
         val report = state.calculator().menu(date)
         val items = report.items.filter { state.recipes[it.recipe.id]?.archived != true }
+        val rules = state.pricingHistory.inForce(date)?.value
+            ?: if (state.pricingHistory.isEmpty()) state.pricing else PricingSettings()
         val names = Persian.nameOrder()
         val rows = items.sortedWith(
             compareBy<MenuItemReport> { ORDER.indexOf(it.status) }
                 .thenByDescending { if (it.needsRaise()) it.evaluation.changePercent ?: BigDecimal.ZERO else BigDecimal.ZERO }
                 .thenBy(names) { it.recipe.name },
-        ).map { row(it, money, state.pricing.methodByCategory) }
+        ).map {
+            row(it, money, if (rules.scope == PricingScope.MENU_SECTIONS) rules.methodByCategory else emptyMap())
+        }
         return MenuStatusModel(JalaliDate.of(date).formatLong(), rows, items.groupingBy { it.status }.eachCount())
     }
 

@@ -30,6 +30,15 @@ alone() {
   grep -qE "^OK \([0-9]+ tests?\)" alone.log || failed=1
 }
 
+# Settings and exit checks each begin in a fresh instrumentation process. Closing the
+# calculator in the exit test must not close the activity used by the long walkthrough.
+: > settings.log
+alone ir.foodcost.app.SettingsScopeTest settings.log
+: > currency.log
+alone ir.foodcost.app.CurrencyPreferenceTest currency.log
+: > exit.log
+alone ir.foodcost.app.ExitConfirmationTest exit.log
+
 # A stored change that cannot be read: no figure is shown and every screen says why, and the user
 # can go on without it. Each test on data it makes and removes itself.
 : > unreadable.log
@@ -59,5 +68,12 @@ else
   failed=1
 fi
 
+# Every numbered acceptance image, including the previously missing largest-text dishes, is required.
+for number in $(seq -w 0 30); do
+  if ! compgen -G "screenshots/$number-*.png" > /dev/null; then
+    echo "Missing required screenshot $number" | tee -a walkthrough.log
+    failed=1
+  fi
+done
 ls -la screenshots
 exit $failed
