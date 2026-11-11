@@ -30,6 +30,8 @@ class ExitConfirmationTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
 
     @Before fun cleanStart() {
+        UiDevice.getInstance(instrumentation).wakeUp()
+        dismissEmulatorLauncherAnr(instrumentation)
         val context = instrumentation.targetContext
         context.deleteDatabase(SqliteOperationStore.DATABASE)
         context.getSharedPreferences("foodcost", Context.MODE_PRIVATE).edit().clear().commit()
@@ -101,7 +103,23 @@ class ExitConfirmationTest {
     private fun requestRootBack(scenario: ActivityScenario<MainActivity>) {
         // Separate hiding the IME from the real system Back whose navigation we are testing.
         hideKeyboard(scenario)
-        UiDevice.getInstance(instrumentation).pressBack()
+        physicalBack(scenario)
+    }
+
+    private fun focusedWindow(scenario: ActivityScenario<MainActivity>) {
+        val device = UiDevice.getInstance(instrumentation)
+        device.wakeUp()
+        compose.waitUntil(timeoutMillis = 15_000) {
+            dismissEmulatorLauncherAnr(instrumentation)
+            var focused = false
+            scenario.onActivity { focused = it.hasWindowFocus() }
+            focused
+        }
+    }
+
+    private fun physicalBack(scenario: ActivityScenario<MainActivity>) {
+        focusedWindow(scenario)
+        check(UiDevice.getInstance(instrumentation).pressBack()) { "System Back was not injected" }
         compose.waitForIdle()
     }
 
@@ -120,13 +138,14 @@ class ExitConfirmationTest {
     @Test fun physicalBackClosesTheKeyboardBeforeRequestingExit() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             waitForTag("row-0-name")
+            focusedWindow(scenario)
             compose.onNodeWithTag("row-0-name").performScrollTo().performClick()
             waitForIme(scenario, visible = true)
-            UiDevice.getInstance(instrumentation).pressBack()
+            physicalBack(scenario)
             waitForIme(scenario, visible = false)
             compose.onNodeWithTag("exit-confirmation").assertDoesNotExist()
             assertEquals(Lifecycle.State.RESUMED, scenario.state)
-            UiDevice.getInstance(instrumentation).pressBack()
+            physicalBack(scenario)
             waitForTag("exit-confirmation")
         }
     }
