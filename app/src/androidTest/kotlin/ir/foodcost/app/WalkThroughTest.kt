@@ -334,7 +334,12 @@ class WalkThroughTest {
                     val node = rule.onNodeWithTag(tag).performScrollTo().assertIsDisplayed()
                     val layouts = mutableListOf<TextLayoutResult>()
                     node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { check(it(layouts)) }
-                    check(layouts.isNotEmpty() && layouts.none { it.hasVisualOverflow }) { "$tag overflows at 2x text" }
+                    check(layouts.isNotEmpty() && layouts.none { it.hasVisualOverflow }) {
+                        "$tag overflows at 2x text: " + layouts.joinToString { layout ->
+                            "size=${layout.size}, paragraph=${layout.multiParagraph.width}x${layout.multiParagraph.height}, " +
+                                "constraints=${layout.layoutInput.constraints}, width=${layout.didOverflowWidth}, height=${layout.didOverflowHeight}"
+                        }
+                    }
                 }
             }
             shot("27b-largest-text-online")

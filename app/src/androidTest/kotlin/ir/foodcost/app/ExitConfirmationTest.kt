@@ -83,7 +83,11 @@ class ExitConfirmationTest {
             compose.onNodeWithTag("settings-section-pricing").performScrollTo().performClick()
             compose.onNodeWithTag("pricing-scope-general").performScrollTo().performClick()
             compose.onNodeWithTag("general-pricing-percent").performScrollTo().performTextReplacement("41.25")
+            // Text replacement can start the IME resize after the preceding scroll finished.
+            // Settle that independent transition before testing the actual Back-button touch.
+            hideKeyboard(scenario)
             compose.onNodeWithTag("settings-back").performScrollTo().performClick()
+            waitForTag("settings-overview")
             compose.onNodeWithTag("settings-section-help").performScrollTo().performClick()
             compose.onNodeWithText("کار با برنامه").performScrollTo().performClick()
             compose.onNodeWithText("حساب یک غذا").assertIsDisplayed()
@@ -98,13 +102,20 @@ class ExitConfirmationTest {
 
     private fun requestRootBack(scenario: ActivityScenario<MainActivity>) {
         // Separate hiding the IME from the real system Back whose navigation we are testing.
+        hideKeyboard(scenario)
+        UiDevice.getInstance(instrumentation).pressBack()
+        compose.waitForIdle()
+    }
+
+    private fun hideKeyboard(scenario: ActivityScenario<MainActivity>) {
         scenario.onActivity {
             val keyboard = it.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
             keyboard.hideSoftInputFromWindow(it.window.decorView.windowToken, 0)
             it.currentFocus?.clearFocus()
         }
         waitForIme(scenario, visible = false)
-        UiDevice.getInstance(instrumentation).pressBack()
+        instrumentation.waitForIdleSync()
+        UiDevice.getInstance(instrumentation).waitForIdle()
         compose.waitForIdle()
     }
 

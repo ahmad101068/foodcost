@@ -658,6 +658,22 @@ private fun ExtrasCard(
             Text("هزینه‌های دیگر هر پرس", style = MaterialTheme.typography.titleSmall)
             input.extras.forEachIndexed { i, extra ->
                 val problem = result.extras.getOrNull(i)?.problem
+                if (LocalDensity.current.fontScale >= 1.3f) {
+                    TextInput(
+                        value = extra.name, onValueChange = { onChange(i, extra.copy(name = it)) },
+                        label = "عنوان", modifier = Modifier.testTag("extra-$i-name"), imeAction = ImeAction.Next,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextInput(
+                            value = extra.amount, onValueChange = { onChange(i, extra.copy(amount = it)) },
+                            label = "هر پرس", modifier = Modifier.weight(1f).focusRequester(amountFocus(i)).testTag("extra-$i-amount"),
+                            number = true, suffix = money.unit, imeAction = ImeAction.Done,
+                        )
+                        IconButton(onClick = { onRemove(i) }, modifier = Modifier.focusProperties { canFocus = false }) {
+                            Icon(Icons.Filled.Close, contentDescription = "حذف هزینه")
+                        }
+                    }
+                } else {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextInput(
                         value = extra.name,
@@ -678,6 +694,7 @@ private fun ExtrasCard(
                     IconButton(onClick = { onRemove(i) }, modifier = Modifier.focusProperties { canFocus = false }) {
                         Icon(Icons.Filled.Close, contentDescription = "حذف هزینه")
                     }
+                }
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -800,10 +817,10 @@ private fun ChannelTable(channels: List<QuickChannel>, money: MoneyFormat, onExp
                 ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(channel.label, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                        Text("قیمت: ${channel.price ?: "—"}", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("channel-$index-price"))
-                        Text("هزینه: ${channel.cost ?: "—"}", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("channel-$index-cost"))
+                        Text("قیمت: ${channel.price ?: "—"}", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.fillMaxWidth().testTag("channel-$index-price"))
+                        Text("هزینه: ${channel.cost ?: "—"}", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.fillMaxWidth().testTag("channel-$index-cost"))
                         Text("مانده: ${channel.remaining ?: "—"}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.testTag(if (index == 0) "channel-remaining" else "channel-$index-remaining"))
+                            modifier = Modifier.fillMaxWidth().testTag(if (index == 0) "channel-remaining" else "channel-$index-remaining"))
                         Text("فودکاست: ${channel.foodCostPercent ?: "—"}", style = MaterialTheme.typography.bodyMedium)
                         channel.priceForSameRemaining?.let {
                             Text("برای همان مانده: $it", style = MaterialTheme.typography.bodyMedium)
