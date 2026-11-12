@@ -2,6 +2,7 @@ package ir.foodcost.app
 
 import android.app.Instrumentation
 import android.util.Log
+import android.os.ParcelFileDescriptor
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
@@ -14,7 +15,14 @@ internal fun dismissEmulatorLauncherAnr(instrumentation: Instrumentation) {
         !device.hasObject(By.res("android", "aerr_wait"))) return
     val launcher = device.hasObject(By.textContains("Pixel Launcher")) ||
         device.hasObject(By.textContains("Launcher3"))
-    check(launcher) { "Unexpected ANR dialog: only the emulator's system launcher may be dismissed" }
+    if (!launcher) {
+        val texts = device.findObjects(By.pkg("android")).mapNotNull { it.text }
+            .filter { it.isNotBlank() }.distinct().take(30).joinToString(" | ")
+        val lastAnr = ParcelFileDescriptor.AutoCloseInputStream(
+            instrumentation.uiAutomation.executeShellCommand("dumpsys activity lastanr"),
+        ).use { it.readBytes().toString(Charsets.UTF_8).take(6000) }
+        error("Unexpected ANR dialog; only the system launcher may be dismissed. Texts: $texts\nLast ANR: $lastAnr")
+    }
     val close = device.findObject(By.res("android", "aerr_close"))
         ?: error("Launcher ANR has no Close app action")
     Log.w("FoodCostTest", "Closing the CI system launcher's ANR dialog before app input")
