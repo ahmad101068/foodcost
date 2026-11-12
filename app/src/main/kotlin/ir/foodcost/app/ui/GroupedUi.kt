@@ -96,7 +96,8 @@ internal fun RowMenu(tag: String, content: @Composable (close: () -> Unit) -> Un
 
 @Composable
 internal fun GroupAmount(value: String, unit: String, modifier: Modifier = Modifier, color: Color = Color.Unspecified, unitCaption: String = unit) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+    // Keep the number and unit together for accessibility, even inside the expandable row.
+    Column(modifier.semantics(mergeDescendants = true) {}, horizontalAlignment = Alignment.CenterHorizontally) {
         FitText(value.removeSuffix(" $unit"), MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold), color = color)
         Text(unitCaption, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
