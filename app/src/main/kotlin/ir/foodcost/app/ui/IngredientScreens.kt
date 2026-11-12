@@ -255,7 +255,7 @@ private fun GroupedIngredient(row: IngredientRow, state: LedgerState, money: Mon
                     color = if (row.unitPrice == null) statusColors(PriceStatus.NEAR).content else MaterialTheme.colorScheme.tertiary,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
             }
-            if (!dataUnreliable && row.unitPrice == null && row.priceProblem != null) Text(row.priceProblem, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            if (!dataUnreliable && row.unitPrice == null) row.priceProblem?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
             if (large) price(Modifier.fillMaxWidth().padding(top = 4.dp))
         }
         if (!large) price(Modifier.width(112.dp))
