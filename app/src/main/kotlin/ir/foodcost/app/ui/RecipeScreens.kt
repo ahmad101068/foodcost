@@ -262,7 +262,10 @@ private fun MenuSummaryStat(label: String, value: String, colors: FoodSectionCol
         color = statusPalette?.container ?: colors.statPrimary,
     ) {
         Column(Modifier.heightIn(min = 78.dp).padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(value, style = MaterialTheme.typography.titleLarge, color = statusPalette?.content ?: colors.statValue)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                Icon(when (label) { "غذا" -> ReferenceIcons.dishes; "دستور پایه" -> ReferenceIcons.grid; else -> ReferenceIcons.warning }, contentDescription = null, modifier = Modifier.size(18.dp), tint = statusPalette?.content ?: colors.statValue)
+                Text(value, style = MaterialTheme.typography.titleLarge, color = statusPalette?.content ?: colors.statValue)
+            }
             Text(label, style = MaterialTheme.typography.labelMedium, color = statusPalette?.content ?: colors.statLabel)
         }
     }
@@ -317,9 +320,12 @@ private fun PlateCard(row: MenuRow, dataUnreliable: Boolean, onClick: () -> Unit
                 val priceColors = statusColors(row.status)
                 Surface(shape = RoundedCornerShape(10.dp), color = priceColors.container, modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(9.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        LabeledValue("بهای هر پرس", row.foodCost, Modifier.weight(1f), amount = true)
+                        LabeledValue("بهای هر پرس", row.foodCost, Modifier.weight(1f), emphasized = true, amount = true)
                         androidx.compose.material3.VerticalDivider(Modifier.height(35.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .6f))
-                        LabeledValue("قیمت فروش", row.menuPrice ?: "ثبت نشده", Modifier.weight(1f), amount = true)
+                        Column(Modifier.weight(1f)) {
+                            Text("قیمت فروش", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            AmountText(row.menuPrice ?: "ثبت نشده", MaterialTheme.typography.titleMedium, color = priceColors.content)
+                        }
                     }
                 }
             }

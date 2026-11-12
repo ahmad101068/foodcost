@@ -265,7 +265,10 @@ fun DisplayPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope
 fun StatusChip(status: PriceStatus, label: String, modifier: Modifier = Modifier) {
     val colors = statusColors(status)
     Surface(modifier = modifier, shape = RoundedCornerShape(50), color = colors.container, contentColor = colors.content) {
-        Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+        Row(Modifier.padding(horizontal = 9.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (status in listOf(PriceStatus.OK, PriceStatus.NEAR, PriceStatus.UNDER)) Icon(if (status == PriceStatus.OK) ReferenceIcons.check else ReferenceIcons.warning, contentDescription = null, modifier = Modifier.size(14.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge)
+        }
     }
 }
 

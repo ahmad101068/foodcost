@@ -61,11 +61,13 @@ class ReferenceVisualTest {
                 }
                 save(plate)
                 save(QuickInput(dishName = "زرشک‌پلو با مرغ", category = "غذای اصلی", categoryChosen = true,
-                    menuPrice = "680000", rows = listOf(QuickRow("مرغ", "1060680", "200"))))
+                    menuPrice = "670000", rows = listOf(QuickRow("مرغ", "1060680", "200"))))
                 save(QuickInput(dishName = "چای", category = "نوشیدنی", categoryChosen = true,
                     menuPrice = "80000", rows = listOf(QuickRow("چای خشک", "2000000", "10"))))
             }
         }
+        val statuses = ir.foodcost.presentation.DishesScreen.build(container.state.value!!, today, MoneyFormat(container.currency.value)).plates.map { it.status }.toSet()
+        check(statuses.containsAll(listOf(ir.foodcost.core.pricing.PriceStatus.OK, ir.foodcost.core.pricing.PriceStatus.NEAR, ir.foodcost.core.pricing.PriceStatus.UNDER))) { "The native preview must exercise green, cream and red prices: $statuses" }
         container.snoozeBackupReminder()
         container.quickDraft.value = plate
         container.saveDraft()

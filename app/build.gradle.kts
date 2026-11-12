@@ -14,7 +14,7 @@ plugins {
 // release build uses a throwaway key made for that run.
 val privateKeystore: File? = System.getenv("FOODCOST_KEYSTORE_FILE")?.let(::File)?.takeIf { it.isFile }
 
-val appVersion = "0.8.0"
+val appVersion = "0.8.1"
 
 // The number Android compares when an APK installs over another: the version's own number, then
 // the build's number on GitHub (0 on one's own computer). 0.7.4 is 704000 and up, so every newer

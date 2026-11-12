@@ -254,7 +254,7 @@ private fun QuickPriceDialog(
 
 @Composable
 private fun IngredientListItem(row: IngredientRow, dataUnreliable: Boolean, onClick: () -> Unit, onReprice: () -> Unit) {
-    val yieldLabel = row.yieldLabel
+    val yieldLabel = row.yieldLabel ?: "بازده ۱۰۰٪"
     val price = row.unitPrice
     val colors = foodSectionColors()
     Card(
@@ -267,7 +267,7 @@ private fun IngredientListItem(row: IngredientRow, dataUnreliable: Boolean, onCl
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(row.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                Text("‹", style = MaterialTheme.typography.headlineSmall, color = ir.foodcost.app.ui.theme.statusColors(PriceStatus.NEAR).content)
+                Icon(ReferenceIcons.chevron, contentDescription = null, modifier = Modifier.size(18.dp), tint = ir.foodcost.app.ui.theme.statusColors(PriceStatus.NEAR).content)
             }
             Text(
                 (if (dataUnreliable) BackupTexts.UNVERIFIED_PRICE else price ?: row.priceProblem.orEmpty()),
@@ -275,7 +275,7 @@ private fun IngredientListItem(row: IngredientRow, dataUnreliable: Boolean, onCl
                 color = if (dataUnreliable || price == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
             )
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                if (yieldLabel != null) {
+                if (!dataUnreliable) {
                     Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = RoundedCornerShape(10.dp)) {
                         Text(yieldLabel, style = MaterialTheme.typography.labelMedium, color = colors.heading, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
                     }

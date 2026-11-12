@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
@@ -206,7 +207,7 @@ fun SettingsScreen(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("روش قیمت‌گذاری (حالت عمومی)", style = MaterialTheme.typography.titleSmall)
                 // The three are ways to put the same price: switching turns the number into its equivalent.
-                SettingsChoices(MethodChoice.entries, input.method, { methodName(it) }, enabled = generalPricingEnabled) { onInputChange(input.withMethod(it)) }
+                SettingsChoices(MethodChoice.entries, input.method, { if (it == MethodChoice.FOOD_COST) "فودکاست" else methodName(it) }, enabled = generalPricingEnabled, tagPrefix = "general-method-") { onInputChange(input.withMethod(it)) }
                 SettingsTextInput(
                     value = input.percent, compact = true,
                     enabled = generalPricingEnabled,
@@ -514,7 +515,7 @@ private fun SettingsDestination(title: String, subtitle: String, tag: String, on
                 Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text("‹", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
+            Icon(ReferenceIcons.chevron, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -542,9 +543,14 @@ private fun SettingsNotice(text: String) {
 }
 
 @Composable
-private fun <T> SettingsChoices(values: List<T>, selected: T, label: (T) -> String, enabled: Boolean, onSelect: (T) -> Unit) {
+private fun <T> SettingsChoices(values: List<T>, selected: T, label: (T) -> String, enabled: Boolean, tagPrefix: String? = null, onSelect: (T) -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        values.forEach { value -> FilterChip(selected = value == selected, onClick = { onSelect(value) }, enabled = enabled, label = { Text(label(value)) }) }
+        values.forEach { value ->
+            FilterChip(selected = value == selected, onClick = { onSelect(value) }, enabled = enabled,
+                label = { Text(label(value)) }, shape = RoundedCornerShape(12.dp),
+                modifier = if (tagPrefix != null) Modifier.testTag(tagPrefix + value) else Modifier,
+                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = MaterialTheme.colorScheme.onPrimary, containerColor = MaterialTheme.colorScheme.surfaceContainerLowest))
+        }
     }
 }
 

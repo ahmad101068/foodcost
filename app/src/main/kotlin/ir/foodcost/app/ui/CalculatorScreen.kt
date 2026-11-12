@@ -234,7 +234,7 @@ fun CalculatorScreen(
             Column(
                 modifier = Modifier
                     .padding(horizontal = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Card(
                     colors = whiteCardColors(),

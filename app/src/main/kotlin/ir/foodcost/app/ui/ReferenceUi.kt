@@ -100,6 +100,17 @@ object ReferenceIcons {
         moveTo(22f,12f); curveTo(22f,25.3f,2f,25.3f,2f,12f); curveTo(2f,-1.3f,22f,-1.3f,22f,12f); close()
         moveTo(12f,10f); lineTo(12f,17f); moveTo(12f,6.5f); lineTo(12f,6.6f)
     }
+    val chevron = line("Reference next") {
+        moveTo(15f,5f); lineTo(8f,12f); lineTo(15f,19f)
+    }
+    val check = line("Reference suitable price") {
+        moveTo(21f,12f); curveTo(21f,24f,3f,24f,3f,12f); curveTo(3f,0f,21f,0f,21f,12f); close()
+        moveTo(7f,12f); lineTo(10.5f,15.5f); lineTo(17f,9f)
+    }
+    val warning = line("Reference price warning") {
+        moveTo(12f,2.5f); lineTo(23f,21f); lineTo(1f,21f); close()
+        moveTo(12f,8f); lineTo(12f,13f); moveTo(12f,17f); lineTo(12f,17.1f)
+    }
     val exit = line("Reference exit") {
         moveTo(13f,3f); lineTo(5f,3f); lineTo(5f,21f); lineTo(13f,21f)
         moveTo(11f,12f); lineTo(22f,12f); moveTo(18f,8f); lineTo(22f,12f); lineTo(18f,16f)
