@@ -240,7 +240,7 @@ fun SettingsScreen(
                             input.categories.filter { it.name.isNotBlank() }.forEach { category ->
                                 Row(Modifier.fillMaxWidth()) {
                                     Text(category.name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text("${Persian.digits(category.percent)}٪", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(if (category.useGeneral) "روش عمومی" else "${Persian.digits(category.percent)}٪", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
