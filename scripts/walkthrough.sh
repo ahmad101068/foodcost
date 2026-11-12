@@ -55,6 +55,12 @@ alone ir.foodcost.app.RecoveryGuardTest recovery.log
 adb logcat -d '*:E' > logcat.txt || true
 
 # The release build is shrunk by R8, which the test above does not cover: it must start too.
+# Clear only the disposable emulator's system launcher, whose ANR can cover the release smoke shot.
+# This must never stop the launcher of a real connected phone.
+if [ "$(adb shell getprop ro.kernel.qemu | tr -d '\r')" = "1" ]; then
+  adb shell am force-stop com.google.android.apps.nexuslauncher || true
+  adb shell am force-stop com.android.launcher3 || true
+fi
 adb install -r app/build/outputs/apk/release/app-release.apk
 adb logcat -c || true
 adb shell am start -W -n ir.foodcost.app/.MainActivity
