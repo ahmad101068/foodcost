@@ -39,6 +39,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -101,7 +103,7 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
         nav = nav,
         actions = actions,
         topActions = {
-            HeaderAddButton("ماده تازه", onClick = { nav.open(Screen.EditIngredient(null)) })
+            HeaderAddButton("افزودن ماده", onClick = { nav.open(Screen.EditIngredient(null)) })
         },
     ) { padding ->
         LazyColumn(
@@ -111,22 +113,9 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
         ) {
             item { SearchField(query, { query = it }, "جستجوی ماده") }
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = colors.container),
-                ) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("قیمت و بازده مواد مصرفی", style = MaterialTheme.typography.bodyMedium, color = colors.subheading)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            IngredientSummaryStat("مواد ثبت‌شده", Persian.digits(allRows.size), colors.statPrimary, colors, Modifier.weight(1f))
-                            IngredientSummaryStat(
-                                "بدون قیمت",
-                                if (dataUnreliable) "—" else Persian.digits(allRows.count { it.unitPrice == null }),
-                                colors.statSecondary, colors, Modifier.weight(1f),
-                            )
-                        }
-                    }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    IngredientSummaryStat("ماده", Persian.digits(allRows.size), colors.statPrimary, colors, Modifier.weight(1f))
+                    IngredientSummaryStat("بدون قیمت", if (dataUnreliable) "—" else Persian.digits(allRows.count { it.unitPrice == null }), colors.statSecondary, colors, Modifier.weight(1f))
                 }
             }
             item {
@@ -139,7 +128,7 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
                         onClick = { missingOnly = false },
                         label = { Text("همه") },
                         modifier = Modifier.testTag("ingredients-filter-all"),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(50),
                         colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = MaterialTheme.colorScheme.onPrimary),
                     )
                     FilterChip(
@@ -148,7 +137,7 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
                         label = { Text("بدون قیمت") },
                         enabled = !dataUnreliable,
                         modifier = Modifier.testTag("ingredients-filter-missing"),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(50),
                         colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = MaterialTheme.colorScheme.onPrimary),
                     )
                 }
@@ -205,11 +194,16 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
 private fun IngredientSummaryStat(label: String, value: String, background: Color, colors: FoodSectionColors, modifier: Modifier) {
     Surface(modifier = modifier, color = background, shape = RoundedCornerShape(14.dp)) {
         Column(
-            Modifier.heightIn(min = 76.dp).padding(12.dp),
+            Modifier.heightIn(min = 72.dp).padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = colors.statLabel)
-            Text(value, style = MaterialTheme.typography.titleLarge, color = colors.statValue)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(if (label == "ماده") ReferenceIcons.layers else ReferenceIcons.tag, contentDescription = null, modifier = Modifier.size(24.dp), tint = if (label == "ماده") colors.statValue else ir.foodcost.app.ui.theme.statusColors(PriceStatus.NEAR).content)
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(value, style = MaterialTheme.typography.titleLarge, color = colors.statValue)
+                    Text(label, style = MaterialTheme.typography.labelMedium, color = colors.statLabel)
+                }
+            }
         }
     }
 }
@@ -260,33 +254,36 @@ private fun QuickPriceDialog(
 
 @Composable
 private fun IngredientListItem(row: IngredientRow, dataUnreliable: Boolean, onClick: () -> Unit, onReprice: () -> Unit) {
-    val yieldLabel = row.yieldLabel
+    val yieldLabel = row.yieldLabel ?: "بازده ۱۰۰٪"
     val price = row.unitPrice
     val colors = foodSectionColors()
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().testTag("ingredient-" + row.id.value),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = whiteCardColors(),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(row.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = colors.itemTitle)
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(row.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                Icon(ReferenceIcons.chevron, contentDescription = null, modifier = Modifier.size(18.dp), tint = ir.foodcost.app.ui.theme.statusColors(PriceStatus.NEAR).content)
+            }
             Text(
                 (if (dataUnreliable) BackupTexts.UNVERIFIED_PRICE else price ?: row.priceProblem.orEmpty()),
                 style = MaterialTheme.typography.bodyLarge,
                 color = if (dataUnreliable || price == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
             )
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                if (yieldLabel != null) {
-                    Surface(color = colors.container, shape = RoundedCornerShape(10.dp)) {
+                if (!dataUnreliable) {
+                    Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = RoundedCornerShape(10.dp)) {
                         Text(yieldLabel, style = MaterialTheme.typography.labelMedium, color = colors.heading, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
                     }
                 } else Spacer(Modifier.width(1.dp))
-                TextButton(
-                    onClick = onReprice,
-                    modifier = Modifier.semantics { contentDescription = "قیمت تازهٔ ${row.name}" },
-                ) { Text("قیمت‌روز", fontWeight = FontWeight.Bold) }
+                OutlinedButton(
+                    onClick = onReprice, shape = RoundedCornerShape(9.dp), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 3.dp),
+                    modifier = Modifier.heightIn(min = 30.dp).semantics { contentDescription = "قیمت تازهٔ ${row.name}" },
+                ) { Text("قیمت‌روز ↗", fontWeight = FontWeight.Bold) }
             }
         }
     }

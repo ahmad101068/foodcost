@@ -230,7 +230,7 @@ class WalkThroughTest {
         settingsOverview()
         clickTag("settings-section-pricing")
         clickTag("pricing-scope-general")
-        waitFor("ذخیرهٔ قیمت‌گذاری")
+        waitForTag("settings-save-pricing")
         click("حاشیهٔ سود")
         waitFor("65")
         click("مارک‌آپ")
@@ -238,7 +238,7 @@ class WalkThroughTest {
         waitForPart("یعنی فودکاست ۳۵٪ و حاشیهٔ سود ۶۵٪")
         quiet()
         shot("16-settings")
-        click("فودکاست هدف")
+        clickTag("general-method-FOOD_COST")
         waitFor("35")
         clickTag("settings-save-pricing")
         waitForPricing { it.scope == PricingScope.GENERAL }

@@ -21,6 +21,9 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
@@ -44,6 +47,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -72,6 +76,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -150,6 +155,9 @@ fun CalculatorScreen(
     fun extraAmount(index: Int): FocusRequester = extraAmounts.getOrPut(index) { FocusRequester() }
     var focusExtra by remember { mutableStateOf<Int?>(null) }
     var focusRow by remember { mutableStateOf<Int?>(null) }
+    var revealBlank by remember { mutableStateOf(false) }
+    val keyboardVisible = WindowInsets.isImeVisible
+    LaunchedEffect(keyboardVisible) { if (keyboardVisible) revealBlank = false }
     var discountExpanded by rememberSaveable(recipeId) { mutableStateOf(input.discountValue.isNotBlank()) }
     var detailsExpanded by rememberSaveable(recipeId) { mutableStateOf(input.extras.isNotEmpty()) }
 
@@ -220,63 +228,49 @@ fun CalculatorScreen(
                 money,
                 compact = WindowInsets.isImeVisible,
                 dataUnreliable = actions.unreadableRows > 0,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                vatNote = if (state.pricing.menuPriceIncludesVat) "قیمت منو با مالیات ${Persian.digits(state.pricing.vatPercent.stripTrailingZeros().toPlainString())}٪" else "قیمت منو بدون مالیات",
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                 onExplain = { explaining = listOf(it) },
             )
             Column(
                 modifier = Modifier
-                    .padding(horizontal = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                    .padding(horizontal = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Card(
                     colors = whiteCardColors(),
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(0.7.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                 ) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        TextInput(
-                            value = input.dishName,
-                            onValueChange = { update(input.copy(dishName = it)) },
-                            label = "نام غذا",
-                            modifier = Modifier.fillMaxWidth().testTag("dish-name"),
-                            imeAction = ImeAction.Next,
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            SectionSelector(
-                                sections = QuickCalculator.categories(state, input),
-                                selected = input.category,
-                                modifier = Modifier.weight(1f),
-                                onSelect = { update(input.withCategory(it)) },
-                            )
-                            TextInput(
-                                value = input.portions,
-                                onValueChange = { update(input.copy(portions = it)) },
-                                label = "تعداد پرس",
-                                modifier = Modifier.width(100.dp).testTag("calculator-portions"),
-                                number = true,
-                                imeAction = ImeAction.Done,
+                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        val largeText = LocalDensity.current.fontScale > 1.25f
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("نام غذا", style = MaterialTheme.typography.titleSmall, modifier = Modifier.width(if (largeText) 65.dp else 48.dp))
+                            ReferenceField(
+                                input.dishName, { update(input.copy(dishName = it)) }, "نام غذا",
+                                Modifier.weight(1f).testTag("dish-name"), imeAction = ImeAction.Next, height = 32.dp,
                             )
                         }
-                        Text(
-                            if (state.pricing.scope == PricingScope.GENERAL) {
-                                "قیمت‌گذاری عمومی؛ دسته فقط برای مرتب‌سازی غذاست."
-                            } else {
-                                "بخش‌های منو · ${result.method}"
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.testTag("calculator-pricing-scope"),
-                        )
-                        TextInput(
-                            value = input.menuPrice,
-                            onValueChange = { update(input.copy(menuPrice = it)) },
-                            label = "قیمت فروش هر پرس",
-                            modifier = Modifier.fillMaxWidth().testTag("menu-price"),
-                            number = true,
-                            suffix = money.unit,
-                            imeAction = ImeAction.Done,
-                        )
-                        HorizontalDivider()
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            SectionSelector(
+                                sections = QuickCalculator.categories(state, input), selected = input.category,
+                                modifier = Modifier.weight(1.8f), onSelect = { update(input.withCategory(it)) },
+                            )
+                            ReferenceField(
+                                input.portions, { update(input.copy(portions = it)) }, "تعداد پرس",
+                                Modifier.weight(1f).testTag("calculator-portions"), number = true, suffix = "پرس",
+                                imeAction = ImeAction.Done, centered = true, height = 32.dp,
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("قیمت فروش هر پرس", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                            ReferenceField(
+                                input.menuPrice, { update(input.copy(menuPrice = it)) }, "قیمت فروش هر پرس",
+                                Modifier.weight(1.35f).testTag("menu-price"), number = true, suffix = money.unit,
+                                imeAction = ImeAction.Done, centered = true, height = 32.dp,
+                            )
+                        }
                         val discountProblem = QuickCalculator.discountProblem(input, money)
                         DisclosureRow(
                             title = "تخفیف فروش (اختیاری)",
@@ -325,27 +319,38 @@ fun CalculatorScreen(
                         }
                     }
                 }
-                Card(colors = whiteCardColors(), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth().testTag("calculator-ingredients")) {
-                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Card(colors = whiteCardColors(), shape = RoundedCornerShape(12.dp), border = BorderStroke(0.7.dp, MaterialTheme.colorScheme.outlineVariant), modifier = Modifier.fillMaxWidth().testTag("calculator-ingredients")) {
+                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(QuickCalculator.portionsLabel(input), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                            TextButton(
-                                onClick = {
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiaryContainer, contentColor = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.focusProperties { canFocus = false }.clickable {
+                                    revealBlank = true
                                     val blank = input.rows.indexOfLast { it.isBlank }
                                     if (blank >= 0) focusRow = blank else {
                                         focusRow = input.rows.size
                                         update(input.copy(rows = input.rows + QuickRow()))
                                     }
-                                },
-                                modifier = Modifier.focusProperties { canFocus = false }.testTag("ingredient-add-row"),
+                                }.testTag("ingredient-add-row"),
                             ) {
-                                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Text("افزودن ماده")
+                                Row(Modifier.padding(horizontal = 9.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Text("افزودن ماده", style = MaterialTheme.typography.labelLarge)
+                                }
                             }
                         }
-                        Text("قیمت خرید به ${money.unit}؛ مقدار هر ماده با واحد انتخاب‌شده", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (LocalDensity.current.fontScale <= 1.25f) {
+                            Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(9.dp)).padding(horizontal = 7.dp, vertical = 3.dp)) {
+                                Spacer(Modifier.width(22.dp))
+                                Text("نام ماده", Modifier.weight(1.3f), style = MaterialTheme.typography.labelMedium)
+                                Text(result.rows.map { it.priceLabel }.distinct().singleOrNull()?.replace("قیمت هر ", "قیمت / ") ?: "قیمت / واحد خرید", Modifier.weight(1.15f), style = MaterialTheme.typography.labelMedium)
+                                Text(if (input.rows.all { it.uom == Uom.GRAM }) "مقدار / گرم" else "مقدار", Modifier.weight(.8f), style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
                         input.rows.forEachIndexed { i, row ->
-                            RowCard(
+                            val show = !row.isBlank || input.rows.none { !it.isBlank } || keyboardVisible || revealBlank || focusRow == i
+                            if (show) RowCard(
                                 index = i,
                                 row = row,
                                 result = result.rows[i],
@@ -360,9 +365,13 @@ fun CalculatorScreen(
                                     runCatching { quantity(i).requestFocus() }
                                 },
                             )
-                            if (i < input.rows.lastIndex) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
                         }
-                        Text(result.miscNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(9.dp)).padding(horizontal = 10.dp, vertical = 3.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                            Text(result.miscNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.width(6.dp))
+                            Icon(ReferenceIcons.info, contentDescription = null, modifier = Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
                 LaunchedEffect(focusRow, input.rows.size) {
@@ -381,10 +390,15 @@ fun CalculatorScreen(
                         Text("اولین بار است؟ راهنما و یک نمونه")
                     }
                 }
-                Card(colors = whiteCardColors(), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        DisclosureRow("هزینه‌های دیگر و جزئیات محاسبه", detailsExpanded, "calculator-details-toggle", { detailsExpanded = !detailsExpanded })
+                Card(colors = whiteCardColors(), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        DisclosureRow("جزئیات محاسبه و کانال‌های فروش", detailsExpanded, "calculator-details-toggle", { detailsExpanded = !detailsExpanded })
                         if (detailsExpanded) {
+                        Text(
+                            if (state.pricing.scope == PricingScope.GENERAL) "قانون قیمت‌گذاری: عمومی" else "قانون بخش منو · ${result.method}",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.testTag("calculator-pricing-scope"),
+                        )
                             ExtrasCard(
                                 input = input,
                                 result = result,
@@ -413,7 +427,7 @@ fun CalculatorScreen(
                         Text("تعداد پرس، درصد جزئی و جزئیات بیشتر")
                     }
                 }
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(8.dp))
             }
         }
         // Here, next to the fields, so the first one is in place when it is asked to take the keyboard.
@@ -472,7 +486,7 @@ fun CalculatorScreen(
  * has other costs, the cost with them and what is left after them come under those.
  */
 @Composable
-private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, dataUnreliable: Boolean, modifier: Modifier = Modifier, onExplain: (String) -> Unit) {
+private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, dataUnreliable: Boolean, vatNote: String, modifier: Modifier = Modifier, onExplain: (String) -> Unit) {
     val accents = ir.foodcost.app.ui.theme.dashboardColors()
     val navy = accents.sales.content
     val green = MaterialTheme.colorScheme.tertiary
@@ -482,11 +496,12 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
     val hasPrice = result.netSales != null
     Card(
         modifier = modifier.fillMaxWidth().testTag("calculator-dashboard"),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(0.7.dp, MaterialTheme.colorScheme.outlineVariant),
         colors = whiteCardColors(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             if (dataUnreliable) {
                 Text(BackupTexts.UNVERIFIED_RESULT, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("unverified-financial-result"))
                 return@Column
@@ -495,15 +510,15 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
                 Text("فروش پس از تخفیف: ${result.menuRials?.let(money::full) ?: "—"}", style = MaterialTheme.typography.labelSmall, color = navy, modifier = Modifier.testTag("discount-summary"))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1.15f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.weight(1.15f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     DashboardMetric(if (hasPrice) "فروش خالص هر پرس" else "قیمت پیشنهادی هر پرس", result.netSales ?: result.suggested ?: "—", navy, accents.sales.container, Modifier.testTag(if (hasPrice) "net-sales" else "suggested"), money, onClick = { onExplain(if (hasPrice) Glossary.NET_SALES else Glossary.SUGGESTED) })
                     DashboardMetric("هزینه مواد هر پرس", result.costPerPortion, orange, accents.food.container, Modifier.testTag("cost"), money, onClick = { onExplain(Glossary.FOOD) })
                     if (hasPrice) {
                         DashboardMetric(
                             if (result.remaining != null) "مانده پس از هزینه‌ها" else if (result.grossProfitNegative) "زیان ناخالص" else "سود ناخالص",
-                            result.remaining ?: result.grossProfit ?: "—",
+                            result.remaining?.replace("+", "") ?: result.grossProfit?.replace("+", "") ?: "—",
                             if (result.remainingNegative || result.grossProfitNegative) MaterialTheme.colorScheme.error else green,
-                            if (result.remainingNegative || result.grossProfitNegative) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f), Modifier.testTag("gross-profit"), money,
+                            if (result.remainingNegative || result.grossProfitNegative) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.tertiaryContainer, Modifier.testTag("gross-profit"), money,
                             onClick = { onExplain(if (result.remaining != null) Glossary.REMAINING else Glossary.GROSS_PROFIT) },
                         )
                     }
@@ -512,11 +527,11 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
                     val percent = result.foodCostPercent ?: "—"
                     // The float is used only to draw an arc, never to compute a financial value.
                     val ratio = result.foodCostValue?.toFloat()
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(112.dp).testTag("food-cost-gauge")) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().height(132.dp).testTag("food-cost-gauge")) {
                         Canvas(modifier = Modifier.fillMaxSize()) {
-                            val stroke = 9.dp.toPx()
-                            val diameter = size.minDimension - stroke
-                            val arcTopLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
+                            val stroke = 12.dp.toPx()
+                            val diameter = size.width - stroke
+                            val arcTopLeft = Offset(stroke / 2f, stroke / 2f)
                             val arcSize = Size(diameter, diameter)
                             drawArc(
                                 color = gaugeTrack,
@@ -537,17 +552,24 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
                                 style = Stroke(width = stroke, cap = StrokeCap.Round),
                             )
                         }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("فودکاست", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
-                            FitText(percent, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = priceColors.content, modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp).clickable(onClickLabel = "توضیح فودکاست", onClick = { onExplain(Glossary.FOOD_COST) }).testTag("food-cost"))
+                        Column(Modifier.padding(top = 26.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("فودکاست", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                            FitText(percent, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, fontSize = 36.sp, lineHeight = 46.sp, textAlign = TextAlign.Center), color = priceColors.content, modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp).clickable(onClickLabel = "توضیح فودکاست", onClick = { onExplain(Glossary.FOOD_COST) }).testTag("food-cost"))
                         }
                     }
-                    if (result.hasLines) StatusChip(result.status, result.statusLabel)
+                    if (result.hasLines) StatusChip(result.status, result.statusLabel, prominent = true)
                 }
             }
             if (!compact) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Text(note(result), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        result.suggested?.let { FitText("${result.suggestedLabel}: $it", style = MaterialTheme.typography.titleSmall, modifier = Modifier.testTag("dashboard-suggestion")) }
+                        Text(result.leftOutNote ?: result.raise?.let { "قیمت فعلی باید $it بیشتر شود" } ?: if (result.netSales == null) "${result.method}، ${result.miscNote}" else "فروش خالص پس از کسر مالیات", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    androidx.compose.material3.VerticalDivider(Modifier.height(30.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    Text(vatNote, Modifier.width(86.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 if (result.incompleteRows > 0) {
                     Text("${Persian.digits(result.incompleteRows)} ردیف کامل نیست و در جمع نیامده است.", style = MaterialTheme.typography.bodySmall, color = orange)
                 }
@@ -568,11 +590,11 @@ private fun DashboardMetric(
 ) {
     Column(
         modifier = modifier.fillMaxWidth().background(background, RoundedCornerShape(14.dp))
-            .clickable(onClickLabel = "توضیح $label", onClick = onClick).padding(horizontal = 10.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+            .clickable(onClickLabel = "توضیح $label", onClick = onClick).padding(horizontal = 10.dp, vertical = 0.5.dp),
+        verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
-        FitText(value, style = MaterialTheme.typography.titleMedium, color = accent)
+        Text(label, style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 17.sp), color = MaterialTheme.colorScheme.onSurface)
+        FitText(value, style = MaterialTheme.typography.titleMedium.copy(fontSize = 21.sp, lineHeight = 27.sp), color = accent)
     }
 }
 
@@ -891,52 +913,54 @@ private fun RowCard(
     onPick: (QuickSuggestion) -> Unit,
 ) {
     val fontScale = LocalDensity.current.fontScale
+    var nameFocused by remember { mutableStateOf(false) }
     @Composable
     fun nameField(modifier: Modifier) {
-        TextInput(
+        ReferenceField(
             value = row.name,
             onValueChange = { onChange(row.copy(name = it, ingredientId = null)) },
             label = "نام ماده",
-            modifier = modifier.then(if (nameFocus != null) Modifier.focusRequester(nameFocus) else Modifier).testTag("row-$index-name"),
-            imeAction = ImeAction.Next,
+            trailing = if (fontScale <= 1.25f) { { UnitMenu(row.uom, result.units, if (row.uom == Uom.GRAM) Modifier.testTag("row-$index-unit") else Modifier, compact = true) { onChange(row.copy(uom = it)) } } } else null,
+            modifier = modifier.then(if (nameFocus != null) Modifier.focusRequester(nameFocus) else Modifier).onFocusChanged { nameFocused = it.isFocused }.testTag("row-$index-name"),
+            imeAction = ImeAction.Next, height = 26.dp, fontSize = 14.sp, verticalPadding = 2.dp,
         )
     }
     @Composable
     fun priceField(modifier: Modifier) {
-        TextInput(
+        ReferenceField(
             value = row.price,
             onValueChange = { onChange(row.copy(price = it)) },
             label = result.priceLabel,
             modifier = modifier.testTag("row-$index-price"),
             number = true,
-            imeAction = ImeAction.Next,
+            imeAction = ImeAction.Next, height = 26.dp, fontSize = 14.sp, verticalPadding = 2.dp,
         )
     }
     @Composable
     fun quantityField(modifier: Modifier) {
-        TextInput(
+        ReferenceField(
             value = row.qty,
             onValueChange = { onChange(row.copy(qty = it)) },
             label = "مقدار",
             modifier = modifier.focusRequester(quantityFocus).testTag("row-$index-qty"),
             number = true,
-            imeAction = ImeAction.Next,
+            imeAction = ImeAction.Next, height = 26.dp, fontSize = 14.sp, verticalPadding = 2.dp, centered = true,
         )
     }
     @Composable
     fun removeButton() {
         if (!row.isBlank) {
-            IconButton(onClick = onRemove, modifier = Modifier.size(40.dp).focusProperties { canFocus = false }.testTag("row-$index-remove")) {
-                Icon(Icons.Filled.Close, contentDescription = "حذف ردیف ${Persian.digits(index + 1)}")
+            IconButton(onClick = onRemove, modifier = Modifier.size(22.dp).background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(6.dp)).focusProperties { canFocus = false }.testTag("row-$index-remove")) {
+                Icon(ReferenceIcons.trash, contentDescription = "حذف ردیف ${Persian.digits(index + 1)}", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            Spacer(Modifier.width(40.dp))
+            Spacer(Modifier.width(22.dp))
         }
     }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         // Narrow screens and larger accessibility fonts retain full-width readable ingredient names.
         val stackName = maxWidth < 300.dp || fontScale > 1.25f
-        Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             if (stackName) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     nameField(Modifier.weight(1f))
@@ -948,19 +972,19 @@ private fun RowCard(
                 }
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    nameField(Modifier.weight(1f))
-                    priceField(Modifier.weight(1.12f))
-                    quantityField(Modifier.width(74.dp))
                     removeButton()
+                    nameField(Modifier.weight(1.3f))
+                    priceField(Modifier.weight(1.15f))
+                    quantityField(Modifier.weight(.8f))
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                RowNumber(index + 1, row.isBlank)
-                Text("قیمت به ${money.unit}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                Text("واحد مقدار:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                UnitMenu(row.uom, result.units, Modifier.testTag("row-$index-unit")) { onChange(row.copy(uom = it)) }
+            if (stackName || row.uom != Uom.GRAM) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("ردیف ${Persian.digits(index + 1)} · ${result.priceLabel} (${money.unit})", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+                    UnitMenu(row.uom, result.units, Modifier.testTag("row-$index-unit")) { onChange(row.copy(uom = it)) }
+                }
             }
-            if (suggestions.isNotEmpty()) {
+            if (nameFocused && suggestions.isNotEmpty()) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     suggestions.forEach { suggestion ->
                         AssistChip(
@@ -972,7 +996,7 @@ private fun RowCard(
                 }
             }
             val problem = result.problem
-            val info = problem ?: listOfNotNull(result.cost?.let { "هزینه: $it" }, result.note).joinToString("، ").ifEmpty { null }
+            val info = problem ?: result.note
             if (info != null) {
                 Text(
                     info,
@@ -988,13 +1012,15 @@ private fun RowCard(
 }
 
 @Composable
-private fun UnitMenu(selected: Uom, options: List<Uom>, modifier: Modifier = Modifier, onSelect: (Uom) -> Unit) {
+private fun UnitMenu(selected: Uom, options: List<Uom>, modifier: Modifier = Modifier, compact: Boolean = false, onSelect: (Uom) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
-        // Left out of the keyboard's Next walk, which goes from the quantity straight to the next row.
-        TextButton(onClick = { open = true }, modifier = Modifier.focusProperties { canFocus = false }) {
-            Text(Labels.uom(selected))
-            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+        Row(
+            Modifier.focusProperties { canFocus = false }.clickable(onClickLabel = "واحد مقدار: ${Labels.uom(selected)}") { open = true }
+                .padding(if (compact) 0.dp else 4.dp), verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (!compact) Text(Labels.uom(selected), style = MaterialTheme.typography.labelMedium)
+            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "واحد مقدار: ${Labels.uom(selected)}", modifier = Modifier.size(if (compact) 16.dp else 20.dp))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             options.forEach { uom ->
@@ -1038,16 +1064,16 @@ private fun NameDialog(onDismiss: () -> Unit, onSave: (String) -> Unit) {
 private fun SectionSelector(sections: List<String>, selected: String?, modifier: Modifier = Modifier, onSelect: (String?) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
-        OutlinedButton(
-            onClick = { open = true },
-            modifier = Modifier.fillMaxWidth().focusProperties { canFocus = false }.testTag("menu-section-selector"),
-            shape = RoundedCornerShape(12.dp),
+        Surface(
+            shape = RoundedCornerShape(9.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest,
+            border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth().focusProperties { canFocus = false }.clickable { open = true }.testTag("menu-section-selector"),
         ) {
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
-                Text("دستهٔ منو", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(selected ?: "بدون بخش", style = MaterialTheme.typography.bodyMedium)
+            Row(Modifier.heightIn(min = 32.dp).padding(horizontal = 9.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("دسته:", style = MaterialTheme.typography.labelMedium)
+                FitText(selected ?: "بدون بخش", MaterialTheme.typography.labelLarge, Modifier.weight(1f).padding(horizontal = 6.dp))
+                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(18.dp))
             }
-            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
@@ -1071,10 +1097,14 @@ private fun SectionSelector(sections: List<String>, selected: String?, modifier:
 
 @Composable
 private fun DisclosureRow(title: String, expanded: Boolean, tag: String, onClick: () -> Unit, summary: String? = null) {
-    TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth().focusProperties { canFocus = false }.testTag(tag)) {
-        Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-        summary?.let { Text(it, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 8.dp)) }
-        Icon(if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, contentDescription = if (expanded) "بستن جزئیات" else "نمایش جزئیات")
+    Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth().focusProperties { canFocus = false }.clickable(onClick = onClick).testTag(tag)) {
+        Row(Modifier.heightIn(min = 32.dp).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+            summary?.let { Text(it, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 8.dp)) }
+            Icon(if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, contentDescription = if (expanded) "بستن جزئیات" else "نمایش جزئیات", modifier = Modifier.size(20.dp))
+        }
     }
 }
 

@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -128,24 +130,11 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
         ) {
             item { SearchField(query, { query = it }, "جستجوی غذا") }
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = colors.container),
-                ) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("خلاصهٔ منو", style = MaterialTheme.typography.labelLarge, color = colors.subheading)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            MenuSummaryStat("غذا", Persian.digits(model.plates.size), colors, Modifier.weight(1f))
-                            MenuSummaryStat("دستور پایه", Persian.digits(model.preparations.size), colors, Modifier.weight(1f))
-                            MenuSummaryStat(
-                                "نیازمند اصلاح",
-                                if (dataUnreliable) "—" else Persian.digits(model.needsRepricing),
-                                colors, Modifier.weight(1f),
-                                status = if (!dataUnreliable && model.needsRepricing > 0) summaryStatus else null,
-                            )
-                        }
-                    }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MenuSummaryStat("غذا", Persian.digits(model.plates.size), colors, Modifier.weight(1f))
+                    MenuSummaryStat("دستور پایه", Persian.digits(model.preparations.size), colors, Modifier.weight(1f))
+                    MenuSummaryStat("نیازمند اصلاح", if (dataUnreliable) "—" else Persian.digits(model.needsRepricing), colors, Modifier.weight(1f),
+                        status = if (!dataUnreliable && model.needsRepricing > 0) summaryStatus else null)
                 }
             }
             if (categories.isNotEmpty()) {
@@ -159,7 +148,7 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
                             onClick = { categoryFilter = null },
                             label = { Text("همه") },
                             modifier = Modifier.testTag("food-filter-all"),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(50),
                             colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = MaterialTheme.colorScheme.onPrimary),
                         )
                         categories.forEach { category ->
@@ -173,11 +162,6 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
                             )
                         }
                     }
-                }
-            }
-            item {
-                TextButton(onClick = { creatingBase = true }) {
-                    Text("دستور پایه (برای ترکیبات مشترک)")
                 }
             }
             if (plates.isEmpty() && preparations.isEmpty()) {
@@ -203,7 +187,6 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
                 item { PriceVerdict(model.needsRepricing, summaryStatus) }
             }
             if (plates.isNotEmpty()) {
-                item { SectionTitle("غذاهای منو", Modifier.padding(start = 4.dp)) }
                 items(plates, key = { it.recipeId.value }) { row ->
                     PlateCard(
                         row,
@@ -219,6 +202,12 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
                     PreparationCard(row, dataUnreliable = dataUnreliable) { nav.open(Screen.Recipe(row.id.value)) }
                 }
             }
+            item {
+                TextButton(onClick = { creatingBase = true }) {
+                    Text("دستور پایه (برای ترکیبات مشترک)")
+                }
+            }
+
         }
     }
     deleteTarget?.let { (recipeId, name) ->
@@ -272,9 +261,12 @@ private fun MenuSummaryStat(label: String, value: String, colors: FoodSectionCol
         shape = RoundedCornerShape(14.dp),
         color = statusPalette?.container ?: colors.statPrimary,
     ) {
-        Column(Modifier.heightIn(min = 76.dp).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.heightIn(min = 78.dp).padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                Icon(when (label) { "غذا" -> ReferenceIcons.dishes; "دستور پایه" -> ReferenceIcons.grid; else -> ReferenceIcons.warning }, contentDescription = null, modifier = Modifier.size(18.dp), tint = statusPalette?.content ?: colors.statValue)
+                Text(value, style = MaterialTheme.typography.titleLarge, color = statusPalette?.content ?: colors.statValue)
+            }
             Text(label, style = MaterialTheme.typography.labelMedium, color = statusPalette?.content ?: colors.statLabel)
-            Text(value, style = MaterialTheme.typography.titleLarge, color = statusPalette?.content ?: colors.statValue)
         }
     }
 }
@@ -300,8 +292,8 @@ private fun PriceVerdict(needsRepricing: Int, status: PriceStatus) {
     ) {
         Text(
             if (needsRepricing > 0) "${Persian.digits(needsRepricing)} غذا باید گران‌تر شود" else "قیمت همهٔ غذاها بهایشان را می‌پوشاند",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
         )
     }
 }
@@ -312,52 +304,30 @@ private fun PlateCard(row: MenuRow, dataUnreliable: Boolean, onClick: () -> Unit
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().testTag("food-" + row.recipeId.value),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = whiteCardColors(),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(row.name, style = MaterialTheme.typography.titleMedium, color = colors.itemTitle)
-                    listOfNotNull(row.kindLabel, row.category).joinToString("، ").ifEmpty { null }?.let {
-                        Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                IconButton(onClick = onDelete, modifier = Modifier.testTag("delete-dish-${row.recipeId.value}")) {
-                    Icon(Icons.Filled.Delete, contentDescription = "حذف ${row.name}", tint = MaterialTheme.colorScheme.error)
-                }
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(row.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
                 if (!dataUnreliable) StatusChip(row.status, row.statusLabel)
+                IconButton(onClick = onDelete, modifier = Modifier.size(24.dp).testTag("delete-dish-${row.recipeId.value}")) {
+                    Icon(ReferenceIcons.trash, contentDescription = "حذف ${row.name}", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                }
             }
             if (dataUnreliable) UnverifiedFinancialData() else {
                 val priceColors = statusColors(row.status)
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = priceColors.container,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        // Food cost, not net profit: the same figure as the calculator's dashboard.
-                        LabeledValue("بهای مواد هر پرس", row.foodCost, Modifier.weight(1f), amount = true)
-                        LabeledValue("قیمت فروش", row.menuPrice ?: "ثبت نشده", Modifier.weight(1f), amount = true)
+                Surface(shape = RoundedCornerShape(10.dp), color = priceColors.container, modifier = Modifier.fillMaxWidth()) {
+                    Row(Modifier.padding(9.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        LabeledValue("بهای هر پرس", row.foodCost, Modifier.weight(1f), emphasized = true, amount = true)
+                        androidx.compose.material3.VerticalDivider(Modifier.height(35.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .6f))
+                        Column(Modifier.weight(1f)) {
+                            Text("قیمت فروش", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            AmountText(row.menuPrice ?: "ثبت نشده", MaterialTheme.typography.titleMedium, color = priceColors.content)
+                        }
                     }
                 }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("قیمت پیشنهادی", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    AmountText(row.suggestedPrice, MaterialTheme.typography.titleMedium, Modifier.weight(1f), color = MaterialTheme.colorScheme.primary)
-                }
-            }
-            val notes = listOfNotNull(
-                row.otherCosts?.let { "بهای تمام‌شده ${row.cost}" },
-                row.foodCostPercent?.let { "فودکاست $it" },
-                row.raise?.let { "باید $it گران‌تر شود" },
-            )
-            if (!dataUnreliable && notes.isNotEmpty()) {
-                Text(
-                    notes.joinToString("، "),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (row.raise != null) statusColors(row.status).content else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
     }

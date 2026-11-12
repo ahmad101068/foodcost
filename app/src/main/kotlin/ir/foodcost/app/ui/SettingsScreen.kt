@@ -6,11 +6,15 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
@@ -93,6 +97,7 @@ fun SettingsScreen(
     onPageChange: (SettingsPage) -> Unit,
 ) {
     val currency by container.currency.collectAsState()
+    var pricingDetails by remember { mutableStateOf(false) }
     var errors by remember(page) { mutableStateOf(emptyMap<Field, String>()) }
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -161,27 +166,32 @@ fun SettingsScreen(
             Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 // Let the last Save control scroll clear of the previous save snackbar and system bar.
-                .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 120.dp),
+                .padding(start = 12.dp, top = 8.dp, end = 12.dp, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (page == SettingsPage.OVERVIEW) {
                 Column(Modifier.testTag("settings-overview"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("مدیریت ساده و یکپارچه برنامه", style = MaterialTheme.typography.bodyLarge)
                     if (backupFirst) {
-                        SettingsNotice(actions.backupReminder ?: "برای بررسی و بازیابی اطلاعات، پشتیبان را باز کنید.")
                         OutlinedButton(onClick = { navigateTo(SettingsPage.BACKUP) }) { Text("دیدن راه‌ها در پشتیبان") }
                     }
                     SettingsDestination("قیمت‌گذاری", "روش و دامنه اعمال قیمت", "pricing") { navigateTo(SettingsPage.PRICING) }
-                    SettingsDestination("هزینه‌ها و فروش آنلاین", "سربار، هزینه‌های جزئی، کمیسیون و تخفیف", "costs") { navigateTo(SettingsPage.COSTS) }
-                    SettingsDestination("بخش‌های منو", "ساخت بخش‌ها و مدیریت قانون هر بخش", "sections") { navigateTo(SettingsPage.SECTIONS) }
+                    SettingsDestination("هزینه‌ها و فروش آنلاین", "سربار، کمیسیون و تخفیف", "costs") { navigateTo(SettingsPage.COSTS) }
+                    SettingsDestination("بخش‌های منو", "ساخت و دسته‌بندی بخش‌ها", "sections") { navigateTo(SettingsPage.SECTIONS) }
                     SettingsDestination("واحد پول", Labels.currency(currency), "currency") { navigateTo(SettingsPage.CURRENCY) }
-                    SettingsDestination("پشتیبان و بازیابی", "حفاظت از اطلاعات و بازگرداندن پشتیبان", "backup") { navigateTo(SettingsPage.BACKUP) }
+                    SettingsDestination("پشتیبان و بازیابی", "حفاظت از اطلاعات", "backup") { navigateTo(SettingsPage.BACKUP) }
                     SettingsDestination("راهنما و درباره برنامه", "معنی واژه‌ها و روش کار با برنامه", "help") { navigateTo(SettingsPage.HELP) }
-                    SettingsNotice(if (state.pricing.scope == PricingScope.GENERAL) "قیمت‌گذاری فعال: عمومی" else "قیمت‌گذاری فعال: بخش‌های منو")
+                    Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Icon(ReferenceIcons.coins, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                            Text("واحد پول: ${Labels.currency(currency)}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
                 }
             }
             if (page == SettingsPage.PRICING) {
-                SettingsCard("دامنه قیمت‌گذاری") {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("دامنه قیمت‌گذاری", style = MaterialTheme.typography.titleMedium)
                     Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         PricingScopeCard("عمومی", "یک قانون برای همه غذاها", input.scope == PricingScope.GENERAL, "pricing-scope-general") {
                             actions.snackbar.currentSnackbarData?.dismiss()
@@ -192,23 +202,20 @@ fun SettingsScreen(
                             onInputChange(input.copy(scope = PricingScope.MENU_SECTIONS))
                         }
                     }
-                    SettingsNotice("مقادیر حالت غیرفعال حفظ می‌شوند؛ فقط یکی از دو حالت اعمال می‌شود.")
                     if (!generalPricingEnabled) Text("برای غذاها و بخش‌های بدون قانون اختصاصی، آخرین روش عمومی ذخیره‌شده به کار می‌رود.", style = MaterialTheme.typography.bodySmall)
                 }
-            SettingsCard("روش عمومی") {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("روش قیمت‌گذاری (حالت عمومی)", style = MaterialTheme.typography.titleSmall)
                 // The three are ways to put the same price: switching turns the number into its equivalent.
-                SettingsChoices(MethodChoice.entries, input.method, { methodName(it) }, enabled = generalPricingEnabled) { onInputChange(input.withMethod(it)) }
+                SettingsChoices(MethodChoice.entries, input.method, { if (it == MethodChoice.FOOD_COST) "فودکاست" else methodName(it) }, enabled = generalPricingEnabled, tagPrefix = "general-method-") { onInputChange(input.withMethod(it)) }
                 SettingsTextInput(
-                    value = input.percent,
+                    value = input.percent, compact = true,
                     enabled = generalPricingEnabled,
                     modifier = Modifier.testTag("general-pricing-percent"),
                     onValueChange = { onInputChange(input.copy(percent = it, carried = false, conversionOrigin = null)) },
                     label = methodName(input.method),
                     error = errors[Field.PERCENT],
-                    supporting = listOfNotNull(
-                        methodHint(input.method),
-                        if (input.carried) SettingsInput.CARRIED_MESSAGE else input.equivalents(),
-                    ).joinToString("\n"),
+                    supporting = if (input.carried) SettingsInput.CARRIED_MESSAGE else input.equivalents(),
                     number = true,
                     suffix = "٪",
                 )
@@ -225,6 +232,25 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                if (input.categories.isNotEmpty()) {
+                    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("قیمت‌گذاری بخش‌های منو", style = MaterialTheme.typography.titleSmall)
+                            Text(if (generalPricingEnabled) "با انتخاب حالت بخش‌های منو فعال می‌شود" else "قانون هر بخش در تنظیمات بخش‌های منو", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            input.categories.filter { it.name.isNotBlank() }.forEach { category ->
+                                Row(Modifier.fillMaxWidth()) {
+                                    Text(category.name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(if (category.useGeneral) "روش عمومی" else "${Persian.digits(category.percent)}٪", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+                SettingsNotice("مقادیر قبلی حفظ می‌شوند؛ فقط حالت انتخاب‌شده اعمال می‌شود.")
+                TextButton(onClick = { pricingDetails = !pricingDetails }, modifier = Modifier.testTag("pricing-tax-details")) {
+                    Text(if (pricingDetails) "بستن مالیات و گرد کردن" else "مالیات و گرد کردن قیمت")
+                }
+                if (pricingDetails) {
                 SettingsTextInput(
                     value = input.vatPercent,
                     onValueChange = { onInputChange(input.copy(vatPercent = it)) },
@@ -244,10 +270,12 @@ fun SettingsScreen(
                     onInputChange(input.copy(roundingDirection = it))
                 }
 
+                }
+
             }
 
 
-                Button(onClick = { save(SettingsPart.PRICING) }, modifier = Modifier.fillMaxWidth().testTag("settings-save-pricing")) { Text("ذخیرهٔ قیمت‌گذاری") }
+                Button(onClick = { save(SettingsPart.PRICING) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("settings-save-pricing"), shape = RoundedCornerShape(12.dp)) { Text("ذخیرهٔ تغییرات", style = MaterialTheme.typography.titleMedium) }
             }
             if (page == SettingsPage.SECTIONS) {
             SettingsCard("بخش‌های منو") {
@@ -475,26 +503,19 @@ fun SettingsScreen(
 @Composable
 private fun SettingsDestination(title: String, subtitle: String, tag: String, onClick: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth().testTag("settings-section-$tag"),
-        shape = RoundedCornerShape(18.dp), colors = whiteCardColors(),
+        shape = RoundedCornerShape(14.dp), colors = whiteCardColors(),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primaryContainer) {
-                Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
-                    if (tag == "currency") Text("﷼", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                    else Icon(when (tag) {
-                        "costs" -> Icons.Filled.ShoppingCart
-                        "sections" -> Icons.Filled.List
-                        "backup" -> Icons.Filled.Refresh
-                        "help" -> Icons.Filled.Info
-                        else -> Icons.Filled.Settings
-                    }, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                }
-            }
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(when (tag) {
+                "costs" -> ReferenceIcons.coins; "sections" -> ReferenceIcons.grid
+                "currency" -> ReferenceIcons.money; "backup" -> ReferenceIcons.backup
+                "help" -> ReferenceIcons.info; else -> ReferenceIcons.tag
+            }, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text("‹", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+            Icon(ReferenceIcons.chevron, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -503,8 +524,8 @@ private fun SettingsDestination(title: String, subtitle: String, tag: String, on
 private fun PricingScopeCard(title: String, subtitle: String, selected: Boolean, tag: String, onClick: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth().testTag(tag), shape = RoundedCornerShape(14.dp),
         border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
-        colors = CardDefaults.cardColors(containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow)) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        colors = CardDefaults.cardColors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLowest)) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             RadioButton(selected = selected, onClick = null)
             Column {
                 Text(title, style = MaterialTheme.typography.titleMedium)
@@ -522,9 +543,14 @@ private fun SettingsNotice(text: String) {
 }
 
 @Composable
-private fun <T> SettingsChoices(values: List<T>, selected: T, label: (T) -> String, enabled: Boolean, onSelect: (T) -> Unit) {
+private fun <T> SettingsChoices(values: List<T>, selected: T, label: (T) -> String, enabled: Boolean, tagPrefix: String? = null, onSelect: (T) -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        values.forEach { value -> FilterChip(selected = value == selected, onClick = { onSelect(value) }, enabled = enabled, label = { Text(label(value)) }) }
+        values.forEach { value ->
+            FilterChip(selected = value == selected, onClick = { onSelect(value) }, enabled = enabled,
+                label = { Text(label(value)) }, shape = RoundedCornerShape(12.dp),
+                modifier = if (tagPrefix != null) Modifier.testTag(tagPrefix + value) else Modifier,
+                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = MaterialTheme.colorScheme.onPrimary, containerColor = MaterialTheme.colorScheme.surfaceContainerLowest))
+        }
     }
 }
 
@@ -532,9 +558,21 @@ private fun <T> SettingsChoices(values: List<T>, selected: T, label: (T) -> Stri
 private fun SettingsTextInput(
     value: String, onValueChange: (String) -> Unit, label: String, modifier: Modifier = Modifier,
     error: String? = null, supporting: String? = null, number: Boolean = false, suffix: String? = null,
-    imeAction: ImeAction = ImeAction.Default, enabled: Boolean = true,
+    imeAction: ImeAction = ImeAction.Default, enabled: Boolean = true, compact: Boolean = false,
 ) {
-    if (enabled) {
+    if (enabled && compact) {
+        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(label, style = MaterialTheme.typography.titleSmall)
+            ReferenceField(value, onValueChange, label, modifier, number = number, suffix = suffix, imeAction = imeAction, height = 40.dp)
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            supporting?.let {
+                val palette = ir.foodcost.app.ui.theme.statusColors(ir.foodcost.core.pricing.PriceStatus.NEAR)
+                Surface(color = palette.container, shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = palette.content, modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp))
+                }
+            }
+        }
+    } else if (enabled) {
         TextInput(value, onValueChange, label, modifier, error, supporting, number, suffix, imeAction)
     } else {
         OutlinedTextField(value = value, onValueChange = {}, enabled = false, singleLine = true,
