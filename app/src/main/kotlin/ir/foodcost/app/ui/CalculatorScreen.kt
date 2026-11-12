@@ -75,6 +75,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -268,12 +269,6 @@ fun CalculatorScreen(
                                 imeAction = ImeAction.Done, centered = true, height = 32.dp,
                             )
                         }
-                        // Scope is explicit without a second competing category switch.
-                        Text(
-                            if (state.pricing.scope == PricingScope.GENERAL) "قانون قیمت‌گذاری: عمومی" else "قانون بخش منو · ${result.method}",
-                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.testTag("calculator-pricing-scope"),
-                        )
                         val discountProblem = QuickCalculator.discountProblem(input, money)
                         DisclosureRow(
                             title = "تخفیف فروش (اختیاری)",
@@ -348,7 +343,7 @@ fun CalculatorScreen(
                             Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(9.dp)).padding(horizontal = 7.dp, vertical = 4.dp)) {
                                 Text("نام ماده", Modifier.weight(1.3f), style = MaterialTheme.typography.labelMedium)
                                 Text("قیمت / واحد خرید", Modifier.weight(1.15f), style = MaterialTheme.typography.labelMedium)
-                                Text("مقدار", Modifier.weight(.8f), style = MaterialTheme.typography.labelMedium)
+                                Text(if (input.rows.all { it.uom == Uom.GRAM }) "مقدار / گرم" else "مقدار", Modifier.weight(.8f), style = MaterialTheme.typography.labelMedium)
                                 Spacer(Modifier.width(22.dp))
                             }
                         }
@@ -398,6 +393,11 @@ fun CalculatorScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         DisclosureRow("جزئیات محاسبه و کانال‌های فروش", detailsExpanded, "calculator-details-toggle", { detailsExpanded = !detailsExpanded })
                         if (detailsExpanded) {
+                        Text(
+                            if (state.pricing.scope == PricingScope.GENERAL) "قانون قیمت‌گذاری: عمومی" else "قانون بخش منو · ${result.method}",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.testTag("calculator-pricing-scope"),
+                        )
                             ExtrasCard(
                                 input = input,
                                 result = result,
@@ -908,14 +908,15 @@ private fun RowCard(
     onPick: (QuickSuggestion) -> Unit,
 ) {
     val fontScale = LocalDensity.current.fontScale
+    var nameFocused by remember { mutableStateOf(false) }
     @Composable
     fun nameField(modifier: Modifier) {
         ReferenceField(
             value = row.name,
             onValueChange = { onChange(row.copy(name = it, ingredientId = null)) },
             label = "نام ماده",
-            trailing = { UnitMenu(row.uom, result.units, Modifier.testTag("row-$index-unit"), compact = true) { onChange(row.copy(uom = it)) } },
-            modifier = modifier.then(if (nameFocus != null) Modifier.focusRequester(nameFocus) else Modifier).testTag("row-$index-name"),
+            trailing = if (fontScale <= 1.25f) { { UnitMenu(row.uom, result.units, if (row.uom == Uom.GRAM) Modifier.testTag("row-$index-unit") else Modifier, compact = true) { onChange(row.copy(uom = it)) } } } else null,
+            modifier = modifier.then(if (nameFocus != null) Modifier.focusRequester(nameFocus) else Modifier).onFocusChanged { nameFocused = it.isFocused }.testTag("row-$index-name"),
             imeAction = ImeAction.Next, height = 30.dp,
         )
     }
@@ -978,7 +979,7 @@ private fun RowCard(
                     UnitMenu(row.uom, result.units, Modifier.testTag("row-$index-unit")) { onChange(row.copy(uom = it)) }
                 }
             }
-            if (suggestions.isNotEmpty()) {
+            if (nameFocused && suggestions.isNotEmpty()) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     suggestions.forEach { suggestion ->
                         AssistChip(

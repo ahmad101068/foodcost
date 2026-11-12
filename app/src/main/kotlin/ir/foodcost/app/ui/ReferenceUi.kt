@@ -23,6 +23,9 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -121,7 +124,7 @@ fun ReferenceField(
     val measurer = rememberTextMeasurer()
     var width by remember { mutableIntStateOf(0) }
     val base = MaterialTheme.typography.bodyLarge.copy(
-        color = colors.onSurface, fontWeight = FontWeight.Bold,
+        color = colors.onSurface, fontWeight = FontWeight.Bold, fontSize = 16.sp, lineHeight = 22.sp,
         textAlign = if (centered) TextAlign.Center else TextAlign.Start,
     )
     val style = remember(value, suffix, width, base, number, density) {
@@ -169,7 +172,7 @@ fun ReferenceBottomBar(nav: Navigator, actions: AppActions) {
                         else Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
                     Column(
                         Modifier.weight(1f).background(brush, RoundedCornerShape(14.dp))
-                            .clickable(onClickLabel = tab.label) { actions.snackbar.currentSnackbarData?.dismiss(); nav.tab(tab) }
+                            .semantics { this.selected = selected; role = Role.Tab }.clickable(onClickLabel = tab.label) { actions.snackbar.currentSnackbarData?.dismiss(); nav.tab(tab) }
                             .padding(horizontal = 2.dp, vertical = 6.dp),
                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {

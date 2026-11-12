@@ -128,7 +128,7 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
                         onClick = { missingOnly = false },
                         label = { Text("همه") },
                         modifier = Modifier.testTag("ingredients-filter-all"),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(50),
                         colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = MaterialTheme.colorScheme.onPrimary),
                     )
                     FilterChip(
@@ -137,7 +137,7 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
                         label = { Text("بدون قیمت") },
                         enabled = !dataUnreliable,
                         modifier = Modifier.testTag("ingredients-filter-missing"),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(50),
                         colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = MaterialTheme.colorScheme.onPrimary),
                     )
                 }

@@ -71,8 +71,8 @@ class ReferenceVisualTest {
         container.saveDraft()
         ActivityScenario.launch(MainActivity::class.java).use {
             rule.waitUntil(15_000) { rule.onNodeWithTag("calculator-dashboard").runCatching { fetchSemanticsNode() }.isSuccess }
-            rule.onNodeWithTag("row-3-qty").assertIsDisplayed()
             shot("01-calculator")
+            rule.onNodeWithTag("row-3-qty").assertIsDisplayed()
             tab("مواد"); rule.onNodeWithTag("ingredients-list").assertIsDisplayed(); shot("02-ingredients")
             tab("غذاها"); rule.onNodeWithTag("food-list").assertIsDisplayed(); shot("03-dishes")
             tab("تنظیمات"); rule.onNodeWithTag("settings-overview").assertIsDisplayed(); shot("04-settings")

@@ -214,10 +214,7 @@ fun SettingsScreen(
                     onValueChange = { onInputChange(input.copy(percent = it, carried = false, conversionOrigin = null)) },
                     label = methodName(input.method),
                     error = errors[Field.PERCENT],
-                    supporting = listOfNotNull(
-                        methodHint(input.method),
-                        if (input.carried) SettingsInput.CARRIED_MESSAGE else input.equivalents(),
-                    ).joinToString("\n"),
+                    supporting = if (input.carried) SettingsInput.CARRIED_MESSAGE else input.equivalents(),
                     number = true,
                     suffix = "٪",
                 )
@@ -562,7 +559,12 @@ private fun SettingsTextInput(
             Text(label, style = MaterialTheme.typography.titleSmall)
             ReferenceField(value, onValueChange, label, modifier, number = number, suffix = suffix, imeAction = imeAction, height = 40.dp)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-            supporting?.let { SettingsNotice(it) }
+            supporting?.let {
+                val palette = ir.foodcost.app.ui.theme.statusColors(ir.foodcost.core.pricing.PriceStatus.NEAR)
+                Surface(color = palette.container, shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = palette.content, modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp))
+                }
+            }
         }
     } else if (enabled) {
         TextInput(value, onValueChange, label, modifier, error, supporting, number, suffix, imeAction)
