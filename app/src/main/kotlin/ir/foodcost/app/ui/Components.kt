@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.calculateStartPadding
@@ -104,26 +105,7 @@ fun TabScaffold(
                 BackupReminderLine(actions, nav)
             }
         },
-        bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest) {
-                Tab.entries.forEach { tab ->
-                    NavigationBarItem(
-                        selected = nav.tab == tab,
-                        onClick = { nav.tab(tab) },
-                        icon = { Icon(tab.icon, contentDescription = null) },
-                        // One line, smaller with the phone's large text, rather than a word broken in two.
-                        label = { FitText(tab.label, MaterialTheme.typography.labelMedium) },
-                        colors = NavigationBarItemDefaults.colors(
-                            indicatorColor = MaterialTheme.colorScheme.primary,
-                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        ),
-                    )
-                }
-            }
-        },
+        bottomBar = { ReferenceBottomBar(nav, actions) },
         floatingActionButton = floatingActionButton,
         snackbarHost = { SnackbarHost(actions.snackbar, Modifier.onSizeChanged { snackbarHeight = it.height }) },
         content = { padding ->
@@ -282,7 +264,7 @@ fun DisplayPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope
 fun StatusChip(status: PriceStatus, label: String, modifier: Modifier = Modifier) {
     val colors = statusColors(status)
     Surface(modifier = modifier, shape = RoundedCornerShape(50), color = colors.container, contentColor = colors.content) {
-        Text(label, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+        Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
     }
 }
 
@@ -440,7 +422,7 @@ fun TextInput(
 private val FIELD_PADDING = 40.dp
 
 /** [style], made smaller until [text] and its [suffix] fit in [room] pixels. */
-private fun fitted(measurer: TextMeasurer, text: String, suffix: String?, style: TextStyle, room: Int): TextStyle {
+internal fun fitted(measurer: TextMeasurer, text: String, suffix: String?, style: TextStyle, room: Int): TextStyle {
     if (!style.fontSize.isSpecified) return style
     val available = room - (suffix?.let { measurer.measure(it, style = style, softWrap = false, maxLines = 1).size.width } ?: 0)
     var scale = 1f
@@ -453,7 +435,7 @@ private fun fitted(measurer: TextMeasurer, text: String, suffix: String?, style:
 }
 
 /** Shows 1450000 as 1٬450٬000 while it is typed; the typed text itself is left alone. */
-private object GroupDigits : VisualTransformation {
+internal object GroupDigits : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         val groups = DigitGroups.of(text.text) ?: return TransformedText(text, OffsetMapping.Identity)
         return TransformedText(
@@ -469,28 +451,8 @@ private object GroupDigits : VisualTransformation {
 
 @Composable
 fun SearchField(query: String, onQueryChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
-        modifier = modifier.fillMaxWidth().padding(vertical = 8.dp),
-        singleLine = true,
-        shape = RoundedCornerShape(18.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-        ),
-        placeholder = { Text(placeholder) },
-        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-        trailingIcon = if (query.isNotEmpty()) {
-            {
-                IconButton(onClick = { onQueryChange("") }) {
-                    Icon(Icons.Filled.Close, contentDescription = "پاک کردن")
-                }
-            }
-        } else {
-            null
-        },
-    )
+    ReferenceField(query, onQueryChange, placeholder, modifier.padding(vertical = 4.dp), height = 40.dp,
+        trailing = { Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp)) })
 }
 
 /** A choice among a few short options, side by side. */

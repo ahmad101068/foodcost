@@ -4,6 +4,12 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
@@ -119,13 +125,15 @@ private fun AppContent(container: AppContainer, state: LedgerState, currency: Di
         AlertDialog(
             onDismissRequest = { confirmExit = false },
             modifier = Modifier.testTag("exit-confirmation"),
+            icon = { Icon(ReferenceIcons.exit, contentDescription = null, tint = ir.foodcost.app.ui.theme.statusColors(ir.foodcost.core.pricing.PriceStatus.NEAR).content, modifier = Modifier.size(38.dp)) },
+            shape = RoundedCornerShape(18.dp), containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
             title = { Text("خروج از برنامه؟") },
             text = { Text("می‌خواهید از برنامه خارج شوید؟") },
             confirmButton = {
-                TextButton(onClick = { confirmExit = false; activity?.finish() }, modifier = Modifier.testTag("exit-confirm")) { Text("خروج") }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmExit = false }, modifier = Modifier.testTag("exit-stay")) { Text("ماندن") }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(onClick = { confirmExit = false }, shape = RoundedCornerShape(10.dp), modifier = Modifier.weight(1f).testTag("exit-stay")) { Text("ماندن") }
+                    OutlinedButton(onClick = { confirmExit = false; activity?.finish() }, shape = RoundedCornerShape(10.dp), modifier = Modifier.weight(1f).testTag("exit-confirm")) { Text("خروج") }
+                }
             },
         )
     }

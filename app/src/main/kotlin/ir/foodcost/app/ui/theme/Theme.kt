@@ -35,8 +35,8 @@ private object Palette {
     val Lapis = Color(0xFF005747)
     val LapisDeep = Color(0xFF123A33)
     val Saffron = Color(0xFFE9D3A6)
-    val Paper = Color(0xFFFAF9F5)
-    val Ink = Color(0xFF202A25)
+    val Paper = Color(0xFFFAF9F6)
+    val Ink = Color(0xFF111313)
 }
 
 private val LightColors = lightColorScheme(
@@ -48,9 +48,9 @@ private val LightColors = lightColorScheme(
     onSecondary = Color(0xFFFFFFFF),
     secondaryContainer = Color(0xFFE8F3ED),
     onSecondaryContainer = Color(0xFF214D3D),
-    tertiary = Color(0xFF287044),
+    tertiary = Color(0xFF087828),
     onTertiary = Color(0xFFFFFFFF),
-    tertiaryContainer = Color(0xFFE2F4E7),
+    tertiaryContainer = Color(0xFFE5F7E3),
     onTertiaryContainer = Color(0xFF0E2000),
     error = Color(0xFFB3261E),
     onError = Color(0xFFFFFFFF),
@@ -61,10 +61,10 @@ private val LightColors = lightColorScheme(
     surface = Palette.Paper,
     onSurface = Palette.Ink,
     surfaceVariant = Color(0xFFE9EDE8),
-    onSurfaceVariant = Color(0xFF526158),
+    onSurfaceVariant = Color(0xFF5A5D61),
     surfaceTint = Color(0xFF005747),
     outline = Color(0xFF819189),
-    outlineVariant = Color(0xFFD9E0DA),
+    outlineVariant = Color(0xFFCBD0D9),
     inverseSurface = Color(0xFF2F3036),
     inverseOnSurface = Color(0xFFF1F0F5),
     inversePrimary = Color(0xFFA4D5C4),
@@ -89,7 +89,7 @@ private val DarkColors = darkColorScheme(
     tertiary = Color(0xFFA9D58A),
     onTertiary = Color(0xFF1A3700),
     tertiaryContainer = Color(0xFF2B5214),
-    onTertiaryContainer = Color(0xFFE2F4E7),
+    onTertiaryContainer = Color(0xFFE5F7E3),
     error = Color(0xFFFFB4AB),
     onError = Color(0xFF690005),
     errorContainer = Color(0xFF93000A),
@@ -134,11 +134,11 @@ private val AppTypography: Typography = Typography().let { base ->
         headlineSmall = base.headlineSmall.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
         titleLarge = base.titleLarge.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
         titleMedium = base.titleMedium.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
-        titleSmall = base.titleSmall.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Medium),
-        bodyLarge = base.bodyLarge.copy(fontFamily = Vazirmatn),
-        bodyMedium = base.bodyMedium.copy(fontFamily = Vazirmatn),
+        titleSmall = base.titleSmall.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold, fontSize = 14.sp, lineHeight = 20.sp),
+        bodyLarge = base.bodyLarge.copy(fontFamily = Vazirmatn, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium),
+        bodyMedium = base.bodyMedium.copy(fontFamily = Vazirmatn, fontSize = 13.sp, lineHeight = 19.sp),
         bodySmall = base.bodySmall.copy(fontFamily = Vazirmatn, lineHeight = 18.sp),
-        labelLarge = base.labelLarge.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Medium),
+        labelLarge = base.labelLarge.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold, fontSize = 13.sp, lineHeight = 18.sp),
         labelMedium = base.labelMedium.copy(fontFamily = Vazirmatn),
         labelSmall = base.labelSmall.copy(fontFamily = Vazirmatn),
     )
@@ -180,16 +180,16 @@ data class DashboardColors(val sales: StatusColors, val food: StatusColors)
 fun dashboardColors(): DashboardColors = if (isSystemInDarkTheme()) {
     DashboardColors(StatusColors(Color(0xFF252E4C), Color(0xFFC5D0FF)), StatusColors(Color(0xFF432F23), Color(0xFFFFC599)))
 } else {
-    DashboardColors(StatusColors(Color(0xFFF0F2FF), Color(0xFF32468C)), StatusColors(Color(0xFFFFF2E7), Color(0xFFAC501D)))
+    DashboardColors(StatusColors(Color(0xFFF0F2FF), Color(0xFF1233AB)), StatusColors(Color(0xFFFFF1E3), Color(0xFFEE6105)))
 }
 
 @Composable
 fun statusColors(status: PriceStatus): StatusColors {
     val dark = isSystemInDarkTheme()
     return when (status) {
-        PriceStatus.OK -> if (dark) StatusColors(Color(0xFF254C34), Color(0xFFC6EBCF)) else StatusColors(Color(0xFFE7F3E9), Color(0xFF245A35))
-        PriceStatus.NEAR -> if (dark) StatusColors(Color(0xFF4D4232), Color(0xFFF6E8CC)) else StatusColors(Color(0xFFFFF3DC), Color(0xFF654C29))
-        PriceStatus.UNDER -> if (dark) StatusColors(Color(0xFF642C2B), Color(0xFFFFDBD6)) else StatusColors(Color(0xFFFDE9E7), Color(0xFFA12622))
+        PriceStatus.OK -> if (dark) StatusColors(Color(0xFF254C34), Color(0xFFC6EBCF)) else StatusColors(Color(0xFFE5F6E1), Color(0xFF086C23))
+        PriceStatus.NEAR -> if (dark) StatusColors(Color(0xFF4D4232), Color(0xFFF6E8CC)) else StatusColors(Color(0xFFFFF3DC), Color(0xFF805615))
+        PriceStatus.UNDER -> if (dark) StatusColors(Color(0xFF642C2B), Color(0xFFFFDBD6)) else StatusColors(Color(0xFFFFDEDC), Color(0xFFE62625))
         PriceStatus.NO_PRICE, PriceStatus.INCOMPLETE, PriceStatus.EMPTY ->
             StatusColors(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant)
     }
