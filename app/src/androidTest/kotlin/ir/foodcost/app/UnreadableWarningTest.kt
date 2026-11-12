@@ -89,7 +89,7 @@ class UnreadableWarningTest {
             assertWarning() // the calculator
             click("غذاها")
             assertWarning()
-            click("کباب آزمون")
+            openDish()
             assertWarning()
             // The latest unreadable price must never lead to a stale confirmed amount.
             compose.waitUntil(timeoutMillis = 15_000) {
@@ -107,7 +107,9 @@ class UnreadableWarningTest {
             click("مواد")
             assertWarning()
             waitFor(BackupTexts.UNVERIFIED_PRICE)
-            click("گوشت")
+            val id = (context.applicationContext as FoodCostApplication).container.state.value!!.ingredients.values.first { it.name == "گوشت" }.id.value
+            if (compose.onAllNodes(androidx.compose.ui.test.hasTestTag("ingredient-history-$id")).fetchSemanticsNodes().isEmpty()) click("گوشت")
+            clickTag("ingredient-history-$id")
             waitFor(BackupTexts.UNVERIFIED_PRICE)
             waitFor(BackupTexts.UNVERIFIED_HISTORY)
         }
@@ -131,12 +133,18 @@ class UnreadableWarningTest {
                 compose.onAllNodes(hasTestTag("unreadable-warning")).fetchSemanticsNodes().isEmpty()
             }
             click("غذاها")
-            click("کباب آزمون")
+            openDish()
             compose.waitUntil(timeoutMillis = 15_000) {
                 compose.onAllNodes(hasTestTag("cost") and hasText("۳۲۰٬۰۰۰", substring = true)).fetchSemanticsNodes().isNotEmpty()
             }
             compose.onAllNodes(hasTestTag("unverified-financial-result")).assertCountEquals(0)
         }
+    }
+
+    private fun openDish() {
+        val id = (context.applicationContext as FoodCostApplication).container.state.value!!.recipes.values.first { it.name == "کباب آزمون" }.id.value
+        if (compose.onAllNodes(hasTestTag("food-open-$id")).fetchSemanticsNodes().isEmpty()) click("کباب آزمون")
+        clickTag("food-open-$id")
     }
 
     private fun assertWarning() {

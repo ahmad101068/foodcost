@@ -46,6 +46,24 @@ object ReferenceIcons {
         path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 1.7f,
             strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) { draw() }
     }.build()
+    val sliders = line("Reference filters") {
+        moveTo(3f,5f); lineTo(21f,5f); moveTo(3f,12f); lineTo(21f,12f); moveTo(3f,19f); lineTo(21f,19f)
+        moveTo(7f,2f); lineTo(7f,8f); moveTo(16f,9f); lineTo(16f,15f); moveTo(9f,16f); lineTo(9f,22f)
+    }
+    val box = line("Reference packaging") {
+        moveTo(12f,2f); lineTo(22f,7f); lineTo(22f,17f); lineTo(12f,22f); lineTo(2f,17f); lineTo(2f,7f); close()
+        moveTo(2f,7f); lineTo(12f,12f); lineTo(22f,7f); moveTo(12f,12f); lineTo(12f,22f)
+        moveTo(7f,4.5f); lineTo(17f,9.5f)
+    }
+    val receipt = line("Reference wages") {
+        moveTo(5f,2f); lineTo(19f,2f); lineTo(19f,22f); lineTo(15.5f,19f); lineTo(12f,22f); lineTo(8.5f,19f); lineTo(5f,22f); close()
+        moveTo(8f,6f); lineTo(16f,6f); moveTo(8f,10f); lineTo(16f,10f); moveTo(8f,14f); lineTo(13f,14f)
+    }
+    val cup = line("Reference drinks") {
+        moveTo(3f,8f); lineTo(18f,8f); lineTo(18f,14f); curveTo(18f,23f,3f,23f,3f,14f); close()
+        moveTo(18f,9f); curveTo(25f,8f,25f,17f,18f,16f)
+        moveTo(7f,2f); curveTo(5f,4f,9f,4f,7f,6f); moveTo(12f,2f); curveTo(10f,4f,14f,4f,12f,6f)
+    }
     val calculator = line("Reference calculator") {
         moveTo(6f,2.5f); lineTo(18f,2.5f); lineTo(18f,21.5f); lineTo(6f,21.5f); close()
         moveTo(8.5f,5.5f); lineTo(15.5f,5.5f); lineTo(15.5f,8.5f); lineTo(8.5f,8.5f); close()

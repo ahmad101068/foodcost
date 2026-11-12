@@ -265,4 +265,28 @@ class ScreensTest {
             UnitOptions.forSubRecipe(RecipeVersion(D1, outputQty = BigDecimal("4"), outputUom = Uom.KILOGRAM)),
         )
     }
+    @Test
+    fun `ingredient accordion previous price excludes future and voided quotes`() {
+        val k = Kitchen()
+        k.ledger.recordPrice(k.perKilo(k.meat, D15.minusDays(1), 18_000_000), priceId = "voided-meat")
+        k.ledger.voidPrice("voided-meat")
+        k.ledger.recordPrice(k.perKilo(k.meat, D15, 20_000_000), priceId = "current-meat")
+        k.ledger.recordPrice(k.perKilo(k.meat, N2, 30_000_000), priceId = "future-meat")
+        val detail = assertNotNull(IngredientScreens.detail(k.state, k.meat, D15, toman))
+        assertEquals("هر کیلو ۲٬۰۰۰٬۰۰۰ تومان", detail.unitPrice)
+        assertEquals("هر کیلو ۱٬۶۰۰٬۰۰۰ تومان", detail.previousUnitPrice)
+        assertEquals(D15, IngredientScreens.rows(k.state, D15, toman).single { it.id == k.meat }.priceEffectiveFrom)
+    }
+
+    @Test
+    fun `future only purchase never appears as a previous or current price`() {
+        val k = Kitchen()
+        val fresh = k.ledger.createIngredient("زعفران", Dimension.MASS)
+        k.ledger.recordPrice(k.perKilo(fresh, N2, 90_000_000), priceId = "future-spice")
+        val detail = assertNotNull(IngredientScreens.detail(k.state, fresh, D15, toman))
+        assertNull(detail.unitPrice)
+        assertNull(detail.previousUnitPrice)
+        assertNull(IngredientScreens.rows(k.state, D15, toman).single { it.id == fresh }.priceEffectiveFrom)
+    }
+
 }

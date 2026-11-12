@@ -144,6 +144,11 @@ data class QuickChannel(
     val remainingNegative: Boolean,
     val foodCostPercent: String?,
     val priceForSameRemaining: String?,
+    val channel: SalesChannel,
+    /** After VAT and discounts, before the commission counted in [cost]. */
+    val netSales: String,
+    val margin: String?,
+    val markup: String?,
 )
 
 data class QuickResult(
@@ -183,7 +188,7 @@ data class QuickResult(
     val statusLabel: String,
     val incompleteRows: Int,
     val extras: List<QuickExtraResult>,
-    /** The restaurant, takeaway and online side by side; empty when they would all show the same. */
+    /** Available channels, starting with in-person; empty when there is no sale to evaluate. */
     val channels: List<QuickChannel>,
     /** The figures as numbers, for comparing a dish before and after a change; null when not shown. */
     val totalCostRials: BigDecimal? = null,
@@ -647,6 +652,10 @@ object QuickCalculator {
             remainingNegative = sale.remaining.signum() < 0,
             foodCostPercent = sale.foodCostPercent?.let { Numbers.percent(it) },
             priceForSameRemaining = same?.let { money.full(it) },
+            channel = sale.channel,
+            netSales = money.full(sale.netSales),
+            margin = sale.marginPercent?.let { Numbers.percent(it) },
+            markup = sale.markupPercent?.let { Numbers.percent(it) },
         )
         val list = mutableListOf(row(dineIn, null))
         if (extras.any { it.takeawayOnly }) {
@@ -658,7 +667,7 @@ object QuickCalculator {
                 list += row(pricer.sale(cost, SalesChannel.ONLINE, price), pricer.priceLeaving(dineIn.remaining, cost, SalesChannel.ONLINE))
             }
         }
-        return if (list.size > 1) list else emptyList()
+        return list
     }
 
     /** ‎+۱۲٬۰۰۰ تومان or ‎-۱۲٬۰۰۰ تومان: what is left shows its sign, not only its color. */

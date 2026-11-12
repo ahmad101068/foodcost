@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ScrollState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.heightIn
@@ -121,7 +123,9 @@ fun SettingsScreen(
         onPageChange(destination)
     }
 
-    BackHandler(enabled = page != SettingsPage.OVERVIEW) { navigateTo(SettingsPage.OVERVIEW) }
+    fun parentPage() = if (page == SettingsPage.SECTIONS) SettingsPage.PRICING else SettingsPage.OVERVIEW
+    val pageScroll = rememberSaveable(page, saver = ScrollState.Saver) { ScrollState(0) }
+    BackHandler(enabled = page != SettingsPage.OVERVIEW) { navigateTo(parentPage()) }
     LaunchedEffect(backupFirst, actions.integrity.verified) {
         if (!actions.integrity.verified || (backupFirst && page == SettingsPage.OVERVIEW)) {
             onPageChange(SettingsPage.BACKUP)
@@ -157,14 +161,14 @@ fun SettingsScreen(
     TabScaffold(title = pageTitle, nav = nav, actions = actions, navigationIcon = {
         if (page != SettingsPage.OVERVIEW) {
             // This target stays still while the keyboard resizes the scrollable form below it.
-            IconButton(onClick = { navigateTo(SettingsPage.OVERVIEW) }, modifier = Modifier.testTag("settings-back")) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "بازگشت به تنظیمات")
+            IconButton(onClick = { navigateTo(parentPage()) }, modifier = Modifier.testTag("settings-back")) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = if (page == SettingsPage.SECTIONS) "بازگشت به قیمت‌گذاری" else "بازگشت به تنظیمات")
             }
         }
     }) { padding ->
         Column(
             Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(pageScroll).testTag("settings-page-${page.name.lowercase()}")
                 // Let the last Save control scroll clear of the previous save snackbar and system bar.
                 .padding(start = 12.dp, top = 8.dp, end = 12.dp, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -177,7 +181,6 @@ fun SettingsScreen(
                     }
                     SettingsDestination("قیمت‌گذاری", "روش و دامنه اعمال قیمت", "pricing") { navigateTo(SettingsPage.PRICING) }
                     SettingsDestination("هزینه‌ها و فروش آنلاین", "سربار، کمیسیون و تخفیف", "costs") { navigateTo(SettingsPage.COSTS) }
-                    SettingsDestination("بخش‌های منو", "ساخت و دسته‌بندی بخش‌ها", "sections") { navigateTo(SettingsPage.SECTIONS) }
                     SettingsDestination("واحد پول", Labels.currency(currency), "currency") { navigateTo(SettingsPage.CURRENCY) }
                     SettingsDestination("پشتیبان و بازیابی", "حفاظت از اطلاعات", "backup") { navigateTo(SettingsPage.BACKUP) }
                     SettingsDestination("راهنما و درباره برنامه", "معنی واژه‌ها و روش کار با برنامه", "help") { navigateTo(SettingsPage.HELP) }
@@ -204,6 +207,7 @@ fun SettingsScreen(
                     }
                     if (!generalPricingEnabled) Text("برای غذاها و بخش‌های بدون قانون اختصاصی، آخرین روش عمومی ذخیره‌شده به کار می‌رود.", style = MaterialTheme.typography.bodySmall)
                 }
+                SettingsDestination("بخش‌های منو", "${Persian.digits(input.categories.count { it.name.isNotBlank() })} بخش · دسته‌بندی و قانون قیمت هر بخش", "sections") { navigateTo(SettingsPage.SECTIONS) }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("روش قیمت‌گذاری (حالت عمومی)", style = MaterialTheme.typography.titleSmall)
                 // The three are ways to put the same price: switching turns the number into its equivalent.
@@ -231,20 +235,6 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
-                if (input.categories.isNotEmpty()) {
-                    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("قیمت‌گذاری بخش‌های منو", style = MaterialTheme.typography.titleSmall)
-                            Text(if (generalPricingEnabled) "با انتخاب حالت بخش‌های منو فعال می‌شود" else "قانون هر بخش در تنظیمات بخش‌های منو", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            input.categories.filter { it.name.isNotBlank() }.forEach { category ->
-                                Row(Modifier.fillMaxWidth()) {
-                                    Text(category.name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(if (category.useGeneral) "روش عمومی" else "${Persian.digits(category.percent)}٪", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                        }
-                    }
                 }
                 SettingsNotice("مقادیر قبلی حفظ می‌شوند؛ فقط حالت انتخاب‌شده اعمال می‌شود.")
                 TextButton(onClick = { pricingDetails = !pricingDetails }, modifier = Modifier.testTag("pricing-tax-details")) {
@@ -284,11 +274,11 @@ fun SettingsScreen(
                 }
                 Text(
                     "بخش‌های منو را اینجا بسازید تا غذاها را در آن‌ها بگذارید. هر بخش می‌تواند فودکاست هدف، حاشیهٔ سود یا مارک‌آپ مخصوص داشته باشد، " +
-                        "یا مثل بقیه با روش عمومی بالا قیمت بخورد. برای غذای بدون بخش هم روش عمومی بالا اعمال می‌شود.",
+                        "یا مثل بقیه با روش عمومی در قیمت‌گذاری قیمت بخورد. برای غذای بدون بخش هم روش عمومی در قیمت‌گذاری اعمال می‌شود.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 if (!sectionPricingEnabled) {
-                    SettingsNotice("قیمت‌گذاری بخش‌ها در حالت عمومی غیرفعال است؛ نام بخش‌ها قابل ویرایش است و درصدهای قبلی حفظ می‌شوند.")
+                    SettingsNotice("در حالت عمومی، قانون قیمت بخش‌ها غیرفعال است؛ نام بخش‌ها قابل ویرایش و درصدهای قبلی محفوظ‌اند.")
                 }
                 input.categories.forEachIndexed { i, category ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -329,7 +319,7 @@ fun SettingsScreen(
                     }
                     when {
                         category.useGeneral -> Text(
-                            "این بخش مثل بقیهٔ غذاها با روش عمومی بالا قیمت می‌خورد و برای دسته‌بندی غذاهاست.",
+                            "این بخش مثل بقیهٔ غذاها با روش عمومی در قیمت‌گذاری قیمت می‌خورد و برای دسته‌بندی غذاهاست.",
                             style = MaterialTheme.typography.bodySmall,
                         )
                         category.method == MethodChoice.FOOD_COST ->
