@@ -76,6 +76,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.isSpecified
 import ir.foodcost.app.ui.theme.displayColors
 import ir.foodcost.app.ui.theme.statusColors
@@ -262,12 +263,12 @@ fun DisplayPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope
 }
 
 @Composable
-fun StatusChip(status: PriceStatus, label: String, modifier: Modifier = Modifier) {
+fun StatusChip(status: PriceStatus, label: String, modifier: Modifier = Modifier, prominent: Boolean = false) {
     val colors = statusColors(status)
     Surface(modifier = modifier, shape = RoundedCornerShape(50), color = colors.container, contentColor = colors.content) {
-        Row(Modifier.padding(horizontal = 9.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (status in listOf(PriceStatus.OK, PriceStatus.NEAR, PriceStatus.UNDER)) Icon(if (status == PriceStatus.OK) ReferenceIcons.check else ReferenceIcons.warning, contentDescription = null, modifier = Modifier.size(14.dp))
-            Text(label, style = MaterialTheme.typography.labelLarge)
+        Row(Modifier.padding(horizontal = if (prominent) 14.dp else 9.dp, vertical = if (prominent) 4.dp else 3.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (!prominent && status in listOf(PriceStatus.OK, PriceStatus.NEAR, PriceStatus.UNDER)) Icon(if (status == PriceStatus.OK) ReferenceIcons.check else ReferenceIcons.warning, contentDescription = null, modifier = Modifier.size(14.dp))
+            Text(label, style = if (prominent) MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp) else MaterialTheme.typography.labelLarge)
         }
     }
 }

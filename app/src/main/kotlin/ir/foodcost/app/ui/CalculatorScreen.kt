@@ -228,6 +228,7 @@ fun CalculatorScreen(
                 money,
                 compact = WindowInsets.isImeVisible,
                 dataUnreliable = actions.unreadableRows > 0,
+                vatNote = if (state.pricing.menuPriceIncludesVat) "قیمت منو با مالیات ${Persian.digits(state.pricing.vatPercent.stripTrailingZeros().toPlainString())}٪" else "قیمت منو بدون مالیات",
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                 onExplain = { explaining = listOf(it) },
             )
@@ -323,7 +324,7 @@ fun CalculatorScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(QuickCalculator.portionsLabel(input), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                             Surface(
-                                color = MaterialTheme.colorScheme.tertiaryContainer, shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.tertiaryContainer, contentColor = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(10.dp),
                                 modifier = Modifier.focusProperties { canFocus = false }.clickable {
                                     revealBlank = true
                                     val blank = input.rows.indexOfLast { it.isBlank }
@@ -343,7 +344,7 @@ fun CalculatorScreen(
                             Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(9.dp)).padding(horizontal = 7.dp, vertical = 3.dp)) {
                                 Spacer(Modifier.width(22.dp))
                                 Text("نام ماده", Modifier.weight(1.3f), style = MaterialTheme.typography.labelMedium)
-                                Text("قیمت / واحد خرید", Modifier.weight(1.15f), style = MaterialTheme.typography.labelMedium)
+                                Text(result.rows.map { it.priceLabel }.distinct().singleOrNull()?.replace("قیمت هر ", "قیمت / ") ?: "قیمت / واحد خرید", Modifier.weight(1.15f), style = MaterialTheme.typography.labelMedium)
                                 Text(if (input.rows.all { it.uom == Uom.GRAM }) "مقدار / گرم" else "مقدار", Modifier.weight(.8f), style = MaterialTheme.typography.labelMedium)
                             }
                         }
@@ -485,7 +486,7 @@ fun CalculatorScreen(
  * has other costs, the cost with them and what is left after them come under those.
  */
 @Composable
-private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, dataUnreliable: Boolean, modifier: Modifier = Modifier, onExplain: (String) -> Unit) {
+private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, dataUnreliable: Boolean, vatNote: String, modifier: Modifier = Modifier, onExplain: (String) -> Unit) {
     val accents = ir.foodcost.app.ui.theme.dashboardColors()
     val navy = accents.sales.content
     val green = MaterialTheme.colorScheme.tertiary
@@ -556,14 +557,18 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
                             FitText(percent, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, fontSize = 36.sp, lineHeight = 46.sp, textAlign = TextAlign.Center), color = priceColors.content, modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp).clickable(onClickLabel = "توضیح فودکاست", onClick = { onExplain(Glossary.FOOD_COST) }).testTag("food-cost"))
                         }
                     }
-                    if (result.hasLines) StatusChip(result.status, result.statusLabel)
+                    if (result.hasLines) StatusChip(result.status, result.statusLabel, prominent = true)
                 }
             }
             if (!compact) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    result.suggested?.let { Text("${result.suggestedLabel}: $it", style = MaterialTheme.typography.titleSmall, modifier = Modifier.testTag("dashboard-suggestion")) }
-                    Text(result.leftOutNote ?: result.raise?.let { "قیمت فعلی باید $it بیشتر شود" } ?: if (result.netSales == null) "${result.method}، ${result.miscNote}" else "فروش خالص، پس از کسر مالیات محاسبه می‌شود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        result.suggested?.let { FitText("${result.suggestedLabel}: $it", style = MaterialTheme.typography.titleSmall, modifier = Modifier.testTag("dashboard-suggestion")) }
+                        Text(result.leftOutNote ?: result.raise?.let { "قیمت فعلی باید $it بیشتر شود" } ?: if (result.netSales == null) "${result.method}، ${result.miscNote}" else "فروش خالص پس از کسر مالیات", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    androidx.compose.material3.VerticalDivider(Modifier.height(30.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    Text(vatNote, Modifier.width(86.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (result.incompleteRows > 0) {
                     Text("${Persian.digits(result.incompleteRows)} ردیف کامل نیست و در جمع نیامده است.", style = MaterialTheme.typography.bodySmall, color = orange)
@@ -945,8 +950,8 @@ private fun RowCard(
     @Composable
     fun removeButton() {
         if (!row.isBlank) {
-            IconButton(onClick = onRemove, modifier = Modifier.size(22.dp).focusProperties { canFocus = false }.testTag("row-$index-remove")) {
-                Icon(ReferenceIcons.trash, contentDescription = "حذف ردیف ${Persian.digits(index + 1)}")
+            IconButton(onClick = onRemove, modifier = Modifier.size(22.dp).background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(6.dp)).focusProperties { canFocus = false }.testTag("row-$index-remove")) {
+                Icon(ReferenceIcons.trash, contentDescription = "حذف ردیف ${Persian.digits(index + 1)}", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
             Spacer(Modifier.width(22.dp))
