@@ -219,7 +219,7 @@ fun AddButton(text: String, onClick: () -> Unit) {
 /** An add action in the header leaves the list's entire touch area clear. */
 @Composable
 fun HeaderAddButton(text: String, onClick: () -> Unit) {
-    FilledTonalButton(onClick = onClick, shape = RoundedCornerShape(14.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
+    Button(onClick = onClick, shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
         Icon(Icons.Filled.Add, contentDescription = null)
         Spacer(Modifier.width(4.dp))
         Text(text, style = MaterialTheme.typography.labelLarge)
@@ -455,9 +455,10 @@ internal object GroupDigits : VisualTransformation {
 }
 
 @Composable
-fun SearchField(query: String, onQueryChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) {
+fun SearchField(query: String, onQueryChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, onOptions: (() -> Unit)? = null) {
     ReferenceField(query, onQueryChange, placeholder, modifier.padding(vertical = 4.dp), height = 40.dp,
-        leading = { Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp)) })
+        leading = { Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp)) },
+        trailing = onOptions?.let { action -> { Icon(ReferenceIcons.sliders, contentDescription = "فیلتر و دسته‌بندی", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp).clickable(onClick = action)) } })
 }
 
 /** A choice among a few short options, side by side. */

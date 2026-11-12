@@ -9,6 +9,6 @@ for f in $(adb shell run-as "$APP" ls files/reference-screenshots | tr -d '\r');
   adb exec-out run-as "$APP" cat "files/reference-screenshots/$f" > "reference-screenshots/$f"
 done
 grep -qE '^OK \([0-9]+ tests?\)' reference-preview.log
-for number in 01 02 03 04 05 06; do
+for number in 01 02 03 04 05 06 07 08 09; do
   compgen -G "reference-screenshots/$number-*.png" > /dev/null
 done

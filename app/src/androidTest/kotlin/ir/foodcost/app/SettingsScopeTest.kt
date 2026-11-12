@@ -65,6 +65,7 @@ class SettingsScopeTest {
             waitForSettings()
             if (!exists("settings-overview")) clickTag("settings-back")
 
+            assertEquals(false, exists("settings-section-sections"))
             clickTag("settings-section-pricing")
             waitForTag("general-pricing-percent")
             rule.onNodeWithTag("general-pricing-percent").assertIsNotEnabled()
@@ -75,14 +76,13 @@ class SettingsScopeTest {
             waitForScope(PricingScope.GENERAL)
             assertSavedRates()
 
-            clickTag("settings-back")
             clickTag("settings-section-sections")
             waitForTag("category-0-percent")
             rule.onNodeWithTag("category-0-percent").assertIsNotEnabled().assertTextContains("30")
             rule.onNodeWithTag("category-0-name").assertIsEnabled()
 
             clickTag("settings-back")
-            clickTag("settings-section-pricing")
+            waitForTag("general-pricing-percent")
             clickTag("pricing-scope-sections")
             rule.onNodeWithTag("general-pricing-percent").assertIsNotEnabled().assertTextContains("35")
             // The previous success snackbar must not intercept this real touchscreen tap.
@@ -90,14 +90,13 @@ class SettingsScopeTest {
             waitForScope(PricingScope.MENU_SECTIONS)
             assertSavedRates()
 
-            clickTag("settings-back")
             clickTag("settings-section-sections")
             waitForTag("category-0-percent")
             rule.onNodeWithTag("category-0-percent").assertIsEnabled().assertTextContains("30")
 
             // A draft in one section must not be applied by saving a different section.
             clickTag("settings-back")
-            clickTag("settings-section-pricing")
+            waitForTag("general-pricing-percent")
             clickTag("pricing-scope-general")
             scrolled(rule.onNodeWithTag("general-pricing-percent")).performTextReplacement("invalid")
             clickTag("settings-back")

@@ -1,7 +1,7 @@
 name: Reference visual preview
 on:
   push:
-    branches: ["fix/reference-visual-match"]
+    branches: ["fix/reference-visual-match", "feat/grouped-foodcost-designs"]
   workflow_dispatch:
 permissions:
   contents: read

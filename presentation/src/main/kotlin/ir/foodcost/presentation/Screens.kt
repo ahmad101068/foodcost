@@ -138,6 +138,7 @@ data class IngredientRow(
     val priceProblem: String?,
     val yieldLabel: String?,
     val priceDate: String?,
+    val priceEffectiveFrom: LocalDate? = null,
 )
 
 data class PriceRow(
@@ -169,7 +170,14 @@ data class IngredientDetail(
     val purchaseUnits: List<Uom>,
     val input: IngredientInput,
     val archived: Boolean,
-)
+) {
+    /** The last usable, nonvoided purchase preceding today's in-force record; future quotes are excluded. */
+    val previousUnitPrice: String?
+        get() {
+            val current = prices.indexOfFirst { it.inForce }
+            return if (current < 0) null else prices.drop(current + 1).firstOrNull { !it.voided && it.unitPrice != null }?.unitPrice
+        }
+}
 
 object IngredientScreens {
     fun rows(state: LedgerState, date: LocalDate, money: MoneyFormat, query: String = ""): List<IngredientRow> {
@@ -190,6 +198,7 @@ object IngredientScreens {
                     priceProblem = priceProblem(unit),
                     yieldLabel = yieldPercent(ingredient)?.let { "بازدهی ${Numbers.percent(it)}" },
                     priceDate = (unit as? UnitCostResult.Found)?.price?.effectiveFrom?.let { JalaliDate.of(it).format() },
+                    priceEffectiveFrom = (unit as? UnitCostResult.Found)?.price?.effectiveFrom,
                 )
             }
             .sortedWith(compareBy(names) { it.name })

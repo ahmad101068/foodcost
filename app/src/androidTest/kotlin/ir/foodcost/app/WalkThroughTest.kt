@@ -131,15 +131,18 @@ class WalkThroughTest {
 
         // A takeaway box of 15,000 toman: one tap adds it, and takeaway shows beside the restaurant.
         openCalculatorDetails()
+        clickTag("extra-add-menu")
         click("ظرف و بسته‌بندی")
         waitForFocus("extra-0-amount")
         typeTag("extra-0-amount", "15000")
         rule.onNodeWithTag("extra-0-amount").performImeAction()
         waitFor("بیرون‌بر")
+        clickTag("channel-tab-1")
         waitForPart("۱۹۳٬۶۲۲")
         waitForFigure("gross-profit", "۲۰۸٬۶۲۲") // the box is not used at the table
-        show("channel-remaining")
+        show("channel-1-remaining")
         shot("06-takeaway")
+        clickTag("channel-tab-0")
 
         // A new dish of new ingredients changes nothing saved, so it is saved at once.
         typeTag("dish-name", "چلوکباب کوبیده")
@@ -151,7 +154,7 @@ class WalkThroughTest {
         click("غذاها")
         waitFor("چلوکباب کوبیده")
         waitFor("خیلی پایین")
-        waitFor("۱ غذا باید گران‌تر شود")
+        waitForFigure("food-filter-needs", "۱")
         shot("08-dishes")
 
         // The saved dish opens in the calculator. A meat price with a zero too many is flagged at once.
@@ -167,8 +170,10 @@ class WalkThroughTest {
         )) { "Saved dish is not readable by the quick calculator" }
         // A real touch must open the card while the previous save feedback is still visible.
         waitForTag("food-${savedDish.id.value}")
-        scrolled(rule.onNodeWithTag("food-${savedDish.id.value}"))
-            .performClick()
+        if (rule.onAllNodesWithTag("food-open-${savedDish.id.value}").fetchSemanticsNodes().isEmpty()) {
+            scrolled(rule.onNodeWithTag("food-${savedDish.id.value}")).performClick()
+        }
+        scrolled(rule.onNodeWithTag("food-open-${savedDish.id.value}")).performClick()
         waitForTag("row-0-price")
         replaceTag("row-0-price", "16000000")
         waitForPart("۱۰ برابر قیمت قبلی")
@@ -194,18 +199,20 @@ class WalkThroughTest {
         // LazyColumn only exposes on-screen cards to the semantics tree. Scroll to the saved
         // meat ingredient before asserting its price; alphabetical order puts rice first.
         rule.onNodeWithTag("ingredients-list").performScrollToNode(hasText("گوشت"))
-        waitFor("هر کیلو ۱٬۶۰۰٬۰۰۰ تومان")
+        val meatId = container.state.value!!.ingredients.values.first { it.name == "گوشت" }.id.value
+        waitForFigure("ingredient-price-$meatId", "۱٬۶۰۰٬۰۰۰")
         shot("12-ingredients")
-        rule.onNodeWithTag("ingredients-list").performScrollToNode(hasContentDescription("قیمت تازهٔ پیاز"))
-        rule.onNodeWithContentDescription("قیمت تازهٔ پیاز").performClick()
+        val onionId = expandIngredient("پیاز")
+        scrolled(rule.onNodeWithTag("ingredient-reprice-$onionId")).performClick()
         replaceTag("quick-price", "90000")
         click("ذخیره")
-        waitFor("هر کیلو ۹۰٬۰۰۰ تومان")
+        waitForFigure("ingredient-price-$onionId", "۹۰٬۰۰۰")
         shot("13-quick-price")
 
         // The detailed screens are still there: a purchase by the bag, and plain rice as a preparation.
         rule.onNodeWithTag("ingredients-list").performScrollToNode(hasText("برنج"))
-        click("برنج")
+        val riceId = expandIngredient("برنج")
+        scrolled(rule.onNodeWithTag("ingredient-history-$riceId")).performClick()
         click("قیمت تازه")
         replace("مقدار خرید", "10")
         type("مبلغ کل", "3600000")
@@ -259,7 +266,6 @@ class WalkThroughTest {
         clickTag("settings-save-pricing")
         waitForPricing { it.scope == PricingScope.MENU_SECTIONS }
         waitForPart("تنظیمات ذخیره شد")
-        clickTag("settings-back")
         clickTag("settings-section-sections")
 
         // Main dishes aim at a 30% food cost; a tap on the section puts the keyboard on its target.
@@ -274,6 +280,8 @@ class WalkThroughTest {
 
         // Online sales with a 20% commission: the online column joins the restaurant and takeaway.
         clickTag("settings-back")
+        waitForTag("general-pricing-percent")
+        clickTag("settings-back")
         clickTag("settings-section-costs")
         type("کمیسیون سامانه", "20")
         clickTag("settings-save-costs")
@@ -283,7 +291,8 @@ class WalkThroughTest {
         openCalculatorDetails()
         waitFor("آنلاین")
         quiet()
-        show("channel-remaining")
+        clickTag("channel-tab-2")
+        show("channel-2-remaining")
         shot("19-online")
 
         // The koobideh put among the main dishes is priced at their 30%: 1,340,000 toman.
@@ -317,6 +326,7 @@ class WalkThroughTest {
     private fun largeText() {
         try {
             if (rule.onAllNodesWithText("بعداً").fetchSemanticsNodes().isNotEmpty()) click("بعداً")
+            clickTag("channel-tab-0")
             textSize("1.5")
             show("cost")
             shot("24-larger-text")
@@ -328,6 +338,7 @@ class WalkThroughTest {
             show("channel-remaining")
             shot("27-largest-text-channels")
             for (index in 0..2) {
+                clickTag("channel-tab-$index")
                 for (field in listOf("price", "cost", "remaining")) {
                     val tag = if (index == 0 && field == "remaining") "channel-remaining" else "channel-$index-$field"
                     val node = rule.onNodeWithTag(tag).performScrollTo().assertIsDisplayed()
@@ -419,19 +430,31 @@ class WalkThroughTest {
         typeTag("row-$index-qty", qty)
     }
 
+    private fun expandIngredient(name: String): String {
+        val id = container.state.value!!.ingredients.values.first { it.name == name && !it.archived }.id.value
+        rule.onNodeWithTag("ingredients-list").performScrollToNode(hasTestTag("ingredient-$id"))
+        if (rule.onAllNodesWithTag("ingredient-history-$id").fetchSemanticsNodes().isEmpty()) {
+            scrolled(rule.onNodeWithTag("ingredient-$id")).performClick()
+        }
+        waitForTag("ingredient-history-$id")
+        return id
+    }
+
     private fun settingsOverview() {
         click("تنظیمات")
         rule.waitUntil(timeoutMillis = 15_000) {
             rule.onAllNodesWithTag("settings-overview").fetchSemanticsNodes().isNotEmpty() ||
                 rule.onAllNodesWithTag("settings-back").fetchSemanticsNodes().isNotEmpty()
         }
-        if (rule.onAllNodesWithTag("settings-overview").fetchSemanticsNodes().isEmpty()) clickTag("settings-back")
+        repeat(2) {
+            if (rule.onAllNodesWithTag("settings-overview").fetchSemanticsNodes().isEmpty()) clickTag("settings-back")
+        }
         waitForTag("settings-overview")
         shot("16a-settings-overview")
     }
 
     private fun openCalculatorDetails() {
-        if (rule.onAllNodesWithTag("channel-remaining").fetchSemanticsNodes().isEmpty()) {
+        if (rule.onAllNodesWithTag("calculator-extras").fetchSemanticsNodes().isEmpty()) {
             clickTag("calculator-details-toggle")
         }
     }

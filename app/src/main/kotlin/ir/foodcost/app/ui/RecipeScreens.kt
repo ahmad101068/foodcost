@@ -1,6 +1,12 @@
 package ir.foodcost.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -92,122 +98,90 @@ import java.time.LocalDate
  * The dishes tab: every plate with what it costs, its menu price, the suggested price and whether
  * the price still covers it, the ones that need a new price first; then the preparations.
  */
+private enum class FoodFilter { ALL, NEEDS_PRICE, SUITABLE }
+
 @Composable
 fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav: Navigator, actions: AppActions) {
     var query by rememberSaveable { mutableStateOf("") }
     var creating by rememberSaveable { mutableStateOf(false) }
     var categoryFilter by rememberSaveable { mutableStateOf<String?>(null) }
     var creatingBase by rememberSaveable { mutableStateOf(false) }
+    var filter by rememberSaveable { mutableStateOf(FoodFilter.ALL) }
+    var sortByName by rememberSaveable { mutableStateOf(false) }
+    var options by remember { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<Pair<RecipeId, String>?>(null) }
     val model = remember(state, money, today) { DishesScreen.build(state, today, money) }
+    var expandedId by rememberSaveable { mutableStateOf(model.plates.firstOrNull()?.recipeId?.value) }
+    val dataUnreliable = actions.unreadableRows > 0
     val categories = model.plates.mapNotNull { state.recipes[it.recipeId]?.category?.trim()?.takeIf(String::isNotEmpty) }
         .distinct().sortedWith(Persian.nameOrder())
     val activeCategory = categoryFilter?.takeIf { it in categories }
     LaunchedEffect(categories) { if (categoryFilter != null && activeCategory == null) categoryFilter = null }
-    val plates = model.plates.filter {
-        Persian.matches(it.name, query) && (activeCategory == null || state.recipes[it.recipeId]?.category?.trim() == activeCategory)
-    }
-    val preparations = if (activeCategory == null) model.preparations.filter { Persian.matches(it.name, query) } else emptyList()
-    val dataUnreliable = actions.unreadableRows > 0
-    val colors = foodSectionColors()
-    val summaryStatus = when {
-        model.plates.any { it.status == PriceStatus.UNDER } -> PriceStatus.UNDER
-        model.plates.any { it.status == PriceStatus.NEAR } -> PriceStatus.NEAR
-        else -> PriceStatus.OK
-    }
-    TabScaffold(
-        title = "غذاها",
-        nav = nav,
-        actions = actions,
-        topActions = {
-            HeaderAddButton("افزودن غذا", onClick = { creating = true })
-        },
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier.padding(padding).testTag("food-list"),
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            item { SearchField(query, { query = it }, "جستجوی غذا") }
+    val activeFilter = if (dataUnreliable) FoodFilter.ALL else filter
+    fun needsPrice(row: MenuRow) = row.status == PriceStatus.UNDER || row.status == PriceStatus.NEAR
+    val matching = model.plates.filter { Persian.matches(it.name, query) &&
+        (activeCategory == null || state.recipes[it.recipeId]?.category?.trim() == activeCategory) }
+    val plates = matching.filter { when (activeFilter) {
+        FoodFilter.ALL -> true; FoodFilter.NEEDS_PRICE -> needsPrice(it); FoodFilter.SUITABLE -> it.status == PriceStatus.OK
+    } }.let { if (sortByName) it.sortedWith(compareBy(Persian.nameOrder()) { row -> row.name }) else it }
+    val groups = plates.groupBy { state.recipes[it.recipeId]?.category?.trim()?.takeIf(String::isNotEmpty) ?: "بدون بخش" }
+        .toSortedMap(Persian.nameOrder())
+    val preparations = if (activeCategory == null && activeFilter == FoodFilter.ALL)
+        model.preparations.filter { Persian.matches(it.name, query) } else emptyList()
+    TabScaffold(title = "غذاها", nav = nav, actions = actions,
+        topActions = { HeaderAddButton("افزودن غذا", onClick = { creating = true }) }) { padding ->
+        LazyColumn(Modifier.padding(padding).testTag("food-list"),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp)) {
             item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MenuSummaryStat("غذا", Persian.digits(model.plates.size), colors, Modifier.weight(1f))
-                    MenuSummaryStat("دستور پایه", Persian.digits(model.preparations.size), colors, Modifier.weight(1f))
-                    MenuSummaryStat("نیازمند اصلاح", if (dataUnreliable) "—" else Persian.digits(model.needsRepricing), colors, Modifier.weight(1f),
-                        status = if (!dataUnreliable && model.needsRepricing > 0) summaryStatus else null)
-                }
-            }
-            if (categories.isNotEmpty()) {
-                item {
-                    Row(
-                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        FilterChip(
-                            selected = activeCategory == null,
-                            onClick = { categoryFilter = null },
-                            label = { Text("همه") },
-                            modifier = Modifier.testTag("food-filter-all"),
-                            shape = RoundedCornerShape(50),
-                            colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = MaterialTheme.colorScheme.onPrimary),
-                        )
+                Box {
+                    SearchField(query, { query = it }, "جستجوی غذا", onOptions = { options = true })
+                    DropdownMenu(options, onDismissRequest = { options = false }) {
+                        DropdownMenuItem(text = { Text(if (sortByName) "مرتب‌سازی بر اساس وضعیت قیمت" else "مرتب‌سازی بر اساس نام") },
+                            onClick = { sortByName = !sortByName; options = false }, modifier = Modifier.testTag("food-sort"))
+                        DropdownMenuItem(text = { Text("همهٔ بخش‌ها") }, onClick = { categoryFilter = null; options = false }, modifier = Modifier.testTag("food-filter-all-sections"))
                         categories.forEach { category ->
-                            FilterChip(
-                                selected = category == activeCategory,
-                                onClick = { categoryFilter = category },
-                                label = { Text(category) },
-                                modifier = Modifier.testTag("food-filter-category-" + category),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = MaterialTheme.colorScheme.onPrimary),
-                            )
+                            DropdownMenuItem(text = { Text(category) }, onClick = { categoryFilter = category; options = false },
+                                modifier = Modifier.testTag("food-filter-category-$category"))
                         }
                     }
                 }
             }
-            if (plates.isEmpty() && preparations.isEmpty()) {
-                item {
-                    when {
-                        model.isEmpty -> EmptyState(
-                            title = "هنوز غذایی ذخیره نشده",
-                            body = "یک غذا را در ماشین‌حساب حساب و ذخیره کنید تا بها، قیمت پیشنهادی و وضعیت قیمتش اینجا دیده شود.",
-                            action = "رفتن به ماشین‌حساب",
-                            onAction = { nav.tab(Tab.CALC) },
-                        )
-                        activeCategory != null -> EmptyState(
-                            title = "در این بخش غذایی با این جستجو پیدا نشد",
-                            body = "جستجو را تغییر دهید یا همهٔ بخش‌ها را نمایش دهید.",
-                            action = "نمایش همهٔ غذاها",
-                            onAction = { categoryFilter = null; query = "" },
-                        )
-                        else -> EmptyState(title = "غذایی با این نام پیدا نشد", body = "نام دیگری را جستجو کنید.")
+            item {
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    CountChoice("همه", Persian.digits(matching.size), activeFilter == FoodFilter.ALL,
+                        Modifier.weight(1f).testTag("food-filter-all")) { filter = FoodFilter.ALL }
+                    CountChoice("نیازمند اصلاح", if (dataUnreliable) "—" else Persian.digits(matching.count(::needsPrice)), activeFilter == FoodFilter.NEEDS_PRICE,
+                        Modifier.weight(1.45f).testTag("food-filter-needs"), enabled = !dataUnreliable, tone = PriceStatus.UNDER) { filter = FoodFilter.NEEDS_PRICE }
+                    CountChoice("مناسب", if (dataUnreliable) "—" else Persian.digits(matching.count { it.status == PriceStatus.OK }), activeFilter == FoodFilter.SUITABLE,
+                        Modifier.weight(1f).testTag("food-filter-suitable"), enabled = !dataUnreliable, tone = PriceStatus.OK) { filter = FoodFilter.SUITABLE }
+                }
+            }
+            activeCategory?.let { category -> item {
+                TextButton(onClick = { categoryFilter = null }) { Text("بخش: $category ×") }
+            } }
+            if (plates.isEmpty() && preparations.isEmpty()) item {
+                if (model.isEmpty) EmptyState("هنوز غذایی ذخیره نشده", "غذا را در ماشین‌حساب حساب و ذخیره کنید تا بها و وضعیت قیمتش اینجا دیده شود.", action = "رفتن به ماشین‌حساب", onAction = { nav.tab(Tab.CALC) })
+                else EmptyState("غذایی با این فیلتر پیدا نشد", "جستجو، وضعیت قیمت یا بخش منو را تغییر دهید.", action = "نمایش همهٔ غذاها", onAction = { filter = FoodFilter.ALL; categoryFilter = null; query = "" })
+            }
+            groups.forEach { (category, rows) ->
+                item(key = "heading-$category") { GroupHeading(category, rows.size, "غذا") }
+                itemsIndexed(rows, key = { _, row -> "food-${row.recipeId.value}" }) { index, row ->
+                    GroupedRow(index == 0, index == rows.lastIndex) {
+                        GroupedPlate(row, money, expandedId == row.recipeId.value, dataUnreliable,
+                            onToggle = { expandedId = row.recipeId.value.takeUnless { expandedId == it } },
+                            onOpen = { nav.open(dishScreen(state, row.recipeId, today, money)) },
+                            onDetails = { nav.open(Screen.Recipe(row.recipeId.value)) },
+                            onDelete = { deleteTarget = row.recipeId to row.name })
                     }
                 }
             }
-            if (!dataUnreliable && query.isBlank() && activeCategory == null && (model.needsRepricing > 0 || model.allCovered)) {
-                item { PriceVerdict(model.needsRepricing, summaryStatus) }
-            }
-            if (plates.isNotEmpty()) {
-                items(plates, key = { it.recipeId.value }) { row ->
-                    PlateCard(
-                        row,
-                        dataUnreliable = dataUnreliable,
-                        onClick = { nav.open(dishScreen(state, row.recipeId, today, money)) },
-                        onDelete = { deleteTarget = row.recipeId to row.name },
-                    )
-                }
-            }
             if (preparations.isNotEmpty()) {
-                item { SectionTitle("دستورهای پایه", Modifier.padding(start = 4.dp)) }
-                items(preparations, key = { it.id.value }) { row ->
-                    PreparationCard(row, dataUnreliable = dataUnreliable) { nav.open(Screen.Recipe(row.id.value)) }
+                item { GroupHeading("دستورهای پایه", preparations.size, "دستور") }
+                items(preparations, key = { "prep-${it.id.value}" }) { row ->
+                    PreparationCard(row, dataUnreliable) { nav.open(Screen.Recipe(row.id.value)) }
                 }
             }
-            item {
-                TextButton(onClick = { creatingBase = true }) {
-                    Text("دستور پایه (برای ترکیبات مشترک)")
-                }
-            }
-
+            item { TextButton(onClick = { creatingBase = true }, modifier = Modifier.padding(top = 12.dp)) { Text("دستور پایه (برای ترکیبات مشترک)") } }
         }
     }
     deleteTarget?.let { (recipeId, name) ->
@@ -254,24 +228,6 @@ fun RecipesScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav:
 }
 
 @Composable
-private fun MenuSummaryStat(label: String, value: String, colors: FoodSectionColors, modifier: Modifier, status: PriceStatus? = null) {
-    val statusPalette = status?.let { statusColors(it) }
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        color = statusPalette?.container ?: colors.statPrimary,
-    ) {
-        Column(Modifier.heightIn(min = 78.dp).padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                Icon(when (label) { "غذا" -> ReferenceIcons.dishes; "دستور پایه" -> ReferenceIcons.grid; else -> ReferenceIcons.warning }, contentDescription = null, modifier = Modifier.size(18.dp), tint = statusPalette?.content ?: colors.statValue)
-                Text(value, style = MaterialTheme.typography.titleLarge, color = statusPalette?.content ?: colors.statValue)
-            }
-            Text(label, style = MaterialTheme.typography.labelMedium, color = statusPalette?.content ?: colors.statLabel)
-        }
-    }
-}
-
-@Composable
 private fun UnverifiedFinancialData() {
     Text(
         BackupTexts.UNVERIFIED_RESULT,
@@ -280,53 +236,56 @@ private fun UnverifiedFinancialData() {
     )
 }
 
-/** One line on top of the list: how many plates need a new price, or that none does. */
 @Composable
-private fun PriceVerdict(needsRepricing: Int, status: PriceStatus) {
-    val colors = statusColors(status)
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        color = colors.container,
-        contentColor = colors.content,
-    ) {
-        Text(
-            if (needsRepricing > 0) "${Persian.digits(needsRepricing)} غذا باید گران‌تر شود" else "قیمت همهٔ غذاها بهایشان را می‌پوشاند",
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-        )
+private fun GroupedPlate(row: MenuRow, money: MoneyFormat, expanded: Boolean, dataUnreliable: Boolean,
+    onToggle: () -> Unit, onOpen: () -> Unit, onDetails: () -> Unit, onDelete: () -> Unit) {
+    val large = LocalDensity.current.fontScale > 1.25f
+    val palette = statusColors(row.status)
+    @Composable fun status() {
+        if (!dataUnreliable) FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            ListPriceStatus(row.status, row.statusLabel)
+            row.foodCostPercent?.let { Text("فودکاست $it", style = MaterialTheme.typography.bodySmall, color = palette.content) }
+        }
     }
-}
-
-@Composable
-private fun PlateCard(row: MenuRow, dataUnreliable: Boolean, onClick: () -> Unit, onDelete: () -> Unit) {
-    val colors = foodSectionColors()
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().testTag("food-" + row.recipeId.value),
-        shape = RoundedCornerShape(14.dp),
-        colors = whiteCardColors(),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)),
-    ) {
-        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(row.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                if (!dataUnreliable) StatusChip(row.status, row.statusLabel)
-                IconButton(onClick = onDelete, modifier = Modifier.size(24.dp).testTag("delete-dish-${row.recipeId.value}")) {
-                    Icon(ReferenceIcons.trash, contentDescription = "حذف ${row.name}", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-                }
-            }
-            if (dataUnreliable) UnverifiedFinancialData() else {
-                val priceColors = statusColors(row.status)
-                Surface(shape = RoundedCornerShape(10.dp), color = priceColors.container, modifier = Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(9.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        LabeledValue("بهای هر پرس", row.foodCost, Modifier.weight(1f), emphasized = true, amount = true)
-                        androidx.compose.material3.VerticalDivider(Modifier.height(35.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .6f))
-                        Column(Modifier.weight(1f)) {
-                            Text("قیمت فروش", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            AmountText(row.menuPrice ?: "ثبت نشده", MaterialTheme.typography.titleMedium, color = priceColors.content)
-                        }
+    @Composable fun price(modifier: Modifier) {
+        if (dataUnreliable) Text(BackupTexts.UNVERIFIED_PRICE, modifier, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        else GroupAmount(row.menuPrice ?: "ثبت نشده", money.unit, modifier.testTag("food-price-${row.recipeId.value}"))
+    }
+    Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel = "جزئیات ${row.name}", onClick = onToggle)
+        .padding(horizontal = 9.dp, vertical = 10.dp).testTag("food-${row.recipeId.value}"),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        if (!large) RowSymbol(ReferenceIcons.dishes)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(row.name, style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp))
+            row.kindLabel?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            status()
+            if (large) price(Modifier.fillMaxWidth().padding(top = 4.dp))
+        }
+        if (!large) price(Modifier.width(105.dp))
+        RowChevron(expanded, onToggle)
+        RowMenu("food-menu-${row.recipeId.value}") { close ->
+            DropdownMenuItem(text = { Text("اصلاح قیمت") }, onClick = { close(); onOpen() }, enabled = !dataUnreliable)
+            DropdownMenuItem(text = { Text("جزئیات و ویرایش غذا") }, onClick = { close(); onDetails() })
+            DropdownMenuItem(text = { Text("حذف غذا") }, onClick = { close(); onDelete() }, enabled = !dataUnreliable,
+                modifier = Modifier.testTag("delete-dish-${row.recipeId.value}"))
+        }
+    }
+    if (expanded) {
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(12.dp), modifier = Modifier.padding(start = 10.dp, end = 10.dp, bottom = 10.dp)) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (dataUnreliable) UnverifiedFinancialData() else {
+                    if (large) {
+                        SmallFact("هزینهٔ مواد هر پرس", row.foodCost)
+                        SmallFact("قیمت پیشنهادی", row.suggestedPrice)
+                    } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SmallFact("هزینهٔ مواد هر پرس", row.foodCost, Modifier.weight(1f))
+                        SmallFact("قیمت پیشنهادی", row.suggestedPrice, Modifier.weight(1f))
                     }
+                    row.otherCosts?.let { Text("بهای تمام‌شده: ${row.cost}", style = MaterialTheme.typography.bodySmall) }
+                    row.raise?.let { Text("برای رسیدن به هدف قیمت، $it افزایش لازم است.", style = MaterialTheme.typography.bodySmall, color = palette.content) }
+                }
+                Button(onClick = onOpen, shape = RoundedCornerShape(10.dp), modifier = Modifier.testTag("food-open-${row.recipeId.value}")) {
+                    Text(if (dataUnreliable) "مشاهدهٔ محاسبه" else "اصلاح قیمت")
                 }
             }
         }

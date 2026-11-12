@@ -101,6 +101,22 @@ class ExitConfirmationTest {
         }
     }
 
+    @Test fun menuSectionsAreNestedUnderPricingAndPhysicalBackRespectsBothLevels() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            openSettingsOverview()
+            compose.onNodeWithTag("settings-section-sections").assertDoesNotExist()
+            compose.onNodeWithTag("settings-section-pricing").performScrollTo().performClick()
+            compose.onNodeWithTag("settings-section-sections").performScrollTo().performClick()
+            waitForTag("settings-page-sections")
+            requestRootBack(scenario)
+            waitForTag("general-pricing-percent")
+            compose.onNodeWithTag("settings-overview").assertDoesNotExist()
+            requestRootBack(scenario)
+            waitForTag("settings-overview")
+            compose.onNodeWithTag("exit-confirmation").assertDoesNotExist()
+        }
+    }
+
     private fun requestRootBack(scenario: ActivityScenario<MainActivity>) {
         // Separate hiding the IME from the real system Back whose navigation we are testing.
         hideKeyboard(scenario)

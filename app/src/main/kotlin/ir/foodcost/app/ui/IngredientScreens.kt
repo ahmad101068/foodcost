@@ -1,6 +1,12 @@
 package ir.foodcost.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.sp
+import ir.foodcost.app.ui.theme.statusColors
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -93,79 +99,59 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
     var query by rememberSaveable { mutableStateOf("") }
     var repricing by remember { mutableStateOf<IngredientRow?>(null) }
     var missingOnly by rememberSaveable { mutableStateOf(false) }
+    var categoryFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    var grouped by rememberSaveable { mutableStateOf(true) }
+    var categoryOptions by remember { mutableStateOf(false) }
     val allRows = remember(state, money, today) { IngredientScreens.rows(state, today, money) }
+    var expandedId by rememberSaveable { mutableStateOf(allRows.firstOrNull()?.id?.value) }
+    val categories = allRows.mapNotNull { it.category?.trim()?.takeIf(String::isNotEmpty) }.distinct().sortedWith(Persian.nameOrder())
+    val activeCategory = categoryFilter?.takeIf { it in categories }
     val dataUnreliable = actions.unreadableRows > 0
     val showMissingOnly = missingOnly && !dataUnreliable
-    val rows = allRows.filter { Persian.matches(it.name, query) && (!showMissingOnly || it.unitPrice == null) }
-    val colors = foodSectionColors()
-    TabScaffold(
-        title = "مواد اولیه",
-        nav = nav,
-        actions = actions,
-        topActions = {
-            HeaderAddButton("افزودن ماده", onClick = { nav.open(Screen.EditIngredient(null)) })
-        },
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier.padding(padding).testTag("ingredients-list"),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            item { SearchField(query, { query = it }, "جستجوی ماده") }
+    val matching = allRows.filter { Persian.matches(it.name, query) && (activeCategory == null || it.category?.trim() == activeCategory) }
+    val rows = matching.filter { !showMissingOnly || it.unitPrice == null }
+    val groups = rows.groupBy { if (grouped) it.category?.trim()?.takeIf(String::isNotEmpty) ?: "بدون دسته" else "مواد اولیه" }.toSortedMap(Persian.nameOrder())
+    TabScaffold(title = "مواد اولیه", nav = nav, actions = actions,
+        topActions = { HeaderAddButton("افزودن ماده", onClick = { nav.open(Screen.EditIngredient(null)) }) }) { padding ->
+        LazyColumn(Modifier.padding(padding).testTag("ingredients-list"),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp)) {
+            item { SearchField(query, { query = it }, "جستجوی ماده", onOptions = { categoryOptions = true }) }
             item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    IngredientSummaryStat("ماده", Persian.digits(allRows.size), colors.statPrimary, colors, Modifier.weight(1f))
-                    IngredientSummaryStat("بدون قیمت", if (dataUnreliable) "—" else Persian.digits(allRows.count { it.unitPrice == null }), colors.statSecondary, colors, Modifier.weight(1f))
-                }
-            }
-            item {
-                Row(
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    FilterChip(
-                        selected = !showMissingOnly,
-                        onClick = { missingOnly = false },
-                        label = { Text("همه") },
-                        modifier = Modifier.testTag("ingredients-filter-all"),
-                        shape = RoundedCornerShape(50),
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = MaterialTheme.colorScheme.onPrimary),
-                    )
-                    FilterChip(
-                        selected = showMissingOnly,
-                        onClick = { missingOnly = true },
-                        label = { Text("بدون قیمت") },
-                        enabled = !dataUnreliable,
-                        modifier = Modifier.testTag("ingredients-filter-missing"),
-                        shape = RoundedCornerShape(50),
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = MaterialTheme.colorScheme.onPrimary),
-                    )
-                }
-            }
-            if (rows.isEmpty()) {
-                item {
-                    when {
-                        allRows.isEmpty() -> EmptyState(
-                            title = "هنوز ماده‌ای ثبت نشده",
-                            body = "هر چیزی که می‌خرید و در غذا به کار می‌رود را اینجا ثبت کنید: برنج، گوشت، روغن، زعفران و... بعد قیمت خرید هر کدام را وارد کنید.",
-                        )
-                        showMissingOnly -> EmptyState(
-                            title = if (query.isBlank()) "مادهٔ بدون قیمت ندارید" else "مادهٔ بدون قیمت با این نام پیدا نشد",
-                            body = "برای دیدن همهٔ مواد، فیلتر را بردارید یا جستجو را تغییر دهید.",
-                            action = "نمایش همهٔ مواد",
-                            onAction = { missingOnly = false; query = "" },
-                        )
-                        else -> EmptyState(title = "ماده‌ای با این نام پیدا نشد", body = "نام دیگری را جستجو کنید یا ماده تازه بسازید.")
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
+                    CountChoice("همه", Persian.digits(matching.size), !showMissingOnly, Modifier.weight(1f).testTag("ingredients-filter-all")) { missingOnly = false }
+                    CountChoice("بدون قیمت", if (dataUnreliable) "—" else Persian.digits(matching.count { it.unitPrice == null }), showMissingOnly,
+                        Modifier.weight(1.3f).testTag("ingredients-filter-missing"), enabled = !dataUnreliable, tone = PriceStatus.NEAR) { missingOnly = true }
+                    Box(Modifier.weight(1.1f)) {
+                        OutlinedButton(onClick = { categoryOptions = true }, shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 8.dp),
+                            modifier = Modifier.testTag("ingredients-category-options")) { Text("دسته‌بندی", style = MaterialTheme.typography.labelLarge) }
+                        DropdownMenu(categoryOptions, onDismissRequest = { categoryOptions = false }) {
+                            DropdownMenuItem(text = { Text("همهٔ دسته‌ها") }, onClick = { categoryFilter = null; categoryOptions = false })
+                            categories.forEach { category -> DropdownMenuItem(text = { Text(category) }, onClick = { categoryFilter = category; categoryOptions = false },
+                                modifier = Modifier.testTag("ingredient-category-$category")) }
+                            DropdownMenuItem(text = { Text(if (grouped) "نمایش یک‌جا، بر اساس نام" else "نمایش دسته‌بندی‌شده") }, onClick = { grouped = !grouped; categoryOptions = false })
+                        }
                     }
                 }
             }
-            items(rows, key = { it.id.value }) { row ->
-                IngredientListItem(
-                    row = row,
-                    dataUnreliable = dataUnreliable,
-                    onClick = { nav.open(Screen.Ingredient(row.id.value)) },
-                    onReprice = { repricing = row },
-                )
+            activeCategory?.let { category -> item { TextButton(onClick = { categoryFilter = null }) { Text("دسته: $category ×") } } }
+            if (rows.isEmpty()) item {
+                when {
+                    allRows.isEmpty() -> EmptyState("هنوز ماده‌ای ثبت نشده", "مواد مصرفی را بسازید و قیمت خرید هر کدام را وارد کنید.")
+                    showMissingOnly -> EmptyState("مادهٔ بدون قیمت با این فیلتر ندارید", "برای دیدن همهٔ مواد، فیلتر را بردارید.", action = "نمایش همهٔ مواد", onAction = { missingOnly = false; categoryFilter = null; query = "" })
+                    else -> EmptyState("ماده‌ای با این نام پیدا نشد", "نام یا دستهٔ دیگری را انتخاب کنید.")
+                }
+            }
+            groups.forEach { (category, group) ->
+                item(key = "ingredient-heading-$category") { GroupHeading(category, group.size, "ماده") }
+                itemsIndexed(group, key = { _, row -> row.id.value }) { index, row ->
+                    GroupedRow(index == 0, index == group.lastIndex) {
+                        GroupedIngredient(row, state, money, today, expandedId == row.id.value, dataUnreliable,
+                            onToggle = { expandedId = row.id.value.takeUnless { it == expandedId } },
+                            onReprice = { repricing = row },
+                            onHistory = { nav.open(Screen.Ingredient(row.id.value)) },
+                            onEdit = { nav.open(Screen.EditIngredient(row.id.value)) })
+                    }
+                }
             }
         }
     }
@@ -187,24 +173,6 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
                 }
             },
         )
-    }
-}
-
-@Composable
-private fun IngredientSummaryStat(label: String, value: String, background: Color, colors: FoodSectionColors, modifier: Modifier) {
-    Surface(modifier = modifier, color = background, shape = RoundedCornerShape(14.dp)) {
-        Column(
-            Modifier.heightIn(min = 72.dp).padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Icon(if (label == "ماده") ReferenceIcons.layers else ReferenceIcons.tag, contentDescription = null, modifier = Modifier.size(24.dp), tint = if (label == "ماده") colors.statValue else ir.foodcost.app.ui.theme.statusColors(PriceStatus.NEAR).content)
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(value, style = MaterialTheme.typography.titleLarge, color = colors.statValue)
-                    Text(label, style = MaterialTheme.typography.labelMedium, color = colors.statLabel)
-                }
-            }
-        }
     }
 }
 
@@ -253,37 +221,71 @@ private fun QuickPriceDialog(
 }
 
 @Composable
-private fun IngredientListItem(row: IngredientRow, dataUnreliable: Boolean, onClick: () -> Unit, onReprice: () -> Unit) {
-    val yieldLabel = row.yieldLabel ?: "بازده ۱۰۰٪"
-    val price = row.unitPrice
-    val colors = foodSectionColors()
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().testTag("ingredient-" + row.id.value),
-        shape = RoundedCornerShape(14.dp),
-        colors = whiteCardColors(),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)),
-    ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(row.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                Icon(ReferenceIcons.chevron, contentDescription = null, modifier = Modifier.size(18.dp), tint = ir.foodcost.app.ui.theme.statusColors(PriceStatus.NEAR).content)
+private fun GroupedIngredient(row: IngredientRow, state: LedgerState, money: MoneyFormat, today: LocalDate,
+    expanded: Boolean, dataUnreliable: Boolean, onToggle: () -> Unit, onReprice: () -> Unit, onHistory: () -> Unit, onEdit: () -> Unit) {
+    val large = LocalDensity.current.fontScale > 1.25f
+    val unit = row.priceLabel.removePrefix("قیمت هر ")
+    fun amount(text: String?) = text?.removePrefix("هر $unit ") ?: "ثبت نشده"
+    val day = row.priceEffectiveFrom
+    val dateLabel = when {
+        day == null -> null
+        day == today -> "امروز"
+        day == today.minusDays(1) -> "دیروز"
+        day.isBefore(today) && day.isAfter(today.minusDays(7)) -> "${Persian.digits(java.time.temporal.ChronoUnit.DAYS.between(day, today))} روز پیش"
+        else -> row.priceDate
+    }
+    @Composable fun price(modifier: Modifier) {
+        when {
+            dataUnreliable -> Text(BackupTexts.UNVERIFIED_PRICE, modifier, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            row.unitPrice == null -> OutlinedButton(onClick = onReprice, shape = RoundedCornerShape(10.dp), modifier = modifier.testTag("ingredient-register-${row.id.value}")) { Text("ثبت قیمت") }
+            else -> Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+                GroupAmount(amount(row.unitPrice), money.unit, Modifier.fillMaxWidth().testTag("ingredient-price-${row.id.value}"), unitCaption = "${money.unit} / $unit")
+                dateLabel?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
-            Text(
-                (if (dataUnreliable) BackupTexts.UNVERIFIED_PRICE else price ?: row.priceProblem.orEmpty()),
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (dataUnreliable || price == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-            )
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                if (!dataUnreliable) {
-                    Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = RoundedCornerShape(10.dp)) {
-                        Text(yieldLabel, style = MaterialTheme.typography.labelMedium, color = colors.heading, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+        }
+    }
+    Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel = "جزئیات ${row.name}", onClick = onToggle)
+        .padding(horizontal = 9.dp, vertical = 10.dp).testTag("ingredient-${row.id.value}"),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        if (!large) RowSymbol(ReferenceIcons.layers)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(row.name, style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp))
+            if (!dataUnreliable) Surface(color = if (row.unitPrice == null) statusColors(PriceStatus.NEAR).container else MaterialTheme.colorScheme.tertiaryContainer, shape = RoundedCornerShape(50)) {
+                Text(if (row.unitPrice == null) "بدون قیمت" else row.yieldLabel ?: "بازده ۱۰۰٪", style = MaterialTheme.typography.labelMedium,
+                    color = if (row.unitPrice == null) statusColors(PriceStatus.NEAR).content else MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+            }
+            if (!dataUnreliable && row.unitPrice == null && row.priceProblem != null) Text(row.priceProblem, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            if (large) price(Modifier.fillMaxWidth().padding(top = 4.dp))
+        }
+        if (!large) price(Modifier.width(112.dp))
+        RowChevron(expanded, onToggle)
+        RowMenu("ingredient-menu-${row.id.value}") { close ->
+            DropdownMenuItem(text = { Text("ثبت قیمت تازه") }, onClick = { close(); onReprice() }, enabled = !dataUnreliable)
+            DropdownMenuItem(text = { Text("تاریخچه و جزئیات") }, onClick = { close(); onHistory() })
+            DropdownMenuItem(text = { Text("ویرایش ماده") }, onClick = { close(); onEdit() }, enabled = !dataUnreliable)
+        }
+    }
+    if (expanded) {
+        val detail = remember(state, row.id, today, money) { IngredientScreens.detail(state, row.id, today, money) }
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(12.dp), modifier = Modifier.padding(start = 10.dp, end = 10.dp, bottom = 10.dp)) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (dataUnreliable) Text(BackupTexts.UNVERIFIED_PRICE, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                else if (detail != null) {
+                    val previous = detail.previousUnitPrice
+                    if (large) {
+                        SmallFact("قیمت قبلی (هر $unit)", amount(previous))
+                        SmallFact("بهای هر $unit قابل مصرف", amount(detail.usableUnitPrice ?: detail.unitPrice))
+                    } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SmallFact("قیمت قبلی (هر $unit)", amount(previous), Modifier.weight(1f))
+                        SmallFact("بهای هر $unit قابل مصرف", amount(detail.usableUnitPrice ?: detail.unitPrice), Modifier.weight(1f))
                     }
-                } else Spacer(Modifier.width(1.dp))
-                OutlinedButton(
-                    onClick = onReprice, shape = RoundedCornerShape(9.dp), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 3.dp),
-                    modifier = Modifier.heightIn(min = 30.dp).semantics { contentDescription = "قیمت تازهٔ ${row.name}" },
-                ) { Text("قیمت‌روز ↗", fontWeight = FontWeight.Bold) }
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Button(onClick = onReprice, enabled = !dataUnreliable, shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.testTag("ingredient-reprice-${row.id.value}").semantics { contentDescription = "قیمت تازهٔ ${row.name}" }) { Text("ثبت قیمت تازه") }
+                    OutlinedButton(onClick = onHistory, shape = RoundedCornerShape(10.dp), modifier = Modifier.testTag("ingredient-history-${row.id.value}")) { Text("تاریخچه") }
+                }
             }
         }
     }

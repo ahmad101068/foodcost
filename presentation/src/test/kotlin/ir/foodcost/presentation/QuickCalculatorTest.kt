@@ -185,7 +185,11 @@ class QuickCalculatorTest {
         // Backwards: for 630,000 to meet a 35% food cost, the food may cost at most 200,455.
         assertEquals("۲۰۰٬۴۵۵ تومان", result.maxCost)
         assertEquals("حداکثر بهای مواد برای این قیمت", result.maxCostLabel)
-        assertEquals(emptyList(), result.channels)
+        val inPerson = result.channels.single()
+        assertEquals("حضوری", inPerson.label)
+        assertEquals(result.netSales, inPerson.netSales)
+        assertEquals(result.totalCost, inPerson.cost)
+        assertEquals(result.remaining, inPerson.remaining)
     }
 
     @Test
@@ -830,4 +834,30 @@ class QuickCalculatorTest {
         assertEquals(PurchasePrice(meat, today, BigDecimal.ONE, Uom.KILOGRAM, 15_000_000), price)
         assertIs<Checked.Invalid>(QuickCalculator.quickPrice(ingredient, "0", toman, today))
     }
+    @Test
+    fun `channel tabs expose their own net revenue and never charge packaging to in person sales`() {
+        val l = ledger()
+        l.saveSettings(pricing = l.state.pricing.copy(online = OnlineTerms(commissionPercent = BigDecimal(20))))
+        val input = koobideh("630000")
+            .plusExtra(QuickExtra("ظرف", "15000", takeawayOnly = true))
+            .plusExtra(QuickExtra("دستمزد", "10000"))
+        val result = QuickCalculator.compute(input, l.state, toman, today)
+        val dineIn = result.channels.single { it.channel == ir.foodcost.core.model.SalesChannel.DINE_IN }
+        val takeaway = result.channels.single { it.channel == ir.foodcost.core.model.SalesChannel.TAKEAWAY }
+        val online = result.channels.single { it.channel == ir.foodcost.core.model.SalesChannel.ONLINE }
+        assertEquals("۵۷۲٬۷۲۷ تومان", dineIn.netSales)
+        assertEquals("۳۷۴٬۱۰۵ تومان", dineIn.cost)
+        assertEquals("\u200E+۱۹۸٬۶۲۲ تومان", dineIn.remaining)
+        assertEquals("۳۸۹٬۱۰۵ تومان", takeaway.cost)
+        assertEquals("\u200E+۱۸۳٬۶۲۲ تومان", takeaway.remaining)
+        assertEquals(dineIn.netSales, takeaway.netSales)
+        assertEquals(dineIn.netSales, online.netSales)
+        assertEquals("۵۰۳٬۶۵۰ تومان", online.cost)
+        assertEquals("\u200E+۶۹٬۰۷۷ تومان", online.remaining)
+        assertEquals(result.margin, dineIn.margin)
+        assertEquals(result.markup, dineIn.markup)
+        assertTrue(online.margin != dineIn.margin)
+        assertTrue(online.markup != dineIn.markup)
+    }
+
 }
