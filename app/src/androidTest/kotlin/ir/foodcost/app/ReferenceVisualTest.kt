@@ -72,7 +72,7 @@ class ReferenceVisualTest {
         ActivityScenario.launch(MainActivity::class.java).use {
             rule.waitUntil(15_000) { rule.onNodeWithTag("calculator-dashboard").runCatching { fetchSemanticsNode() }.isSuccess }
             shot("01-calculator")
-            rule.onNodeWithTag("row-3-qty").assertIsDisplayed()
+            val fourthIngredientVisible = runCatching { rule.onNodeWithTag("row-3-qty").assertIsDisplayed() }.isSuccess
             tab("مواد"); rule.onNodeWithTag("ingredients-list").assertIsDisplayed(); shot("02-ingredients")
             tab("غذاها"); rule.onNodeWithTag("food-list").assertIsDisplayed(); shot("03-dishes")
             tab("تنظیمات"); rule.onNodeWithTag("settings-overview").assertIsDisplayed(); shot("04-settings")
@@ -86,6 +86,7 @@ class ReferenceVisualTest {
             rule.waitForIdle()
             rule.onNodeWithTag("exit-confirmation").assertIsDisplayed(); shot("06-exit")
             rule.onNodeWithTag("exit-stay").performClick()
+            check(fourthIngredientVisible) { "Fourth ingredient must fit on the reference screen without scrolling" }
         }
     }
     private fun tab(label: String) { rule.onAllNodesWithText(label).onFirst().performClick(); rule.waitForIdle() }
@@ -93,6 +94,7 @@ class ReferenceVisualTest {
         rule.waitForIdle()
         dismissEmulatorLauncherAnr(instrumentation)
         Thread.sleep(500)
+        File(shots, "device.txt").writeText("widthDp=${context.resources.configuration.screenWidthDp}, density=${context.resources.displayMetrics.density}, fontScale=${context.resources.configuration.fontScale}")
         val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
         File(shots, "$name.png").outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
     }

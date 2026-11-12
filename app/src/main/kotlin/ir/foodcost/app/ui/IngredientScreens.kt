@@ -103,7 +103,7 @@ fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, 
         nav = nav,
         actions = actions,
         topActions = {
-            HeaderAddButton("ماده تازه", onClick = { nav.open(Screen.EditIngredient(null)) })
+            HeaderAddButton("افزودن ماده", onClick = { nav.open(Screen.EditIngredient(null)) })
         },
     ) { padding ->
         LazyColumn(
@@ -266,8 +266,8 @@ private fun IngredientListItem(row: IngredientRow, dataUnreliable: Boolean, onCl
     ) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(row.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-            Text("‹", style = MaterialTheme.typography.headlineSmall, color = ir.foodcost.app.ui.theme.statusColors(PriceStatus.NEAR).content)
+                Text(row.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                Text("‹", style = MaterialTheme.typography.headlineSmall, color = ir.foodcost.app.ui.theme.statusColors(PriceStatus.NEAR).content)
             }
             Text(
                 (if (dataUnreliable) BackupTexts.UNVERIFIED_PRICE else price ?: row.priceProblem.orEmpty()),

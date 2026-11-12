@@ -47,6 +47,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -227,12 +228,12 @@ fun CalculatorScreen(
                 money,
                 compact = WindowInsets.isImeVisible,
                 dataUnreliable = actions.unreadableRows > 0,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                 onExplain = { explaining = listOf(it) },
             )
             Column(
                 modifier = Modifier
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Card(
@@ -321,30 +322,29 @@ fun CalculatorScreen(
                     Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(QuickCalculator.portionsLabel(input), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                            TextButton(
-                                onClick = {
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiaryContainer, shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.focusProperties { canFocus = false }.clickable {
                                     revealBlank = true
                                     val blank = input.rows.indexOfLast { it.isBlank }
                                     if (blank >= 0) focusRow = blank else {
                                         focusRow = input.rows.size
                                         update(input.copy(rows = input.rows + QuickRow()))
                                     }
-                                },
-                                modifier = Modifier.heightIn(min = 30.dp).focusProperties { canFocus = false }.testTag("ingredient-add-row"),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 3.dp),
-                                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-                                shape = RoundedCornerShape(10.dp),
+                                }.testTag("ingredient-add-row"),
                             ) {
-                                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Text("افزودن ماده")
+                                Row(Modifier.padding(horizontal = 9.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Text("افزودن ماده", style = MaterialTheme.typography.labelLarge)
+                                }
                             }
                         }
                         if (LocalDensity.current.fontScale <= 1.25f) {
-                            Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(9.dp)).padding(horizontal = 7.dp, vertical = 4.dp)) {
+                            Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(9.dp)).padding(horizontal = 7.dp, vertical = 3.dp)) {
+                                Spacer(Modifier.width(22.dp))
                                 Text("نام ماده", Modifier.weight(1.3f), style = MaterialTheme.typography.labelMedium)
                                 Text("قیمت / واحد خرید", Modifier.weight(1.15f), style = MaterialTheme.typography.labelMedium)
                                 Text(if (input.rows.all { it.uom == Uom.GRAM }) "مقدار / گرم" else "مقدار", Modifier.weight(.8f), style = MaterialTheme.typography.labelMedium)
-                                Spacer(Modifier.width(22.dp))
                             }
                         }
                         input.rows.forEachIndexed { i, row ->
@@ -366,7 +366,7 @@ fun CalculatorScreen(
                             )
 
                         }
-                        Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(9.dp)).padding(horizontal = 10.dp, vertical = 5.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(9.dp)).padding(horizontal = 10.dp, vertical = 3.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                             Text(result.miscNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.width(6.dp))
                             Icon(ReferenceIcons.info, contentDescription = null, modifier = Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -426,7 +426,7 @@ fun CalculatorScreen(
                         Text("تعداد پرس، درصد جزئی و جزئیات بیشتر")
                     }
                 }
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(8.dp))
             }
         }
         // Here, next to the fields, so the first one is in place when it is asked to take the keyboard.
@@ -500,7 +500,7 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
         colors = whiteCardColors(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             if (dataUnreliable) {
                 Text(BackupTexts.UNVERIFIED_RESULT, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("unverified-financial-result"))
                 return@Column
@@ -515,7 +515,7 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
                     if (hasPrice) {
                         DashboardMetric(
                             if (result.remaining != null) "مانده پس از هزینه‌ها" else if (result.grossProfitNegative) "زیان ناخالص" else "سود ناخالص",
-                            result.remaining ?: result.grossProfit ?: "—",
+                            result.remaining?.replace("+", "") ?: result.grossProfit?.replace("+", "") ?: "—",
                             if (result.remainingNegative || result.grossProfitNegative) MaterialTheme.colorScheme.error else green,
                             if (result.remainingNegative || result.grossProfitNegative) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.tertiaryContainer, Modifier.testTag("gross-profit"), money,
                             onClick = { onExplain(if (result.remaining != null) Glossary.REMAINING else Glossary.GROSS_PROFIT) },
@@ -553,7 +553,7 @@ private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, d
                         }
                         Column(Modifier.padding(top = 26.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("فودکاست", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-                            FitText(percent, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, fontSize = 36.sp, lineHeight = 46.sp), color = priceColors.content, modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp).clickable(onClickLabel = "توضیح فودکاست", onClick = { onExplain(Glossary.FOOD_COST) }).testTag("food-cost"))
+                            FitText(percent, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, fontSize = 36.sp, lineHeight = 46.sp, textAlign = TextAlign.Center), color = priceColors.content, modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp).clickable(onClickLabel = "توضیح فودکاست", onClick = { onExplain(Glossary.FOOD_COST) }).testTag("food-cost"))
                         }
                     }
                     if (result.hasLines) StatusChip(result.status, result.statusLabel)
@@ -585,7 +585,7 @@ private fun DashboardMetric(
 ) {
     Column(
         modifier = modifier.fillMaxWidth().background(background, RoundedCornerShape(14.dp))
-            .clickable(onClickLabel = "توضیح $label", onClick = onClick).padding(horizontal = 10.dp, vertical = 6.dp),
+            .clickable(onClickLabel = "توضیح $label", onClick = onClick).padding(horizontal = 10.dp, vertical = 0.5.dp),
         verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 17.sp), color = MaterialTheme.colorScheme.onSurface)
@@ -917,7 +917,7 @@ private fun RowCard(
             label = "نام ماده",
             trailing = if (fontScale <= 1.25f) { { UnitMenu(row.uom, result.units, if (row.uom == Uom.GRAM) Modifier.testTag("row-$index-unit") else Modifier, compact = true) { onChange(row.copy(uom = it)) } } } else null,
             modifier = modifier.then(if (nameFocus != null) Modifier.focusRequester(nameFocus) else Modifier).onFocusChanged { nameFocused = it.isFocused }.testTag("row-$index-name"),
-            imeAction = ImeAction.Next, height = 30.dp,
+            imeAction = ImeAction.Next, height = 26.dp, fontSize = 14.sp, verticalPadding = 2.dp,
         )
     }
     @Composable
@@ -928,7 +928,7 @@ private fun RowCard(
             label = result.priceLabel,
             modifier = modifier.testTag("row-$index-price"),
             number = true,
-            imeAction = ImeAction.Next, height = 30.dp,
+            imeAction = ImeAction.Next, height = 26.dp, fontSize = 14.sp, verticalPadding = 2.dp,
         )
     }
     @Composable
@@ -939,7 +939,7 @@ private fun RowCard(
             label = "مقدار",
             modifier = modifier.focusRequester(quantityFocus).testTag("row-$index-qty"),
             number = true,
-            imeAction = ImeAction.Next, height = 30.dp, centered = true,
+            imeAction = ImeAction.Next, height = 26.dp, fontSize = 14.sp, verticalPadding = 2.dp, centered = true,
         )
     }
     @Composable
@@ -967,10 +967,10 @@ private fun RowCard(
                 }
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    removeButton()
                     nameField(Modifier.weight(1.3f))
                     priceField(Modifier.weight(1.15f))
                     quantityField(Modifier.weight(.8f))
-                    removeButton()
                 }
             }
             if (stackName || row.uom != Uom.GRAM) {
@@ -1060,9 +1060,9 @@ private fun SectionSelector(sections: List<String>, selected: String?, modifier:
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
         Surface(
-            onClick = { open = true }, shape = RoundedCornerShape(9.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest,
+            shape = RoundedCornerShape(9.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest,
             border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
-            modifier = Modifier.fillMaxWidth().focusProperties { canFocus = false }.testTag("menu-section-selector"),
+            modifier = Modifier.fillMaxWidth().focusProperties { canFocus = false }.clickable { open = true }.testTag("menu-section-selector"),
         ) {
             Row(Modifier.heightIn(min = 32.dp).padding(horizontal = 9.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("دسته:", style = MaterialTheme.typography.labelMedium)
@@ -1092,9 +1092,9 @@ private fun SectionSelector(sections: List<String>, selected: String?, modifier:
 
 @Composable
 private fun DisclosureRow(title: String, expanded: Boolean, tag: String, onClick: () -> Unit, summary: String? = null) {
-    Surface(onClick = onClick, shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest,
+    Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest,
         border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.fillMaxWidth().focusProperties { canFocus = false }.testTag(tag)) {
+        modifier = Modifier.fillMaxWidth().focusProperties { canFocus = false }.clickable(onClick = onClick).testTag(tag)) {
         Row(Modifier.heightIn(min = 32.dp).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
             summary?.let { Text(it, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 8.dp)) }

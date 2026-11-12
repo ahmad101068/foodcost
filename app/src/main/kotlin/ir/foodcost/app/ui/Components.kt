@@ -100,7 +100,7 @@ fun TabScaffold(
     Scaffold(
         topBar = {
             Column {
-                TopAppBar(title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) }, navigationIcon = navigationIcon, actions = topActions)
+                TopAppBar(expandedHeight = 56.dp, title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) }, navigationIcon = navigationIcon, actions = topActions)
                 UnreadableWarning(actions, nav)
                 BackupReminderLine(actions, nav)
             }
@@ -178,6 +178,7 @@ fun DetailScaffold(
         topBar = {
             Column {
                 TopAppBar(
+                    expandedHeight = 56.dp,
                     title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     navigationIcon = {
                         IconButton(onClick = { nav.back() }) {
@@ -452,7 +453,7 @@ internal object GroupDigits : VisualTransformation {
 @Composable
 fun SearchField(query: String, onQueryChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) {
     ReferenceField(query, onQueryChange, placeholder, modifier.padding(vertical = 4.dp), height = 40.dp,
-        trailing = { Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp)) })
+        leading = { Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp)) })
 }
 
 /** A choice among a few short options, side by side. */

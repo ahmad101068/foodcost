@@ -230,7 +230,7 @@ class WalkThroughTest {
         settingsOverview()
         clickTag("settings-section-pricing")
         clickTag("pricing-scope-general")
-        waitFor("ذخیرهٔ قیمت‌گذاری")
+        waitForTag("settings-save-pricing")
         click("حاشیهٔ سود")
         waitFor("65")
         click("مارک‌آپ")

@@ -34,6 +34,8 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.Dp
 import ir.foodcost.presentation.DigitGroups
 
 /** Geometry and visual primitives measured from the approved reference, at a 411dp viewport. */
@@ -115,7 +117,8 @@ fun ReferenceField(
     value: String, onValueChange: (String) -> Unit, label: String, modifier: Modifier = Modifier,
     number: Boolean = false, suffix: String? = null, imeAction: ImeAction = ImeAction.Default,
     onImeAction: (() -> Unit)? = null, centered: Boolean = false, height: androidx.compose.ui.unit.Dp = 36.dp,
-    trailing: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null, leading: (@Composable () -> Unit)? = null,
+    fontSize: TextUnit = 16.sp, verticalPadding: Dp = 3.dp,
 ) {
     val interactions = remember { MutableInteractionSource() }
     val focused by interactions.collectIsFocusedAsState()
@@ -124,7 +127,7 @@ fun ReferenceField(
     val measurer = rememberTextMeasurer()
     var width by remember { mutableIntStateOf(0) }
     val base = MaterialTheme.typography.bodyLarge.copy(
-        color = colors.onSurface, fontWeight = FontWeight.Bold, fontSize = 16.sp, lineHeight = 22.sp,
+        color = colors.onSurface, fontWeight = FontWeight.Bold, fontSize = fontSize, lineHeight = fontSize * 1.35f,
         textAlign = if (centered) TextAlign.Center else TextAlign.Start,
     )
     val style = remember(value, suffix, width, base, number, density) {
@@ -143,9 +146,10 @@ fun ReferenceField(
                 Modifier.fillMaxWidth().heightIn(min = height)
                     .background(colors.surfaceContainerLowest, RoundedCornerShape(9.dp))
                     .border(if (focused) 1.4.dp else 0.8.dp, if (focused) colors.primary else colors.outlineVariant, RoundedCornerShape(9.dp))
-                    .padding(horizontal = 9.dp, vertical = 5.dp),
+                    .padding(horizontal = 9.dp, vertical = verticalPadding),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
+                leading?.invoke()
                 Box(Modifier.weight(1f), contentAlignment = if (centered) Alignment.Center else Alignment.CenterStart) {
                     if (value.isEmpty()) Text(label, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
                     inner()
@@ -166,7 +170,7 @@ fun ReferenceBottomBar(nav: Navigator, actions: AppActions) {
         Column(Modifier.navigationBarsPadding()) {
             HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.65f), thickness = 0.5.dp)
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Tab.entries.forEach { tab ->
+                listOf(Tab.CALC, Tab.INGREDIENTS, Tab.RECIPES, Tab.SETTINGS).forEach { tab ->
                     val selected = nav.tab == tab
                     val brush = if (selected) Brush.verticalGradient(listOf(scheme.primary, scheme.primary.copy(red = scheme.primary.red * .85f, green = scheme.primary.green * .85f, blue = scheme.primary.blue * .85f)))
                         else Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
