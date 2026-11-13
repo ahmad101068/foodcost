@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.UiDevice
 import ir.foodcost.app.data.SqliteOperationStore
 import ir.foodcost.core.costing.CostingRules
 import ir.foodcost.core.money.PriceRounding
@@ -95,6 +96,7 @@ class PricingMethodsTest {
             rule.waitForIdle()
             assertEquals(committed, container.state.value!!.pricing.methodByCategory)
             rule.onNodeWithTag("category-0-percent").performScrollTo().performTextReplacement("40")
+            settleInput()
             clickTag("settings-save-sections")
             waitMethod { it is PricingMethod.TargetFoodCost && it.percent.compareTo(BigDecimal(40)) == 0 }
             rule.onNodeWithTag("category-0-percent").performScrollTo()
@@ -143,14 +145,24 @@ class PricingMethodsTest {
     private fun clickTag(tag: String) {
         rule.waitUntil(15_000) { rule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
         val node = rule.onNodeWithTag(tag)
-        try { node.performScrollTo() } catch (_: AssertionError) { /* Fixed bars do not scroll. */ }
-        node.performClick(); rule.waitForIdle()
+        if (rule.onAllNodes(hasTestTag(tag) and hasAnyAncestor(hasScrollAction())).fetchSemanticsNodes().isNotEmpty()) {
+            node.performScrollTo()
+            rule.waitForIdle()
+        }
+        node.assertIsDisplayed().performClick(); rule.waitForIdle()
     }
     private fun tab(label: String) { rule.onAllNodesWithText(label).onFirst().performClick(); rule.waitForIdle() }
     private fun replace(label: String, value: String) {
         val node = rule.onAllNodesWithText(label).onFirst().performScrollTo()
         node.performTextReplacement(value)
         node.assertTextContains(value)
+        settleInput()
+    }
+    private fun settleInput() {
+        // Platform IME resizing is not a Compose animation. Wait for its accessibility events
+        // before scrolling to Save, otherwise a tap can hit the keyboard's previous coordinates.
+        instrumentation.waitForIdleSync()
+        UiDevice.getInstance(instrumentation).waitForIdle()
         rule.waitForIdle()
     }
     private fun shot(name: String) {
