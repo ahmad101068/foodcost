@@ -148,7 +148,9 @@ class PricingMethodsTest {
     }
     private fun tab(label: String) { rule.onAllNodesWithText(label).onFirst().performClick(); rule.waitForIdle() }
     private fun replace(label: String, value: String) {
-        rule.onAllNodesWithText(label).onFirst().performScrollTo().performTextReplacement(value).assertTextContains(value)
+        val node = rule.onAllNodesWithText(label).onFirst().performScrollTo()
+        node.performTextReplacement(value)
+        node.assertTextContains(value)
         rule.waitForIdle()
     }
     private fun shot(name: String) {
