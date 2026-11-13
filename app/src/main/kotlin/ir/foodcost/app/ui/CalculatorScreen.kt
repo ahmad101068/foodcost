@@ -786,10 +786,18 @@ private fun PriceDetails(result: QuickResult, money: MoneyFormat, onExplain: (Li
             DisclosureRow("درصد سود و جزئیات بیشتر", expanded, "channel-details-toggle", { expanded = !expanded })
             if (expanded) {
                 Text("جزئیات ${channel.label}", style = MaterialTheme.typography.titleSmall)
+                Text("مبنای حاشیه و مارک‌آپ: همهٔ هزینه‌های ثبت‌شدهٔ این کانال", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("channel-percent-basis"))
                 channel.foodCostPercent?.let { Explained("فودکاست: $it") { onExplain(listOf(Glossary.FOOD_COST)) } }
-                channel.margin?.let { Text("حاشیهٔ سود: $it", style = MaterialTheme.typography.bodyLarge) }
-                channel.markup?.let { Text("مارک‌آپ: $it", style = MaterialTheme.typography.bodyLarge) }
+                channel.margin?.let { Text("حاشیه پس از هزینه‌ها: $it", style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.testTag("channel-$selected-margin")) }
+                channel.markup?.let { Text("مارک‌آپ روی هزینه‌ها: $it", style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.testTag("channel-$selected-markup")) }
                 channel.priceForSameRemaining?.let { Text("قیمت برای حفظ ماندهٔ حضوری: $it", style = MaterialTheme.typography.bodyLarge) }
+                if (channel.channel != ir.foodcost.core.model.SalesChannel.DINE_IN && channel.priceForSameRemaining == null) {
+                    Text("قیمت لازم برای حفظ ماندهٔ حضوری بیش از حد بزرگ است.", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("channel-$selected-same-remaining-unavailable"))
+                }
                 Explained("«برای همان مانده» یعنی قیمت لازم برای حفظ ماندهٔ حضوری در کانال دیگر.") { onExplain(listOf(Glossary.CHANNELS)) }
                 result.maxCost?.let { Text("راهنمای قیمت حضوری · ${result.maxCostLabel ?: "حداکثر هزینه"}: $it", style = MaterialTheme.typography.bodyMedium) }
                 result.suggested?.let { Text("${result.suggestedLabel}: $it", style = MaterialTheme.typography.bodyMedium) }

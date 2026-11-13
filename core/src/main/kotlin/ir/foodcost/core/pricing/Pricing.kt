@@ -39,7 +39,7 @@ enum class CostBasis {
     /** Ingredients and the misc share only. */
     FOOD_COST,
 
-    /** Food cost plus one portion's share of the overhead. */
+    /** Food, the portion's other registered costs and its overhead share. */
     FULL_COST,
 }
 
@@ -232,7 +232,16 @@ class Pricer(private val settings: PricingSettings) {
         settings.minimumGrossProfitRials?.let { net = net.max(food + BigDecimal(it)) }
         val vatFactor = settings.vatFactor
         val gross = net.multiply(vatFactor)
-        val rounded = settings.rounding.apply(gross)
+        var rounded = settings.rounding.apply(gross)
+        settings.minimumGrossProfitRials?.let { minimum ->
+            // A rounding preference cannot lower an explicitly guaranteed minimum.
+            val floor = food + BigDecimal(minimum)
+            if (rounded != null && BigDecimal(rounded!!).over(vatFactor) < floor) {
+                rounded = guaranteedPrice(floor.multiply(vatFactor)) { price ->
+                    BigDecimal(price).over(vatFactor) >= floor
+                }
+            }
+        }
         return PriceSuggestion(method, food, overhead, net, gross, rounded ?: MAX_RIALS, vatFactor, extras, tooLarge = rounded == null)
     }
 
@@ -256,24 +265,41 @@ class Pricer(private val settings: PricingSettings) {
     fun sale(cost: RecipeCost, channel: SalesChannel, price: Long): Sale {
         val online = channel == SalesChannel.ONLINE
         val gross = BigDecimal(price)
-        val discount = if (online) gross.multiply(settings.online.discountPercent.asFraction()) else BigDecimal.ZERO
+        // Dividing an input percentage by 100 is exact. Preserve both tiny fees and the
+        // positive share of 99.999…%, before the net-sale division uses calculation precision.
+        val discount = if (online) gross.multiply(settings.online.discountPercent.movePointLeft(2)) else BigDecimal.ZERO
         val net = (gross - discount).over(settings.vatFactor)
-        val commission = if (online) net.multiply(settings.online.commissionPercent.asFraction()) else BigDecimal.ZERO
+        val commission = if (online) net.multiply(settings.online.commissionPercent.movePointLeft(2)) else BigDecimal.ZERO
         return Sale(channel, price, discount, net, commission, cost.foodCostPerPortion, otherCosts(cost, channel))
     }
 
     /**
-     * The menu price at which [channel] leaves [remaining] per portion, rounded up like menu prices:
+     * The menu price at which [channel] leaves at least [remaining] per portion, always rounded up:
      * what to charge online so that, after the discount and commission, a portion leaves as much as
      * it does in the restaurant. Null when nothing can.
      */
     fun priceLeaving(remaining: BigDecimal, cost: RecipeCost, channel: SalesChannel): Long? {
         val online = channel == SalesChannel.ONLINE
-        val kept = BigDecimal.ONE - if (online) settings.online.commissionPercent.asFraction() else BigDecimal.ZERO
-        val paid = BigDecimal.ONE - if (online) settings.online.discountPercent.asFraction() else BigDecimal.ZERO
+        val kept = if (online) retained(settings.online.commissionPercent) else BigDecimal.ONE
+        val paid = if (online) retained(settings.online.discountPercent) else BigDecimal.ONE
+        if (kept.signum() <= 0 || paid.signum() <= 0) return null
         val net = (remaining + cost.foodCostPerPortion + otherCosts(cost, channel)).over(kept)
         if (net.signum() <= 0) return null
-        return settings.rounding.apply(net.multiply(settings.vatFactor).over(paid))
+        return guaranteedPrice(net.multiply(settings.vatFactor).over(paid)) { price ->
+            sale(cost, channel, price).remaining >= remaining
+        }
+    }
+
+    private fun retained(percent: BigDecimal): BigDecimal = (Decimals.HUNDRED - percent).movePointLeft(2)
+
+    /** Keep hard guarantees after step rounding and verify the result against the actual sale. */
+    private fun guaranteedPrice(gross: BigDecimal, meets: (Long) -> Boolean): Long? {
+        val price = settings.rounding.copy(direction = PriceRounding.Direction.UP).apply(gross) ?: return null
+        if (meets(price)) return price
+        // The rounding helper suppresses division noise at step boundaries. If that leaves a
+        // result below a hard guarantee, the next step must be verified too, within the ceiling.
+        val step = settings.rounding.stepRials
+        return if (price <= MAX_RIALS - step) (price + step).takeIf(meets) else null
     }
 
     /**

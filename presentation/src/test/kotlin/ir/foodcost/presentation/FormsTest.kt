@@ -119,13 +119,13 @@ class FormsTest {
     @Test
     fun `switching the pricing method turns the number into its equivalent, so the price stays`() {
         val foodCost = SettingsInput.of(PricingSettings(), CostingRules(), toman)
-        assertEquals("یعنی حاشیهٔ سود ۶۵٪ و مارک‌آپ ۱۸۵٫۷٪", foodCost.equivalents())
+        assertEquals("یعنی حاشیهٔ سود ۶۵٪ و مارک‌آپ ۱۸۵٫۷٪، روی مواد اولیه", foodCost.equivalents())
 
         val margin = foodCost.withMethod(MethodChoice.MARGIN)
         assertEquals(MethodChoice.MARGIN to "65", margin.method to margin.percent)
         val markup = margin.withMethod(MethodChoice.MARKUP)
         assertEquals("۱۸۵٫۷۱٪", Numbers.percent(BigDecimal(markup.percent), 2))
-        assertEquals("یعنی فودکاست ۳۵٪ و حاشیهٔ سود ۶۵٪", markup.equivalents())
+        assertEquals("یعنی فودکاست ۳۵٪ و حاشیهٔ سود ۶۵٪، روی مواد اولیه", markup.equivalents())
         assertEquals("35", markup.withMethod(MethodChoice.FOOD_COST).percent)
 
         // What cannot be read is left as typed.

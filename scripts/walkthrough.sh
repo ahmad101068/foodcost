@@ -34,6 +34,11 @@ alone() {
 # calculator in the exit test must not close the activity used by the long walkthrough.
 : > settings.log
 alone ir.foodcost.app.SettingsScopeTest settings.log
+: > pricing-methods.log
+alone ir.foodcost.app.PricingMethodsTest pricing-methods.log
+for f in $(adb shell run-as "$APP" ls files/pricing-screenshots | tr -d '\r'); do
+  adb exec-out run-as "$APP" cat "files/pricing-screenshots/$f" > "screenshots/$f"
+done
 : > currency.log
 alone ir.foodcost.app.CurrencyPreferenceTest currency.log
 : > exit.log
@@ -75,7 +80,7 @@ else
 fi
 
 # Every numbered acceptance image, including the previously missing largest-text dishes, is required.
-for number in $(seq -w 0 30); do
+for number in $(seq -w 0 34); do
   if ! compgen -G "screenshots/$number-*.png" > /dev/null; then
     echo "Missing required screenshot $number" | tee -a walkthrough.log
     failed=1

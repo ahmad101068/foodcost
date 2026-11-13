@@ -101,8 +101,13 @@ object Labels {
 
     fun method(method: PricingMethod): String = when (method) {
         is PricingMethod.TargetFoodCost -> "فودکاست هدف ${Numbers.percent(method.percent)}"
-        is PricingMethod.TargetMargin -> "حاشیهٔ سود ${Numbers.percent(method.percent)}"
-        is PricingMethod.Markup -> "مارک‌آپ ${Numbers.percent(method.percent)}"
+        is PricingMethod.TargetMargin -> "حاشیهٔ سود ${Numbers.percent(method.percent)}، ${pricingBasis(method.basis)}"
+        is PricingMethod.Markup -> "مارک‌آپ ${Numbers.percent(method.percent)}، ${pricingBasis(method.basis)}"
+    }
+
+    private fun pricingBasis(basis: ir.foodcost.core.pricing.CostBasis): String = when (basis) {
+        ir.foodcost.core.pricing.CostBasis.FOOD_COST -> "روی مواد اولیه"
+        ir.foodcost.core.pricing.CostBasis.FULL_COST -> "روی همهٔ هزینه‌ها"
     }
 
     fun direction(direction: PriceRounding.Direction): String = when (direction) {

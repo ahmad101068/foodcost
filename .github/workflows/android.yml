@@ -165,7 +165,7 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          lines=$( { grep -E "^e: |error:|What went wrong|FAILED" build.log; grep -E "FAILURES|Exception|Error|expected|Caused by|at ir\.foodcost|Tests run" walkthrough.log settings.log currency.log exit.log unreadable.log recovery.log; grep -E "FATAL|AndroidRuntime|ir\.foodcost" logcat.txt; } 2>/dev/null | head -90 || true)
+          lines=$( { grep -E "^e: |error:|What went wrong|FAILED" build.log; grep -E "FAILURES|Exception|Error|expected|Caused by|at ir\.foodcost|Tests run" walkthrough.log settings.log pricing-methods.log currency.log exit.log unreadable.log recovery.log; grep -E "FATAL|AndroidRuntime|ir\.foodcost" logcat.txt; } 2>/dev/null | head -90 || true)
           message=$(printf '%s' "$lines" | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}')
           echo "::error title=Walk-through failed::${message}"
       - name: Publish the screenshots

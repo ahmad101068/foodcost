@@ -104,7 +104,7 @@ class SettingsConversionTest {
             Numbers.parse(input(MethodChoice.MARGIN, "25").withMethod(MethodChoice.MARKUP).percent),
             "1E-29",
         )
-        assertEquals("یعنی حاشیهٔ سود ۶۵٪ و مارک‌آپ ۱۸۵٫۷٪", food.equivalents())
+        assertEquals("یعنی حاشیهٔ سود ۶۵٪ و مارک‌آپ ۱۸۵٫۷٪، روی مواد اولیه", food.equivalents())
     }
 
     @Test
@@ -238,7 +238,8 @@ class SettingsConversionTest {
     @Test
     fun `entering a percentage explicitly clears the carried state and resumes conversion`() {
         val carried = input(MethodChoice.MARGIN, "30", CostBasis.FULL_COST).withMethod(MethodChoice.FOOD_COST)
-        val edited = carried.copy(percent = "35", carried = false)
+        val edited = carried.withPercent("35")
+        assertEquals(CostBasis.FOOD_COST, edited.basis)
         assertEquals(PricingMethod.TargetFoodCost(BigDecimal(35)), saved(edited).pricing.defaultMethod)
         val margin = edited.withMethod(MethodChoice.MARGIN)
         assertFalse(margin.carried)

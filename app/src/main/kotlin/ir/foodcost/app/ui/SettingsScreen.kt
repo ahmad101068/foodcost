@@ -216,7 +216,7 @@ fun SettingsScreen(
                     value = input.percent, compact = true,
                     enabled = generalPricingEnabled,
                     modifier = Modifier.testTag("general-pricing-percent"),
-                    onValueChange = { onInputChange(input.copy(percent = it, carried = false, conversionOrigin = null)) },
+                    onValueChange = { onInputChange(input.withPercent(it)) },
                     label = methodName(input.method),
                     error = errors[Field.PERCENT],
                     supporting = if (input.carried) SettingsInput.CARRIED_MESSAGE else input.equivalents(),
@@ -293,7 +293,7 @@ fun SettingsScreen(
                             SettingsTextInput(
                                 value = category.percent,
                                 enabled = sectionPricingEnabled,
-                                onValueChange = { onInputChange(input.withCategory(i, category.copy(percent = it))) },
+                                onValueChange = { onInputChange(input.withCategory(i, category.withPercent(it))) },
                                 label = methodName(category.method),
                                 modifier = Modifier.weight(1f).focusRequester(categoryPercent(i)).testTag("category-$i-percent"),
                                 number = true,
@@ -308,12 +308,11 @@ fun SettingsScreen(
                     Text("روش قیمت‌گذاری «${category.name.ifBlank { "بخش جدید" }}»", style = MaterialTheme.typography.labelMedium)
                     // null: priced like the rest, with the general method above.
                     val methods: List<MethodChoice?> = listOf(null) + MethodChoice.entries
-                    SettingsChoices(methods, category.method.takeIf { !category.useGeneral }, { it?.let(::methodName) ?: "روش عمومی" }, enabled = sectionPricingEnabled) { chosen ->
+                    SettingsChoices(methods, category.method.takeIf { !category.useGeneral }, { it?.let(::methodName) ?: "روش عمومی" }, enabled = sectionPricingEnabled,
+                        tagPrefix = "category-$i-method-") { chosen ->
                         val next = when {
                             chosen == null -> category.copy(useGeneral = true)
-                            category.useGeneral || chosen != category.method ->
-                                category.copy(useGeneral = false, method = chosen, percent = "", basis = CostBasis.FOOD_COST)
-                            else -> category
+                            else -> category.withMethod(chosen)
                         }
                         if (next != category) onInputChange(input.withCategory(i, next))
                     }
@@ -326,10 +325,18 @@ fun SettingsScreen(
                             Text("مبنای فودکاست هدف: فقط هزینهٔ مواد اولیه", style = MaterialTheme.typography.bodySmall)
                         else -> {
                             Text("مبنای محاسبه درصد", style = MaterialTheme.typography.labelMedium)
-                            SettingsChoices(CostBasis.entries, category.basis, { basisName(it) }, enabled = sectionPricingEnabled) { chosen ->
-                                onInputChange(input.withCategory(i, category.copy(basis = chosen)))
+                            SettingsChoices(CostBasis.entries, category.basis, { basisName(it) }, enabled = sectionPricingEnabled,
+                                tagPrefix = "category-$i-basis-") { chosen ->
+                                onInputChange(input.withCategory(i, category.withBasis(chosen)))
                             }
                         }
+                    }
+                    if (!category.useGeneral) {
+                        if (category.carried && sectionPricingEnabled) Text(SettingsInput.CARRIED_MESSAGE,
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.testTag("category-$i-conversion-warning"))
+                        else category.equivalents()?.let { Text(it, style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("category-$i-equivalents")) }
                     }
                 }
                 errors[Field.CATEGORY]?.let {
