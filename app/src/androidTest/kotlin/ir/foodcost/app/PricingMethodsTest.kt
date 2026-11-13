@@ -52,6 +52,7 @@ class PricingMethodsTest {
         container.saveDraft()
 
         ActivityScenario.launch(MainActivity::class.java).use {
+            try {
             showChannelDetails()
             rule.onNodeWithTag("channel-percent-basis").performScrollTo().assertTextContains("همهٔ هزینه‌های ثبت‌شده", substring = true)
             rule.onNodeWithTag("channel-0-margin").performScrollTo().assertTextContains("۵۶٪", substring = true)
@@ -124,11 +125,17 @@ class PricingMethodsTest {
             showChannelDetails()
             rule.onNodeWithTag("channel-2-same-remaining-unavailable").performScrollTo().assertIsDisplayed()
             shot("34-pricing-near100-discount")
+            } catch (failure: Throwable) {
+                runCatching { shot("35-pricing-failure") }
+                val tree = runCatching { rule.onRoot(useUnmergedTree = true).printToString().take(24_000) }.getOrDefault("No semantics root")
+                throw AssertionError("Saved pricing=${container.state.value?.pricing}. Rendered controls:\n$tree", failure)
+            }
         }
     }
 
     private fun waitMethod(matches: (PricingMethod?) -> Boolean) {
         rule.waitUntil(15_000) { matches(container.state.value?.pricing?.methodByCategory?.get("غذای اصلی")) }
+        rule.waitForIdle()
     }
     private fun showChannelDetails() {
         if (rule.onAllNodesWithTag("channel-percent-basis").fetchSemanticsNodes().isEmpty()) clickTag("channel-details-toggle")
@@ -141,7 +148,8 @@ class PricingMethodsTest {
     }
     private fun tab(label: String) { rule.onAllNodesWithText(label).onFirst().performClick(); rule.waitForIdle() }
     private fun replace(label: String, value: String) {
-        rule.onAllNodesWithText(label).onFirst().performScrollTo().performTextReplacement(value)
+        rule.onAllNodesWithText(label).onFirst().performScrollTo().performTextReplacement(value).assertTextContains(value)
+        rule.waitForIdle()
     }
     private fun shot(name: String) {
         rule.waitForIdle(); dismissEmulatorLauncherAnr(instrumentation)

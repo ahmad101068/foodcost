@@ -51,5 +51,6 @@ jobs:
           path: |
             reference-screenshots/
             reference-preview.log
+            pricing-methods-preview.log
           if-no-files-found: error
           retention-days: 14
