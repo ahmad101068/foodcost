@@ -85,6 +85,7 @@ class CategoryConversionTest {
         assertIs<Checked.Invalid>(checked(changed.withBasis(CostBasis.FOOD_COST)))
         val entered = changed.withPercent("40")
         assertFalse(entered.carried)
+        assertEquals(CostBasis.FOOD_COST, entered.basis)
         assertIs<Checked.Valid<SettingsDraft>>(checked(entered))
         assertEquals("60", entered.withMethod(MethodChoice.MARGIN).percent)
         assertEquals(CostBasis.FOOD_COST, entered.withMethod(MethodChoice.MARGIN).basis)

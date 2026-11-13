@@ -297,7 +297,10 @@ data class CategoryTargetInput(
             carried = changed.carried, conversionOrigin = changed.conversionOrigin)
     }
 
-    fun withPercent(value: String): CategoryTargetInput = copy(percent = value, carried = false, conversionOrigin = null)
+    fun withPercent(value: String): CategoryTargetInput {
+        val changed = pricingPercent().withPercent(value)
+        return copy(percent = changed.percent, basis = changed.basis, carried = changed.carried, conversionOrigin = changed.conversionOrigin)
+    }
     fun withBasis(value: CostBasis): CategoryTargetInput = copy(basis = value, conversionOrigin = null)
     fun equivalents(): String? = if (useGeneral) null else pricingPercent().equivalents()
 }
@@ -534,6 +537,11 @@ data class SettingsInput(
         val changed = PricingPercent(method, percent, basis, carried, conversionOrigin).withMethod(choice)
         return copy(method = changed.method, percent = changed.percent, basis = changed.basis,
             carried = changed.carried, conversionOrigin = changed.conversionOrigin)
+    }
+
+    fun withPercent(value: String): SettingsInput {
+        val changed = PricingPercent(method, percent, basis, carried, conversionOrigin).withPercent(value)
+        return copy(percent = changed.percent, basis = changed.basis, carried = changed.carried, conversionOrigin = changed.conversionOrigin)
     }
 
     /** The equivalent targets explicitly identify the shared cost basis. */

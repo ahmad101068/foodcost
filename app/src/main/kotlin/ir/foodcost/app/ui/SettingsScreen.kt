@@ -216,7 +216,7 @@ fun SettingsScreen(
                     value = input.percent, compact = true,
                     enabled = generalPricingEnabled,
                     modifier = Modifier.testTag("general-pricing-percent"),
-                    onValueChange = { onInputChange(input.copy(percent = it, carried = false, conversionOrigin = null)) },
+                    onValueChange = { onInputChange(input.withPercent(it)) },
                     label = methodName(input.method),
                     error = errors[Field.PERCENT],
                     supporting = if (input.carried) SettingsInput.CARRIED_MESSAGE else input.equivalents(),

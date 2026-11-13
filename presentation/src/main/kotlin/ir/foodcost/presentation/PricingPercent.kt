@@ -14,6 +14,10 @@ internal data class PricingPercent(
     val carried: Boolean,
     val conversionOrigin: PricingMethod?,
 ) {
+    fun withPercent(value: String): PricingPercent = copy(percent = value,
+        basis = if (method == MethodChoice.FOOD_COST) CostBasis.FOOD_COST else basis,
+        carried = false, conversionOrigin = null)
+
     fun withMethod(choice: MethodChoice): PricingPercent {
         if (choice == method) return this
         if (carried || (choice == MethodChoice.FOOD_COST && basis == CostBasis.FULL_COST)) {

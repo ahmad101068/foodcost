@@ -99,6 +99,17 @@ class PricingMethodsTest {
             settleInput()
             clickTag("settings-save-sections")
             waitMethod { it is PricingMethod.TargetFoodCost && it.percent.compareTo(BigDecimal(40)) == 0 }
+            // A confirmed full-cost-to-food conversion must also become a clean saved food basis.
+            for (percent in listOf(35, 40)) {
+                runBlocking { container.change { ledger -> ledger.saveSettings(
+                    pricing = ledger.state.pricing.copy(methodByCategory = linkedMapOf("غذای اصلی" to PricingMethod.TargetFoodCost(BigDecimal(percent)))),
+                    effectiveFrom = today,
+                ) } }
+                rule.waitUntil(15_000) {
+                    rule.onAllNodes(hasTestTag("category-0-percent") and hasText(percent.toString(), substring = true)).fetchSemanticsNodes().isNotEmpty()
+                }
+                rule.waitForIdle()
+            }
             rule.onNodeWithTag("category-0-percent").performScrollTo()
             rule.onNodeWithTag("category-0-equivalents").assertTextContains("روی مواد اولیه", substring = true)
             shot("32-pricing-section-conversions")
