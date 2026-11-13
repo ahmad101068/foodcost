@@ -282,8 +282,24 @@ data class CategoryTargetInput(
     val method: MethodChoice = MethodChoice.FOOD_COST,
     val basis: CostBasis = CostBasis.FOOD_COST,
     val useGeneral: Boolean = false,
+    val carried: Boolean = false,
+    val conversionOrigin: PricingMethod? = null,
 ) {
     val isBlank: Boolean get() = name.isBlank() && (useGeneral || percent.isBlank())
+
+    private fun pricingPercent() = PricingPercent(method, percent, basis, carried, conversionOrigin)
+
+    fun withMethod(choice: MethodChoice): CategoryTargetInput {
+        if (useGeneral) return copy(useGeneral = false, method = choice, percent = "", basis = CostBasis.FOOD_COST,
+            carried = false, conversionOrigin = null)
+        val changed = pricingPercent().withMethod(choice)
+        return copy(method = changed.method, percent = changed.percent, basis = changed.basis,
+            carried = changed.carried, conversionOrigin = changed.conversionOrigin)
+    }
+
+    fun withPercent(value: String): CategoryTargetInput = copy(percent = value, carried = false, conversionOrigin = null)
+    fun withBasis(value: CostBasis): CategoryTargetInput = copy(basis = value, conversionOrigin = null)
+    fun equivalents(): String? = if (useGeneral) null else pricingPercent().equivalents()
 }
 
 /** The pricing rules and misc share, ready to save. */
@@ -380,6 +396,7 @@ data class SettingsInput(
                 name.isEmpty() -> p.add(Field.CATEGORY, "نام بخش را بنویسید.")
                 !seen.add(Persian.searchKey(name)) -> p.add(Field.CATEGORY, "بخش «$name» دو بار آمده است.")
                 category.useGeneral -> general += name
+                category.carried -> p.add(Field.CATEGORY, "بخش «$name»: $CARRIED_MESSAGE")
                 !validTarget -> p.add(Field.CATEGORY, if (category.method == MethodChoice.FOOD_COST) "فودکاست هدف «$name» باید بیشتر از ۰ و کمتر از ۱۰۰ باشد." else "درصد روش قیمت‌گذاری «$name» معتبر نیست.")
                 else -> byCategory[name] = when (category.method) {
                     MethodChoice.FOOD_COST -> PricingMethod.TargetFoodCost(target!!)
@@ -514,51 +531,13 @@ data class SettingsInput(
      */
     fun withMethod(choice: MethodChoice): SettingsInput {
         if (choice == method) return this
-        if (carried || (choice == MethodChoice.FOOD_COST && basis == CostBasis.FULL_COST)) {
-            return copy(method = choice, carried = true, conversionOrigin = null)
-        }
-        val value = Numbers.parse(percent)
-            ?: return copy(method = choice, carried = true, conversionOrigin = null)
-        val activeBasis = if (method == MethodChoice.FOOD_COST) CostBasis.FOOD_COST else basis
-        // A direct copy changing the percentage or basis must not reuse an old conversion origin.
-        val origin = conversionOrigin?.takeIf {
-            val (sourceMethod, sourceValue) = it.choiceAndPercent()
-            it.costBasis() == activeBasis && equivalent(sourceValue, sourceMethod, method)?.compareTo(value) == 0
-        }
-        val (sourceMethod, sourceValue) = origin?.choiceAndPercent() ?: (method to value)
-        val converted = equivalent(sourceValue, sourceMethod, choice)
-            ?: return copy(method = choice, carried = true, conversionOrigin = null)
-        return copy(
-            method = choice,
-            percent = Numbers.editable(converted),
-            basis = activeBasis,
-            carried = false,
-            conversionOrigin = origin ?: when (method) {
-                MethodChoice.FOOD_COST -> PricingMethod.TargetFoodCost(value)
-                MethodChoice.MARGIN -> PricingMethod.TargetMargin(value, activeBasis)
-                MethodChoice.MARKUP -> PricingMethod.Markup(value, activeBasis)
-            },
-        )
+        val changed = PricingPercent(method, percent, basis, carried, conversionOrigin).withMethod(choice)
+        return copy(method = changed.method, percent = changed.percent, basis = changed.basis,
+            carried = changed.carried, conversionOrigin = changed.conversionOrigin)
     }
 
-    /**
-     * The number in the other methods: «یعنی حاشیهٔ سود ۶۵٪ و مارک‌آپ ۱۸۵٫۷٪», or on every cost,
-     * where a food cost share has no equivalent, «یعنی مارک‌آپ ۶۶٫۷٪، روی همهٔ هزینه‌ها».
-     */
-    fun equivalents(): String? {
-        if (carried) return null
-        val value = Numbers.parse(percent)?.takeIf { validPercent(it, method) } ?: return null
-        if (basis == CostBasis.FULL_COST && method != MethodChoice.FOOD_COST) {
-            val other = if (method == MethodChoice.MARGIN) MethodChoice.MARKUP else MethodChoice.MARGIN
-            val converted = equivalent(value, method, other) ?: return null
-            return "یعنی ${shortName(other)} ${Numbers.percent(converted)}، روی همهٔ هزینه‌ها"
-        }
-        val others = MethodChoice.entries.filter { it != method }.mapNotNull { other ->
-            val converted = equivalent(value, method, other) ?: return@mapNotNull null
-            "${shortName(other)} ${Numbers.percent(converted)}"
-        }
-        return others.takeIf { it.isNotEmpty() }?.let { "یعنی ${it.joinToString(" و ")}" }
-    }
+    /** The equivalent targets explicitly identify the shared cost basis. */
+    fun equivalents(): String? = PricingPercent(method, percent, basis, carried, conversionOrigin).equivalents()
 
     private fun percentMessage(): String = when (method) {
         MethodChoice.FOOD_COST -> "فودکاست هدف باید بیشتر از ۰ و کمتر از ۱۰۰ باشد."
@@ -575,23 +554,7 @@ data class SettingsInput(
             is PricingMethod.Markup -> MethodChoice.MARKUP to percent
         }
 
-        private fun PricingMethod.costBasis(): CostBasis = when (this) {
-            is PricingMethod.TargetFoodCost -> CostBasis.FOOD_COST
-            is PricingMethod.TargetMargin -> basis
-            is PricingMethod.Markup -> basis
-        }
-
-        private fun validPercent(value: BigDecimal, method: MethodChoice): Boolean = when (method) {
-            MethodChoice.FOOD_COST -> value.signum() > 0 && value < HUNDRED
-            MethodChoice.MARGIN -> value.signum() >= 0 && value < HUNDRED
-            MethodChoice.MARKUP -> value.signum() >= 0
-        }
-
-        private fun shortName(choice: MethodChoice): String = when (choice) {
-            MethodChoice.FOOD_COST -> "فودکاست"
-            MethodChoice.MARGIN -> "حاشیهٔ سود"
-            MethodChoice.MARKUP -> "مارک‌آپ"
-        }
+        private fun validPercent(value: BigDecimal, method: MethodChoice): Boolean = PricingPercent.validPercent(value, method)
 
         /**
          * [value] of method [from] as method [to], on the food cost: the food cost is the cost's share
@@ -599,27 +562,8 @@ data class SettingsInput(
          * Null when either percentage is outside its method's range. Keep calculation precision;
          * rounding is only for the explanatory text, never for the value used to price dishes.
          */
-        internal fun equivalent(value: BigDecimal, from: MethodChoice, to: MethodChoice): BigDecimal? {
-            if (!validPercent(value, from)) return null
-            if (from == to) return value
-            val result = when (to) {
-                MethodChoice.FOOD_COST -> when (from) {
-                    MethodChoice.MARKUP -> HUNDRED_SQUARED over (HUNDRED + value)
-                    else -> HUNDRED - value
-                }
-                MethodChoice.MARGIN -> when (from) {
-                    MethodChoice.MARKUP -> value.multiply(HUNDRED) over (HUNDRED + value)
-                    else -> HUNDRED - value
-                }
-                MethodChoice.MARKUP -> when (from) {
-                    MethodChoice.FOOD_COST -> (HUNDRED - value).multiply(HUNDRED) over value
-                    else -> value.multiply(HUNDRED) over (HUNDRED - value)
-                }
-            }
-            return result.takeIf { validPercent(it, to) }?.stripTrailingZeros()
-        }
-
-        private val HUNDRED_SQUARED = BigDecimal(10_000)
+        internal fun equivalent(value: BigDecimal, from: MethodChoice, to: MethodChoice): BigDecimal? =
+            PricingPercent.equivalent(value, from, to)
 
         /** Rounding steps offered, in rials: 1,000 to 100,000 toman. */
         val ROUNDING_STEPS: List<Long> = listOf(10_000L, 50_000L, 100_000L, 500_000L, 1_000_000L)

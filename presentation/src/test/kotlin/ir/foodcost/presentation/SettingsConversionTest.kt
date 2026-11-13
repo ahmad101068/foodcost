@@ -104,7 +104,7 @@ class SettingsConversionTest {
             Numbers.parse(input(MethodChoice.MARGIN, "25").withMethod(MethodChoice.MARKUP).percent),
             "1E-29",
         )
-        assertEquals("یعنی حاشیهٔ سود ۶۵٪ و مارک‌آپ ۱۸۵٫۷٪", food.equivalents())
+        assertEquals("یعنی حاشیهٔ سود ۶۵٪ و مارک‌آپ ۱۸۵٫۷٪، روی مواد اولیه", food.equivalents())
     }
 
     @Test

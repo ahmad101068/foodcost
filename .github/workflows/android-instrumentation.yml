@@ -45,6 +45,7 @@ jobs:
             ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.foodcost.app.UnreadableWarningTest#ingredientListAndDetailDoNotPresentStalePricesAsVerified --no-daemon --stacktrace
             ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.foodcost.app.UnreadableWarningTest#goingOnWithoutTheUnreadablePriceShowsTheFiguresWithoutIt --no-daemon --stacktrace
             ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.foodcost.app.SettingsScopeTest --no-daemon --stacktrace
+            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.foodcost.app.PricingMethodsTest --no-daemon --stacktrace
             ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.foodcost.app.CurrencyPreferenceTest --no-daemon --stacktrace
             ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.foodcost.app.ExitConfirmationTest --no-daemon --stacktrace
             ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ir.foodcost.app.WalkThroughTest --no-daemon --stacktrace
