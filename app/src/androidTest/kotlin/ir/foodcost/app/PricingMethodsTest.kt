@@ -52,7 +52,7 @@ class PricingMethodsTest {
         container.saveDraft()
 
         ActivityScenario.launch(MainActivity::class.java).use {
-            clickTag("channel-details-toggle")
+            showChannelDetails()
             rule.onNodeWithTag("channel-percent-basis").performScrollTo().assertTextContains("همهٔ هزینه‌های ثبت‌شده", substring = true)
             rule.onNodeWithTag("channel-0-margin").performScrollTo().assertTextContains("۵۶٪", substring = true)
             rule.onNodeWithTag("channel-0-markup").performScrollTo().assertTextContains("۱۲۷٫۳٪", substring = true)
@@ -68,6 +68,17 @@ class PricingMethodsTest {
             rule.onNodeWithTag("category-0-percent").assertTextContains("150")
             clickTag("settings-save-sections")
             waitMethod { it is PricingMethod.Markup && it.percent.compareTo(BigDecimal(150)) == 0 && it.basis == CostBasis.FOOD_COST }
+
+            // Saved conversion history must not pin a stale section after another committed change.
+            for (percent in listOf(200, 150)) {
+                runBlocking { container.change { ledger -> ledger.saveSettings(
+                    pricing = ledger.state.pricing.copy(methodByCategory = linkedMapOf("غذای اصلی" to PricingMethod.Markup(BigDecimal(percent)))),
+                    effectiveFrom = today,
+                ) } }
+                rule.waitUntil(15_000) {
+                    rule.onAllNodes(hasTestTag("category-0-percent") and hasText(percent.toString(), substring = true)).fetchSemanticsNodes().isNotEmpty()
+                }
+            }
 
             clickTag("category-0-basis-FULL_COST")
             clickTag("category-0-method-MARGIN")
@@ -98,6 +109,7 @@ class PricingMethodsTest {
             tab("ماشین‌حساب")
             clickTag("channel-tab-2")
             rule.onNodeWithTag("channel-2-remaining").performScrollTo().assertIsDisplayed()
+            showChannelDetails()
             rule.onNodeWithTag("channel-2-same-remaining-unavailable").performScrollTo().assertIsDisplayed()
             shot("33-pricing-near100-commission")
 
@@ -109,6 +121,7 @@ class PricingMethodsTest {
             tab("ماشین‌حساب")
             clickTag("channel-tab-2")
             rule.onNodeWithTag("channel-2-remaining").performScrollTo().assertIsDisplayed()
+            showChannelDetails()
             rule.onNodeWithTag("channel-2-same-remaining-unavailable").performScrollTo().assertIsDisplayed()
             shot("34-pricing-near100-discount")
         }
@@ -116,6 +129,9 @@ class PricingMethodsTest {
 
     private fun waitMethod(matches: (PricingMethod?) -> Boolean) {
         rule.waitUntil(15_000) { matches(container.state.value?.pricing?.methodByCategory?.get("غذای اصلی")) }
+    }
+    private fun showChannelDetails() {
+        if (rule.onAllNodesWithTag("channel-percent-basis").fetchSemanticsNodes().isEmpty()) clickTag("channel-details-toggle")
     }
     private fun clickTag(tag: String) {
         rule.waitUntil(15_000) { rule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }

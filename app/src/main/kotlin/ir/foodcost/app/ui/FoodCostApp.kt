@@ -220,7 +220,11 @@ private fun rebaseSettingsDraft(draft: SettingsInput, previous: SettingsInput, l
         vatPercent = draft.vatPercent, menuPriceIncludesVat = draft.menuPriceIncludesVat,
         roundingStepRials = draft.roundingStepRials, roundingDirection = draft.roundingDirection,
     )
-    if (draft.categories != previous.categories) result = result.copy(categories = draft.categories)
+    // Conversion history is transient, like the general rule's origin above. It must not
+    // make an already-saved section override a newer committed rule during rebasing.
+    val sectionDraft = draft.categories.map { it.copy(conversionOrigin = null) }
+    val sectionBaseline = previous.categories.map { it.copy(conversionOrigin = null) }
+    if (sectionDraft != sectionBaseline) result = result.copy(categories = draft.categories)
     if (draft.miscPercent != previous.miscPercent || draft.monthlyFixed != previous.monthlyFixed ||
         draft.monthlyPortions != previous.monthlyPortions || draft.onlineCommission != previous.onlineCommission ||
         draft.onlineDiscount != previous.onlineDiscount || draft.onlineUplift != previous.onlineUplift
