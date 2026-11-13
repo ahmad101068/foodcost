@@ -98,6 +98,7 @@ class PricingMethodsTest {
             tab("ماشین‌حساب")
             clickTag("channel-tab-2")
             rule.onNodeWithTag("channel-2-remaining").performScrollTo().assertIsDisplayed()
+            rule.onNodeWithTag("channel-2-same-remaining-unavailable").performScrollTo().assertIsDisplayed()
             shot("33-pricing-near100-commission")
 
             tab("تنظیمات")
@@ -108,6 +109,7 @@ class PricingMethodsTest {
             tab("ماشین‌حساب")
             clickTag("channel-tab-2")
             rule.onNodeWithTag("channel-2-remaining").performScrollTo().assertIsDisplayed()
+            rule.onNodeWithTag("channel-2-same-remaining-unavailable").performScrollTo().assertIsDisplayed()
             shot("34-pricing-near100-discount")
         }
     }
