@@ -70,6 +70,15 @@ class PricingGuaranteeTest {
         assertTrue(sale.discount < BigDecimal(sale.price))
     }
 
+    @Test fun tinyPositiveDiscountAndCommissionAreNotLostThroughSubtraction() {
+        val tiny = BigDecimal("0.0000000000000000000000000000000000000001")
+        val calc = calculator(PricingSettings(online = OnlineTerms(commissionPercent = tiny, discountPercent = tiny)))
+        val sale = calc.pricer.sale(calc.cost(F.rid("dish"), F.D1), SalesChannel.ONLINE, 2_200_000)
+        assertTrue(sale.discount.signum() > 0)
+        assertTrue(sale.commission.signum() > 0)
+        assertEquals(0, BigDecimal(sale.price).multiply(tiny).divide(BigDecimal(100)).compareTo(sale.discount))
+    }
+
     @Test fun nearlyHundredPercentCommissionStillLeavesAPositiveShareBeforeOtherCosts() {
         val almost = BigDecimal("99." + "9".repeat(40))
         val calc = calculator(PricingSettings(online = OnlineTerms(commissionPercent = almost)))

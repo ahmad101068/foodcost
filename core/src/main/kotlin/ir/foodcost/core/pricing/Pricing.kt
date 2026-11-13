@@ -265,11 +265,11 @@ class Pricer(private val settings: PricingSettings) {
     fun sale(cost: RecipeCost, channel: SalesChannel, price: Long): Sale {
         val online = channel == SalesChannel.ONLINE
         val gross = BigDecimal(price)
-        // Subtract percentages before dividing: 99.999…% must retain a positive share.
-        val paid = if (online) gross.multiply(retained(settings.online.discountPercent)) else gross
-        val discount = gross - paid
-        val net = paid.over(settings.vatFactor)
-        val commission = if (online) net - net.multiply(retained(settings.online.commissionPercent)) else BigDecimal.ZERO
+        // Dividing an input percentage by 100 is exact. Preserve both tiny fees and the
+        // positive share of 99.999…%, before the net-sale division uses calculation precision.
+        val discount = if (online) gross.multiply(settings.online.discountPercent.movePointLeft(2)) else BigDecimal.ZERO
+        val net = (gross - discount).over(settings.vatFactor)
+        val commission = if (online) net.multiply(settings.online.commissionPercent.movePointLeft(2)) else BigDecimal.ZERO
         return Sale(channel, price, discount, net, commission, cost.foodCostPerPortion, otherCosts(cost, channel))
     }
 
@@ -290,7 +290,7 @@ class Pricer(private val settings: PricingSettings) {
         }
     }
 
-    private fun retained(percent: BigDecimal): BigDecimal = (Decimals.HUNDRED - percent).asFraction()
+    private fun retained(percent: BigDecimal): BigDecimal = (Decimals.HUNDRED - percent).movePointLeft(2)
 
     /** Keep hard guarantees after step rounding and verify the result against the actual sale. */
     private fun guaranteedPrice(gross: BigDecimal, meets: (Long) -> Boolean): Long? {
