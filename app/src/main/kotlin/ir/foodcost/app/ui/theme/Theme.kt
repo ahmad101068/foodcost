@@ -31,46 +31,38 @@ val Vazirmatn = FontFamily(
  * Warm paper and forest teal keep controls distinct from the financial status colors.
  * Green means a suitable price, cream means near the target, and red means well below it.
  */
-private object Palette {
-    val Lapis = Color(0xFF005747)
-    val LapisDeep = Color(0xFF123A33)
-    val Saffron = Color(0xFFE9D3A6)
-    val Paper = Color(0xFFFAF9F6)
-    val Ink = Color(0xFF111313)
-}
-
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF005747),
-    onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFDFEEE7),
-    onPrimaryContainer = Color(0xFF173D35),
-    secondary = Color(0xFF456B5E),
-    onSecondary = Color(0xFFFFFFFF),
+    primary = FoodCostTokens.Primary,
+    onPrimary = FoodCostTokens.OnPrimary,
+    primaryContainer = FoodCostTokens.PrimaryContainer,
+    onPrimaryContainer = FoodCostTokens.OnPrimaryContainer,
+    secondary = FoodCostTokens.Secondary,
+    onSecondary = FoodCostTokens.OnPrimary,
     secondaryContainer = Color(0xFFE8F3ED),
     onSecondaryContainer = Color(0xFF214D3D),
-    tertiary = Color(0xFF087828),
-    onTertiary = Color(0xFFFFFFFF),
-    tertiaryContainer = Color(0xFFE5F7E3),
+    tertiary = FoodCostTokens.SuccessForeground,
+    onTertiary = FoodCostTokens.OnPrimary,
+    tertiaryContainer = FoodCostTokens.SuccessBackground,
     onTertiaryContainer = Color(0xFF0E2000),
-    error = Color(0xFFB3261E),
-    onError = Color(0xFFFFFFFF),
+    error = FoodCostTokens.ErrorForeground,
+    onError = FoodCostTokens.OnPrimary,
     errorContainer = Color(0xFFFFDAD6),
     onErrorContainer = Color(0xFF410E0B),
-    background = Palette.Paper,
-    onBackground = Palette.Ink,
-    surface = Palette.Paper,
-    onSurface = Palette.Ink,
-    surfaceVariant = Color(0xFFE9EDE8),
-    onSurfaceVariant = Color(0xFF5A5D61),
-    surfaceTint = Color(0xFF005747),
+    background = FoodCostTokens.Paper,
+    onBackground = FoodCostTokens.Ink,
+    surface = FoodCostTokens.Paper,
+    onSurface = FoodCostTokens.Ink,
+    surfaceVariant = FoodCostTokens.SurfaceVariant,
+    onSurfaceVariant = FoodCostTokens.Muted,
+    surfaceTint = FoodCostTokens.Primary,
     outline = Color(0xFF819189),
-    outlineVariant = Color(0xFFCBD0D9),
+    outlineVariant = FoodCostTokens.Border,
     inverseSurface = Color(0xFF2F3036),
     inverseOnSurface = Color(0xFFF1F0F5),
     inversePrimary = Color(0xFFA4D5C4),
     surfaceDim = Color(0xFFDBE1D9),
-    surfaceBright = Palette.Paper,
-    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceBright = FoodCostTokens.Paper,
+    surfaceContainerLowest = FoodCostTokens.OnPrimary,
     surfaceContainerLow = Color(0xFFF3F6EF),
     surfaceContainer = Color(0xFFEDF2EA),
     surfaceContainerHigh = Color(0xFFE6ECE3),
@@ -89,7 +81,7 @@ private val DarkColors = darkColorScheme(
     tertiary = Color(0xFFA9D58A),
     onTertiary = Color(0xFF1A3700),
     tertiaryContainer = Color(0xFF2B5214),
-    onTertiaryContainer = Color(0xFFE5F7E3),
+    onTertiaryContainer = FoodCostTokens.SuccessBackground,
     error = Color(0xFFFFB4AB),
     onError = Color(0xFF690005),
     errorContainer = Color(0xFF93000A),
@@ -105,7 +97,7 @@ private val DarkColors = darkColorScheme(
     outlineVariant = Color(0xFF3D4A41),
     inverseSurface = Color(0xFFE3E2E9),
     inverseOnSurface = Color(0xFF2F3036),
-    inversePrimary = Color(0xFF005747),
+    inversePrimary = FoodCostTokens.Primary,
     surfaceDim = Color(0xFF111914),
     surfaceBright = Color(0xFF354239),
     surfaceContainerLowest = Color(0xFF0C140F),
@@ -117,11 +109,11 @@ private val DarkColors = darkColorScheme(
 
 // Corners grow with what they hold: fields and chips, then cards, then the display and dialogs.
 private val AppShapes = Shapes(
-    extraSmall = RoundedCornerShape(10.dp),
+    extraSmall = RoundedCornerShape(8.dp),
     small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(20.dp),
-    large = RoundedCornerShape(24.dp),
-    extraLarge = RoundedCornerShape(28.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(24.dp),
 )
 
 private val AppTypography: Typography = Typography().let { base ->
@@ -135,10 +127,10 @@ private val AppTypography: Typography = Typography().let { base ->
         titleLarge = base.titleLarge.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
         titleMedium = base.titleMedium.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
         titleSmall = base.titleSmall.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold, fontSize = 14.sp, lineHeight = 20.sp),
-        bodyLarge = base.bodyLarge.copy(fontFamily = Vazirmatn, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium),
-        bodyMedium = base.bodyMedium.copy(fontFamily = Vazirmatn, fontSize = 13.sp, lineHeight = 19.sp),
+        bodyLarge = base.bodyLarge.copy(fontFamily = Vazirmatn, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium),
+        bodyMedium = base.bodyMedium.copy(fontFamily = Vazirmatn, fontSize = 14.sp, lineHeight = 20.sp),
         bodySmall = base.bodySmall.copy(fontFamily = Vazirmatn, lineHeight = 18.sp),
-        labelLarge = base.labelLarge.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold, fontSize = 13.sp, lineHeight = 18.sp),
+        labelLarge = base.labelLarge.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold, fontSize = 14.sp, lineHeight = 20.sp),
         labelMedium = base.labelMedium.copy(fontFamily = Vazirmatn),
         labelSmall = base.labelSmall.copy(fontFamily = Vazirmatn),
     )
@@ -165,9 +157,9 @@ data class DisplayColors(
 @Composable
 fun displayColors(): DisplayColors =
     if (isSystemInDarkTheme()) {
-        DisplayColors(Palette.LapisDeep, Palette.Saffron, Color(0xFFF3FAF5), Color(0xFFC0D9CC), Color(0x29FFFFFF))
+        DisplayColors(FoodCostTokens.PrimaryDeep, FoodCostTokens.WarmResult, Color(0xFFF3FAF5), Color(0xFFC0D9CC), Color(0x29FFFFFF))
     } else {
-        DisplayColors(Palette.Lapis, Palette.Saffron, Color(0xFFFFFFFF), Color(0xFFCCE1D5), Color(0x2EFFFFFF))
+        DisplayColors(FoodCostTokens.Primary, FoodCostTokens.WarmResult, FoodCostTokens.OnPrimary, Color(0xFFCCE1D5), Color(0x2EFFFFFF))
     }
 
 /** Background and text colors for a price status. */
@@ -180,16 +172,16 @@ data class DashboardColors(val sales: StatusColors, val food: StatusColors)
 fun dashboardColors(): DashboardColors = if (isSystemInDarkTheme()) {
     DashboardColors(StatusColors(Color(0xFF252E4C), Color(0xFFC5D0FF)), StatusColors(Color(0xFF432F23), Color(0xFFFFC599)))
 } else {
-    DashboardColors(StatusColors(Color(0xFFF0F2FF), Color(0xFF1233AB)), StatusColors(Color(0xFFFFF1E3), Color(0xFFEE6105)))
+    DashboardColors(StatusColors(FoodCostTokens.SalesBackground, FoodCostTokens.SalesForeground), StatusColors(FoodCostTokens.FoodBackground, FoodCostTokens.FoodForeground))
 }
 
 @Composable
 fun statusColors(status: PriceStatus): StatusColors {
     val dark = isSystemInDarkTheme()
     return when (status) {
-        PriceStatus.OK -> if (dark) StatusColors(Color(0xFF254C34), Color(0xFFC6EBCF)) else StatusColors(Color(0xFFE5F6E1), Color(0xFF086C23))
-        PriceStatus.NEAR -> if (dark) StatusColors(Color(0xFF4D4232), Color(0xFFF6E8CC)) else StatusColors(Color(0xFFFFF3DC), Color(0xFF805615))
-        PriceStatus.UNDER -> if (dark) StatusColors(Color(0xFF642C2B), Color(0xFFFFDBD6)) else StatusColors(Color(0xFFFFDEDC), Color(0xFFE62625))
+        PriceStatus.OK -> if (dark) StatusColors(Color(0xFF254C34), Color(0xFFC6EBCF)) else StatusColors(FoodCostTokens.SuccessBackground, FoodCostTokens.SuccessForeground)
+        PriceStatus.NEAR -> if (dark) StatusColors(Color(0xFF4D4232), Color(0xFFF6E8CC)) else StatusColors(FoodCostTokens.WarningBackground, FoodCostTokens.WarningForeground)
+        PriceStatus.UNDER -> if (dark) StatusColors(Color(0xFF642C2B), Color(0xFFFFDBD6)) else StatusColors(FoodCostTokens.ErrorBackground, FoodCostTokens.ErrorForeground)
         PriceStatus.NO_PRICE, PriceStatus.INCOMPLETE, PriceStatus.EMPTY ->
             StatusColors(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant)
     }
