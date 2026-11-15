@@ -201,10 +201,9 @@ fun ReferenceBottomBar(nav: Navigator, actions: AppActions) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf(Tab.CALC, Tab.INGREDIENTS, Tab.RECIPES, Tab.SETTINGS).forEach { tab ->
                     val selected = nav.tab == tab
-                    val brush = if (selected) Brush.verticalGradient(listOf(scheme.primary, scheme.primary.copy(red = scheme.primary.red * .85f, green = scheme.primary.green * .85f, blue = scheme.primary.blue * .85f)))
-                        else Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
+                    val navigationTile = if (selected) scheme.primary else Color.Transparent
                     Column(
-                        Modifier.weight(1f).background(brush, RoundedCornerShape(14.dp))
+                        Modifier.weight(1f).background(navigationTile, MaterialTheme.shapes.small)
                             .semantics { this.selected = selected; role = Role.Tab }.clickable(onClickLabel = tab.label) { actions.snackbar.currentSnackbarData?.dismiss(); nav.tab(tab) }
                             .padding(horizontal = 2.dp, vertical = 6.dp),
                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp),
