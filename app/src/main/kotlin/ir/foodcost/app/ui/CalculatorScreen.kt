@@ -469,100 +469,249 @@ fun CalculatorScreen(
     }
 }
 
+
 /**
- * The calculator's graphical display at the top of the scrollable form. Without
- * a menu price it shows the food's cost and the suggested price; with one, the four figures that
- * decide a price: the food's cost, the net sale, the food cost and the gross profit. When the dish
- * has other costs, the cost with them and what is left after them come under those.
+ * FoodCost Premium financial dashboard, approved visual direction.
+ *
+ * Every figure is read from QuickResult: rendering never recalculates, rounds, or invents a
+ * financial amount. Required test tags from the historical dashboard remain stable.
  */
 @Composable
-private fun Display(result: QuickResult, money: MoneyFormat, compact: Boolean, dataUnreliable: Boolean, vatNote: String, modifier: Modifier = Modifier, onExplain: (String) -> Unit) {
-    val accents = ir.foodcost.app.ui.theme.dashboardColors()
-    val navy = accents.sales.content
-    val green = MaterialTheme.colorScheme.tertiary
-    val orange = accents.food.content
-    val priceColors = statusColors(result.status)
-    val gaugeTrack = MaterialTheme.colorScheme.outlineVariant
+private fun Display(
+    result: QuickResult,
+    money: MoneyFormat,
+    compact: Boolean,
+    dataUnreliable: Boolean,
+    vatNote: String,
+    modifier: Modifier = Modifier,
+    onExplain: (String) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val salesColors = ir.foodcost.app.ui.theme.dashboardColors().sales
+    val foodColors = ir.foodcost.app.ui.theme.dashboardColors().food
+    val status = statusColors(result.status)
+    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val heroSurface = if (isDark) scheme.primaryContainer else ir.foodcost.app.ui.theme.FoodCostTokens.HeroSurface
+    val heroText = if (isDark) scheme.onPrimaryContainer else ir.foodcost.app.ui.theme.FoodCostTokens.HeroText
     val hasPrice = result.netSales != null
+    val largeText = LocalDensity.current.fontScale > 1.35f
     Card(
         modifier = modifier.fillMaxWidth().testTag("calculator-dashboard"),
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(0.7.dp, MaterialTheme.colorScheme.outlineVariant),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(.7.dp, scheme.outlineVariant),
         colors = whiteCardColors(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (dataUnreliable) {
-                Text(BackupTexts.UNVERIFIED_RESULT, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("unverified-financial-result"))
+                Text(
+                    BackupTexts.UNVERIFIED_RESULT,
+                    color = scheme.error,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.testTag("unverified-financial-result"),
+                )
                 return@Column
             }
-            if (result.discountApplied) {
-                Text("فروش پس از تخفیف: ${result.menuRials?.let(money::full) ?: "—"}", style = MaterialTheme.typography.labelSmall, color = navy, modifier = Modifier.testTag("discount-summary"))
+
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Surface(shape = RoundedCornerShape(13.dp), color = scheme.primary) {
+                    Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
+                        Icon(ReferenceIcons.calculator, contentDescription = null, tint = scheme.onPrimary, modifier = Modifier.size(22.dp))
+                    }
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text("تحلیل هوشمند قیمت", style = MaterialTheme.typography.titleMedium, color = scheme.onSurface)
+                    Text("وضعیت مالی هر پرس، به‌صورت زنده", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                }
+                if (result.hasLines && !largeText) {
+                    StatusChip(result.status, result.statusLabel)
+                }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1.15f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    DashboardMetric(if (hasPrice) "فروش خالص هر پرس" else "قیمت پیشنهادی هر پرس", result.netSales ?: result.suggested ?: "—", navy, accents.sales.container, Modifier.testTag(if (hasPrice) "net-sales" else "suggested"), money, onClick = { onExplain(if (hasPrice) Glossary.NET_SALES else Glossary.SUGGESTED) })
-                    DashboardMetric("هزینه مواد هر پرس", result.costPerPortion, orange, accents.food.container, Modifier.testTag("cost"), money, onClick = { onExplain(Glossary.FOOD) })
-                    if (hasPrice) {
+
+            // Financial hero: the target selling price comes from the pricing model, never from artwork.
+            Surface(color = heroSurface, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 15.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(result.suggestedLabel, style = MaterialTheme.typography.titleSmall, color = heroText, modifier = Modifier.weight(1f))
+                        Icon(ReferenceIcons.tag, contentDescription = null, tint = heroText, modifier = Modifier.size(22.dp))
+                    }
+                    FitText(
+                        result.suggested ?: "—",
+                        style = MaterialTheme.typography.headlineMedium.copy(fontSize = 30.sp, lineHeight = 39.sp, fontWeight = FontWeight.Bold),
+                        color = heroText,
+                        modifier = Modifier.fillMaxWidth().testTag("premium-suggested-price"),
+                    )
+                    if (!compact) {
+                        Text(result.method, style = MaterialTheme.typography.bodySmall, color = heroText)
+                    }
+                }
+            }
+
+            if (result.discountApplied) {
+                Text(
+                    "فروش پس از تخفیف: " + (result.menuRials?.let(money::full) ?: "—"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("discount-summary"),
+                )
+            }
+
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val stack = maxWidth < 340.dp || largeText
+                if (stack) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         DashboardMetric(
-                            if (result.remaining != null) "مانده پس از هزینه‌ها" else if (result.grossProfitNegative) "زیان ناخالص" else "سود ناخالص",
-                            result.remaining?.replace("+", "") ?: result.grossProfit?.replace("+", "") ?: "—",
-                            if (result.remainingNegative || result.grossProfitNegative) MaterialTheme.colorScheme.error else green,
-                            if (result.remainingNegative || result.grossProfitNegative) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.tertiaryContainer, Modifier.testTag("gross-profit"), money,
-                            onClick = { onExplain(if (result.remaining != null) Glossary.REMAINING else Glossary.GROSS_PROFIT) },
+                            if (hasPrice) "فروش خالص هر پرس" else "قیمت پیشنهادی هر پرس",
+                            result.netSales ?: result.suggested ?: "—",
+                            salesColors.content, salesColors.container,
+                            Modifier.testTag(if (hasPrice) "net-sales" else "suggested"), money,
+                            onClick = { onExplain(if (hasPrice) Glossary.NET_SALES else Glossary.SUGGESTED) },
+                        )
+                        DashboardMetric(
+                            "هزینه مواد اولیه هر پرس", result.costPerPortion,
+                            foodColors.content, foodColors.container,
+                            Modifier.testTag("cost"), money,
+                            onClick = { onExplain(Glossary.FOOD) },
+                        )
+                    }
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                        DashboardMetric(
+                            if (hasPrice) "فروش خالص هر پرس" else "قیمت پیشنهادی هر پرس",
+                            result.netSales ?: result.suggested ?: "—",
+                            salesColors.content, salesColors.container,
+                            Modifier.weight(1f).testTag(if (hasPrice) "net-sales" else "suggested"), money,
+                            onClick = { onExplain(if (hasPrice) Glossary.NET_SALES else Glossary.SUGGESTED) },
+                        )
+                        DashboardMetric(
+                            "هزینه مواد اولیه هر پرس", result.costPerPortion,
+                            foodColors.content, foodColors.container,
+                            Modifier.weight(1f).testTag("cost"), money,
+                            onClick = { onExplain(Glossary.FOOD) },
                         )
                     }
                 }
-                Column(Modifier.weight(0.95f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val percent = result.foodCostPercent ?: "—"
-                    // The float is used only to draw an arc, never to compute a financial value.
-                    val ratio = result.foodCostValue?.toFloat()
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().height(132.dp).testTag("food-cost-gauge")) {
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            val stroke = 12.dp.toPx()
-                            val diameter = size.width - stroke
-                            val arcTopLeft = Offset(stroke / 2f, stroke / 2f)
-                            val arcSize = Size(diameter, diameter)
-                            drawArc(
-                                color = gaugeTrack,
-                                startAngle = 180f,
-                                sweepAngle = 180f,
-                                useCenter = false,
-                                topLeft = arcTopLeft,
-                                size = arcSize,
-                                style = Stroke(width = stroke, cap = StrokeCap.Round),
-                            )
-                            drawArc(
-                                color = priceColors.content,
-                                startAngle = 180f,
-                                sweepAngle = 180f * ((ratio ?: 0f) / 100f).coerceIn(0f, 1f),
-                                useCenter = false,
-                                topLeft = arcTopLeft,
-                                size = arcSize,
-                                style = Stroke(width = stroke, cap = StrokeCap.Round),
-                            )
-                        }
-                        Column(Modifier.padding(top = 26.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("فودکاست", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-                            FitText(percent, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, fontSize = 36.sp, lineHeight = 46.sp, textAlign = TextAlign.Center), color = priceColors.content, modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp).clickable(onClickLabel = "توضیح فودکاست", onClick = { onExplain(Glossary.FOOD_COST) }).testTag("food-cost"))
-                        }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(19.dp),
+                color = scheme.surfaceContainerLow,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (largeText) {
+                    Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PremiumFoodCostRing(result, status.content, scheme.outlineVariant, onExplain, Modifier.fillMaxWidth())
+                        PremiumProfitSummary(result, money, onExplain, Modifier.fillMaxWidth())
                     }
-                    if (result.hasLines) StatusChip(result.status, result.statusLabel, prominent = true)
+                } else {
+                    Row(Modifier.padding(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        PremiumFoodCostRing(result, status.content, scheme.outlineVariant, onExplain, Modifier.weight(.95f))
+                        PremiumProfitSummary(result, money, onExplain, Modifier.weight(1.25f))
+                    }
                 }
             }
+
+            if (result.hasLines && largeText) {
+                StatusChip(result.status, result.statusLabel)
+            }
             if (!compact) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        result.suggested?.let { FitText("${result.suggestedLabel}: $it", style = MaterialTheme.typography.titleSmall, modifier = Modifier.testTag("dashboard-suggestion")) }
-                        Text(result.leftOutNote ?: result.raise?.let { "قیمت فعلی باید $it بیشتر شود" } ?: if (result.netSales == null) "${result.method}، ${result.miscNote}" else "فروش خالص پس از کسر مالیات", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    androidx.compose.material3.VerticalDivider(Modifier.height(30.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    Text(vatNote, Modifier.width(86.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                HorizontalDivider(color = scheme.outlineVariant)
+                result.suggested?.let {
+                    FitText(
+                        result.suggestedLabel + ": " + it,
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.fillMaxWidth().testTag("dashboard-suggestion"),
+                        color = scheme.primary,
+                    )
                 }
+                Text(
+                    result.leftOutNote ?: result.raise?.let { "قیمت فعلی باید " + it + " بیشتر شود" }
+                        ?: if (hasPrice) "فروش خالص بعد از مالیات · " + vatNote else result.miscNote,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                )
                 if (result.incompleteRows > 0) {
-                    Text("${Persian.digits(result.incompleteRows)} ردیف کامل نیست و در جمع نیامده است.", style = MaterialTheme.typography.bodySmall, color = orange)
+                    Text(
+                        Persian.digits(result.incompleteRows) + " ردیف کامل نیست و در جمع نیامده است.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = scheme.error,
+                    )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PremiumFoodCostRing(
+    result: QuickResult,
+    progressColor: Color,
+    trackColor: Color,
+    onExplain: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val fraction = ((result.foodCostValue?.toFloat() ?: 0f) / 100f).coerceIn(0f, 1f)
+    Box(
+        modifier = modifier.height(156.dp).testTag("food-cost-gauge"),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(132.dp)) {
+            val stroke = 13.dp.toPx()
+            val inset = stroke / 2
+            val arc = Size(size.width - stroke, size.height - stroke)
+            drawArc(
+                trackColor, startAngle = -90f, sweepAngle = 360f, useCenter = false,
+                topLeft = Offset(inset, inset), size = arc,
+                style = Stroke(width = stroke, cap = StrokeCap.Round),
+            )
+            if (fraction > 0f) {
+                drawArc(
+                    progressColor, startAngle = -90f, sweepAngle = fraction * 360f, useCenter = false,
+                    topLeft = Offset(inset, inset), size = arc,
+                    style = Stroke(width = stroke, cap = StrokeCap.Round),
+                )
+            }
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            FitText(
+                result.foodCostPercent ?: "—",
+                style = MaterialTheme.typography.headlineSmall.copy(fontSize = 25.sp, lineHeight = 34.sp, textAlign = TextAlign.Center),
+                color = progressColor,
+                modifier = Modifier.width(112.dp).clickable(onClickLabel = "توضیح فودکاست", onClick = { onExplain(Glossary.FOOD_COST) })
+                    .testTag("food-cost"),
+            )
+            Text("فودکاست", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun PremiumProfitSummary(
+    result: QuickResult,
+    money: MoneyFormat,
+    onExplain: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val profitNegative = result.remainingNegative || result.grossProfitNegative
+    val profitText = result.remaining?.replace("+", "") ?: result.grossProfit?.replace("+", "") ?: "—"
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        DashboardMetric(
+            if (result.remaining != null) "مانده پس از هزینه‌ها" else if (result.grossProfitNegative) "زیان ناخالص" else "سود ناخالص",
+            profitText,
+            if (profitNegative) scheme.error else scheme.tertiary,
+            if (profitNegative) scheme.errorContainer else scheme.tertiaryContainer,
+            Modifier.testTag("gross-profit"), money,
+            onClick = { onExplain(if (result.remaining != null) Glossary.REMAINING else Glossary.GROSS_PROFIT) },
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("حاشیه سود", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                FitText(result.margin ?: "—", MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp), color = scheme.primary)
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("مارک‌آپ", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                FitText(result.markup ?: "—", MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp), color = scheme.primary)
             }
         }
     }
@@ -579,12 +728,15 @@ private fun DashboardMetric(
     onClick: () -> Unit,
 ) {
     Column(
-        modifier = modifier.fillMaxWidth().background(background, RoundedCornerShape(14.dp))
-            .clickable(onClickLabel = "توضیح $label", onClick = onClick).padding(horizontal = 10.dp, vertical = 0.5.dp),
-        verticalArrangement = Arrangement.spacedBy(1.dp),
+        modifier = modifier.fillMaxWidth().heightIn(min = 75.dp)
+            .background(background, RoundedCornerShape(16.dp))
+            .border(.6.dp, accent.copy(alpha = .16f), RoundedCornerShape(16.dp))
+            .clickable(onClickLabel = "توضیح $label", onClick = onClick)
+            .padding(horizontal = 11.dp, vertical = 9.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 17.sp), color = MaterialTheme.colorScheme.onSurface)
-        FitText(value, style = MaterialTheme.typography.titleMedium.copy(fontSize = 21.sp, lineHeight = 27.sp), color = accent)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+        FitText(value, style = MaterialTheme.typography.titleMedium.copy(fontSize = 19.sp, lineHeight = 26.sp), color = accent)
     }
 }
 
