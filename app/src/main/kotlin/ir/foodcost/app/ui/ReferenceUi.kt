@@ -201,16 +201,16 @@ fun ReferenceBottomBar(nav: Navigator, actions: AppActions) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf(Tab.CALC, Tab.INGREDIENTS, Tab.RECIPES, Tab.SETTINGS).forEach { tab ->
                     val selected = nav.tab == tab
-                    val navigationTile = if (selected) scheme.primary else Color.Transparent
+                    val navigationTile = if (selected) scheme.primaryContainer else Color.Transparent
                     Column(
                         Modifier.weight(1f).background(navigationTile, MaterialTheme.shapes.small)
                             .semantics { this.selected = selected; role = Role.Tab }.clickable(onClickLabel = tab.label) { actions.snackbar.currentSnackbarData?.dismiss(); nav.tab(tab) }
-                            .padding(horizontal = 2.dp, vertical = 6.dp),
+                            .padding(horizontal = 2.dp, vertical = 9.dp),
                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         Icon(when (tab) { Tab.CALC -> ReferenceIcons.calculator; Tab.RECIPES -> ReferenceIcons.dishes; Tab.INGREDIENTS -> ReferenceIcons.layers; Tab.SETTINGS -> ReferenceIcons.settings },
-                            contentDescription = null, tint = if (selected) scheme.onPrimary else scheme.onSurface, modifier = Modifier.size(24.dp))
-                        FitText(tab.label, MaterialTheme.typography.labelLarge, color = if (selected) scheme.onPrimary else scheme.onSurface)
+                            contentDescription = null, tint = if (selected) scheme.onPrimaryContainer else scheme.onSurface, modifier = Modifier.size(24.dp))
+                        FitText(tab.label, MaterialTheme.typography.labelLarge, color = if (selected) scheme.onPrimaryContainer else scheme.onSurface)
                     }
                 }
             }

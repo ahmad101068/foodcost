@@ -34,7 +34,8 @@ internal fun GroupedRow(first: Boolean, last: Boolean, modifier: Modifier = Modi
     val shape = RoundedCornerShape(topStart = if (first) 16.dp else 0.dp, topEnd = if (first) 16.dp else 0.dp,
         bottomStart = if (last) 16.dp else 0.dp, bottomEnd = if (last) 16.dp else 0.dp)
     Surface(modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceContainerLowest,
-        shape = shape, border = BorderStroke(.6.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        shape = shape, tonalElevation = 1.dp,
+        border = BorderStroke(.6.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.animateContentSize(), content = content)
     }
 }
@@ -65,9 +66,9 @@ internal fun CountChoice(label: String, count: String, selected: Boolean, modifi
 
 @Composable
 internal fun RowSymbol(icon: ImageVector) {
-    Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surfaceContainer) {
+    Surface(shape = RoundedCornerShape(13.dp), color = MaterialTheme.colorScheme.primaryContainer) {
         Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(23.dp), tint = MaterialTheme.colorScheme.onSurface)
+            Icon(icon, contentDescription = null, modifier = Modifier.size(23.dp), tint = MaterialTheme.colorScheme.primary)
         }
     }
 }

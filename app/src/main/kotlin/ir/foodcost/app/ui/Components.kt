@@ -102,7 +102,19 @@ fun TabScaffold(
     Scaffold(
         topBar = {
             Column {
-                TopAppBar(expandedHeight = 56.dp, title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) }, navigationIcon = navigationIcon, actions = topActions)
+                TopAppBar(
+                    expandedHeight = 56.dp,
+                    title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    navigationIcon = navigationIcon,
+                    actions = topActions,
+                    colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        scrolledContainerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                        actionIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                )
                 UnreadableWarning(actions, nav)
                 BackupReminderLine(actions, nav)
             }
@@ -188,6 +200,13 @@ fun DetailScaffold(
                         }
                     },
                     actions = topActions,
+                    colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        scrolledContainerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                        actionIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
                 )
                 UnreadableWarning(actions, nav)
             }
@@ -225,6 +244,10 @@ fun HeaderAddButton(text: String, onClick: () -> Unit) {
         modifier = Modifier.heightIn(min = 48.dp),
         shape = MaterialTheme.shapes.small,
         contentPadding = PaddingValues(horizontal = 12.dp),
+        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        ),
     ) {
         Icon(Icons.Filled.Add, contentDescription = null)
         Spacer(Modifier.width(4.dp))

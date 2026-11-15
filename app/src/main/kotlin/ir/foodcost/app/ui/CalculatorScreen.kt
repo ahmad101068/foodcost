@@ -219,6 +219,7 @@ fun CalculatorScreen(
                 focusManager.clearFocus()
                 save(input)
             },
+            colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onPrimary),
         ) { Text("ذخیره") }
     }
     val body: @Composable (PaddingValues) -> Unit = { padding ->

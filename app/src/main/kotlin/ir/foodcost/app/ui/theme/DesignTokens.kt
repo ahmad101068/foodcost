@@ -11,14 +11,14 @@ import androidx.compose.ui.unit.dp
  * Reference: docs/FOODCOST-PREMIUM-VISUAL-AUDIT.md
  */
 internal object FoodCostTokens {
-    val Primary = Color(0xFF225D50)
-    val PrimaryDeep = Color(0xFF1B4539)
+    val Primary = Color(0xFF075B49)
+    val PrimaryDeep = Color(0xFF073F34)
     val OnPrimary = Color(0xFFFFFFFF)
-    val PrimaryContainer = Color(0xFFDFEEE7)
-    val OnPrimaryContainer = Color(0xFF173D35)
-    val Secondary = Color(0xFF526A61)
-    val Paper = Color(0xFFF8F8F4)
-    val Ink = Color(0xFF1B2925)
+    val PrimaryContainer = Color(0xFFE3F2E6)
+    val OnPrimaryContainer = Color(0xFF153D31)
+    val Secondary = Color(0xFF446E60)
+    val Paper = Color(0xFFF7F8F5)
+    val Ink = Color(0xFF172A24)
     val Muted = Color(0xFF52645B)
     val Border = Color(0xFFCAD4CB)
     val SurfaceVariant = Color(0xFFE9EEEA)
@@ -26,7 +26,7 @@ internal object FoodCostTokens {
 
     val SalesBackground = Color(0xFFEDF2FB)
     val SalesForeground = Color(0xFF204A89)
-    val FoodBackground = Color(0xFFFFF0E1)
+    val FoodBackground = Color(0xFFFFF1DC)
     val FoodForeground = Color(0xFF964619)
     val SuccessBackground = Color(0xFFE6F5E9)
     val SuccessForeground = Color(0xFF20693B)
@@ -34,6 +34,16 @@ internal object FoodCostTokens {
     val WarningForeground = Color(0xFF805615)
     val ErrorBackground = Color(0xFFFCE7E4)
     val ErrorForeground = Color(0xFFA52725)
+    // Premium surfaces are presentational: financial rules remain in the pricing model.
+    val HeroSurface = Color(0xFFE3F2DE)
+    val HeroText = Color(0xFF073F34)
+    val GoldenAccent = Color(0xFFE0AA35)
+    val GoldenSurface = Color(0xFFFFF3DD)
+    val ProfitSurface = Color(0xFFE6F5E9)
+    val PurpleSurface = Color(0xFFF1ECF9)
+    val PurpleText = Color(0xFF55358A)
+    val HeaderTop = Color(0xFF084F42)
+    val HeaderBottom = Color(0xFF073C33)
 }
 
 internal object FoodCostSpacing {

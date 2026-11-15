@@ -503,11 +503,15 @@ private fun SettingsDestination(title: String, subtitle: String, tag: String, on
         shape = RoundedCornerShape(14.dp), colors = whiteCardColors(),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(when (tag) {
-                "costs" -> ReferenceIcons.coins; "sections" -> ReferenceIcons.grid
-                "currency" -> ReferenceIcons.money; "backup" -> ReferenceIcons.backup
-                "help" -> ReferenceIcons.info; else -> ReferenceIcons.tag
-            }, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+            Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(15.dp)) {
+                Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                    Icon(when (tag) {
+                        "costs" -> ReferenceIcons.coins; "sections" -> ReferenceIcons.grid
+                        "currency" -> ReferenceIcons.money; "backup" -> ReferenceIcons.backup
+                        "help" -> ReferenceIcons.info; else -> ReferenceIcons.tag
+                    }, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                }
+            }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
