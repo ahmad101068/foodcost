@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.calculateStartPadding
@@ -219,7 +220,12 @@ fun AddButton(text: String, onClick: () -> Unit) {
 /** An add action in the header leaves the list's entire touch area clear. */
 @Composable
 fun HeaderAddButton(text: String, onClick: () -> Unit) {
-    Button(onClick = onClick, shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.heightIn(min = 48.dp),
+        shape = MaterialTheme.shapes.small,
+        contentPadding = PaddingValues(horizontal = 12.dp),
+    ) {
         Icon(Icons.Filled.Add, contentDescription = null)
         Spacer(Modifier.width(4.dp))
         Text(text, style = MaterialTheme.typography.labelLarge)
@@ -456,9 +462,22 @@ internal object GroupDigits : VisualTransformation {
 
 @Composable
 fun SearchField(query: String, onQueryChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, onOptions: (() -> Unit)? = null) {
-    ReferenceField(query, onQueryChange, placeholder, modifier.padding(vertical = 4.dp), height = 40.dp,
+    ReferenceField(
+        query, onQueryChange, placeholder, modifier.padding(vertical = 4.dp), height = 48.dp,
         leading = { Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp)) },
-        trailing = onOptions?.let { action -> { Icon(ReferenceIcons.sliders, contentDescription = "فیلتر و دسته‌بندی", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp).clickable(onClick = action)) } })
+        trailing = onOptions?.let { action ->
+            {
+                IconButton(onClick = action, modifier = Modifier.size(48.dp)) {
+                    Icon(
+                        ReferenceIcons.sliders,
+                        contentDescription = "فیلتر و دسته‌بندی",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
+        },
+    )
 }
 
 /** A choice among a few short options, side by side. */
