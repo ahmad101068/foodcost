@@ -896,7 +896,9 @@ private fun PriceDetails(result: QuickResult, money: MoneyFormat, onExplain: (Li
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("کانال‌های فروش", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                Icon(ReferenceIcons.info, contentDescription = "راهنمای کانال‌های فروش", modifier = Modifier.size(18.dp).clickable { onExplain(listOf(Glossary.CHANNELS)) })
+                IconButton(onClick = { onExplain(listOf(Glossary.CHANNELS)) }, modifier = Modifier.size(48.dp)) {
+                    Icon(ReferenceIcons.info, contentDescription = "راهنمای کانال‌های فروش", modifier = Modifier.size(20.dp))
+                }
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 result.channels.forEachIndexed { index, item ->
