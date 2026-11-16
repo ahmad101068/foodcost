@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="window_background">#FFF4F5F9</color>
-    <!-- Lapis, as in the calculator's display. -->
-    <color name="ic_launcher_background">#FF1F3A93</color>
+    <!-- Launcher icon only. App UI keeps its original FoodCost 0.8.3 theme. -->
+    <color name="ic_launcher_background">#FF005F42</color>
 </resources>
