@@ -104,7 +104,12 @@ fun TabScaffold(
             Column {
                 TopAppBar(
                     expandedHeight = 56.dp,
-                    title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(ReferenceIcons.brand, contentDescription = null, modifier = Modifier.size(25.dp))
+                            Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    },
                     navigationIcon = navigationIcon,
                     actions = topActions,
                     colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(

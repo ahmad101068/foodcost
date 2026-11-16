@@ -1,23 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A plate with a percent sign: what a dish costs as a share of its price. The sign is saffron. -->
+<!-- FoodCost premium identity: a chef's toque plus ascending gold cost-analysis columns. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:pathData="M30,54 A24,24 0 1,0 78,54 A24,24 0 1,0 30,54 Z"
+        android:pathData="M34,56 L34,48 C28,46 26,41 28,35 C30,29 37,26 43,29 C46,22 53,20 60,23 C65,25 67,28 69,30 C76,27 82,31 83,38 C84,44 80,49 74,50 L74,69"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFF"
         android:strokeWidth="4"
-        android:strokeColor="#FFFFFF" />
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
     <path
-        android:fillColor="#FFC93C"
-        android:pathData="M45,40.5 A4.5,4.5 0 1,0 45,49.5 A4.5,4.5 0 1,0 45,40.5 Z" />
-    <path
-        android:fillColor="#FFC93C"
-        android:pathData="M63,58.5 A4.5,4.5 0 1,0 63,67.5 A4.5,4.5 0 1,0 63,58.5 Z" />
-    <path
-        android:pathData="M64,42 L44,66"
-        android:strokeWidth="4.5"
-        android:strokeColor="#FFC93C"
-        android:strokeLineCap="round" />
+        android:pathData="M34,54 L34,70 L74,70"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path android:pathData="M45,68 L45,60 Q45,58 47,58 L49,58 Q51,58 51,60 L51,68 Z"
+        android:fillColor="#E8B541" />
+    <path android:pathData="M54,68 L54,54 Q54,52 56,52 L58,52 Q60,52 60,54 L60,68 Z"
+        android:fillColor="#E8B541" />
+    <path android:pathData="M63,68 L63,47 Q63,45 65,45 L67,45 Q69,45 69,47 L69,68 Z"
+        android:fillColor="#E8B541" />
 </vector>

@@ -88,3 +88,32 @@ Merged PR #36 reports 296 JVM tests and 31 instrumented Android tests on each of
 - Vazirmatn licensing: https://github.com/rastikerdar/vazirmatn
 
 **Release gate:** the branch is a review candidate. Do not label it final/stable without current-commit automated tests, native screenshots and acceptance review.
+
+## 7. Approved premium visual direction (2026-11-16)
+
+The previous Warm Contemporary baseline has been superseded by the **user-approved emerald
+premium multi-screen visual concept**. Implement in source rather than using image screenshots
+as app backgrounds. Current approved primary token is **`#075B49`**, not the preliminary
+`#225D50` in the three-way comparison table. Financial figures must always come from the
+live pricing engine rather than sample image numbers.
+
+Implementation from this approval:
+- Visual hierarchy: a high-priority suggested-price hero, paired cost/sales tiles,
+  a circular food-cost gauge, real margin/markup/remaining, and semantic status.
+- App shell: dark emerald toolbar, pale green selected bottom navigation, raised
+  cards, unified outlined icons, consistent RTL and typography.
+- Ingredients/dishes: image-free grouped rows with compact prices, icon badges and
+  expandable details; preserve lazy lists and action paths.
+- Settings: section-level destination cards with 48dp vector icon containers.
+- Brand: emerald adaptive launcher icon with custom white chef-hat outline and
+  ascending gold financial bars.
+- Status bar: light icons on dark emerald even when the device uses light mode.
+- Preserve all financial model values and backup format; cosmetic charts never
+  recalculate money.
+- The 0.8.1 acceptance rule 'fourth ingredient above the fold' no longer fits the
+  premium hero. Instead verify that all rows are accessible by scrolling, editable,
+  and visible without clipping, including at enlarged font sizes.
+
+**QA:** Current-commit JVM, Android 14/15, native screenshot and release-signature
+checks are required before promotion to main. Do not infer production readiness
+from a successful build alone.

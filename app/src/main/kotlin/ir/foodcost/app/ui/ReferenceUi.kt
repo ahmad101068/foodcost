@@ -46,6 +46,21 @@ object ReferenceIcons {
         path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 1.7f,
             strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) { draw() }
     }.build()
+    /** Chef hat and three increasing bars: vector brand mark, no external illustration asset. */
+    val brand = line("FoodCost brand") {
+        moveTo(5f,13f)
+        curveTo(1.5f,13f,1.2f,8f,4f,6f)
+        curveTo(5.5f,4.7f,7f,4.6f,8.5f,5.3f)
+        curveTo(10f,1.5f,15.2f,1f,17f,5.4f)
+        curveTo(20.5f,4.2f,23f,7f,22f,10f)
+        curveTo(21.5f,12f,20.4f,12.7f,19f,13f)
+        moveTo(5f,13f); lineTo(5f,20f)
+        moveTo(19f,13f); lineTo(19f,20f)
+        moveTo(5f,20f); lineTo(19f,20f)
+        moveTo(9f,18f); lineTo(9f,15f)
+        moveTo(12f,18f); lineTo(12f,12f)
+        moveTo(15f,18f); lineTo(15f,9f)
+    }
     val sliders = line("Reference filters") {
         moveTo(3f,5f); lineTo(21f,5f); moveTo(3f,12f); lineTo(21f,12f); moveTo(3f,19f); lineTo(21f,19f)
         moveTo(7f,2f); lineTo(7f,8f); moveTo(16f,9f); lineTo(16f,15f); moveTo(9f,16f); lineTo(9f,22f)
