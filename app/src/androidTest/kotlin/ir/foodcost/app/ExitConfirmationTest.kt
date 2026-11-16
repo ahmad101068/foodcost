@@ -46,7 +46,8 @@ class ExitConfirmationTest {
             waitForTag("exit-confirmation")
             compose.onNodeWithTag("exit-stay").performClick()
             compose.onNodeWithTag("exit-confirmation").assertDoesNotExist()
-            compose.onNodeWithTag("row-0-name").assertIsDisplayed()
+            // The premium dashboard may place the editor below the fold; validate reachability.
+            compose.onNodeWithTag("row-0-name").performScrollTo().assertIsDisplayed()
             assertEquals(Lifecycle.State.RESUMED, scenario.state)
         }
     }
