@@ -75,6 +75,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -924,7 +926,17 @@ private fun Display(
                                     ),
                             )
                             Text(
-                                value,
+                                buildAnnotatedString {
+                                    append(value)
+                                    val unitStart = value.lastIndexOf(money.unit)
+                                    if (unitStart >= 0) {
+                                        addStyle(
+                                            SpanStyle(fontSize = 12.sp, fontWeight = FontWeight.Normal),
+                                            unitStart,
+                                            unitStart + money.unit.length,
+                                        )
+                                    }
+                                },
                                 style =
                                     MaterialTheme.typography.titleSmall.copy(
                                         fontSize = 16.sp,
@@ -1645,6 +1657,7 @@ private fun RowCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
+                    removeButton()
                     Row(
                         Modifier.weight(1f)
                             .border(
@@ -1666,7 +1679,6 @@ private fun RowCard(
                         )
                         priceField(Modifier.weight(1.2f))
                     }
-                    removeButton()
                 }
             }
             if (stackName || row.uom != Uom.GRAM || showPriceUnitLabel) {

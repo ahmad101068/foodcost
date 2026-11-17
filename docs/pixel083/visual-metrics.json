@@ -1,0 +1,123 @@
+{
+  "source_primary": "build34",
+  "ui_ssim_target": 0.98,
+  "component_ssim_target": 0.97,
+  "ui_ssim_pass": false,
+  "pages": [
+    {
+      "reference": "01-calculator.png",
+      "ssim_rgb": 0.6827221772416063,
+      "pass": false,
+      "component_ssim": {
+        "app_bar": 0.7573165815912642,
+        "dashboard": 0.6968814602544865,
+        "form": 0.6963611805335683,
+        "ingredients": 0.5760882364562377,
+        "actions": 0.6357641219310587
+      }
+    },
+    {
+      "reference": "02-ingredients.png",
+      "ssim_rgb": 0.7186527992200841,
+      "pass": false,
+      "component_ssim": {
+        "app_bar": 0.8019451030242728,
+        "search": 0.8048595636711955,
+        "filter": 0.7179877513763011,
+        "statistics": 0.7303628078375107,
+        "ingredient_1": 0.7373497305508366,
+        "ingredient_2": 0.7326217873676912,
+        "ingredient_3": 0.692586657051444,
+        "ingredient_4": 0.6601095264362088,
+        "ingredient_5": 0.5934227730987266,
+        "add": 0.8186705213623706
+      }
+    },
+    {
+      "reference": "03-recipes.png",
+      "ssim_rgb": 0.6833354132116567,
+      "pass": false,
+      "component_ssim": {
+        "app_bar": 0.7995350948482247,
+        "statistics": 0.6817107647945235,
+        "filters": 0.7488337410424438,
+        "recipe_1": 0.6502409695075985,
+        "recipe_2": 0.6685987593429147,
+        "recipe_3": 0.6593089445524243,
+        "add": 0.7977953959385731
+      }
+    },
+    {
+      "reference": "04-settings.png",
+      "ssim_rgb": 0.7660372647445083,
+      "pass": false,
+      "component_ssim": {
+        "app_bar": 0.7811100784386129,
+        "general_group": 0.7258992430896963,
+        "data_group": 0.7579316625412879,
+        "help_group": 0.80873251893363
+      }
+    },
+    {
+      "reference": "05-general-pricing.png",
+      "ssim_rgb": 0.6843766762714796,
+      "pass": false,
+      "component_ssim": {
+        "app_bar": 0.7339920746144796,
+        "methods": 0.591090067767207,
+        "target": 0.7663953028497911,
+        "equivalents": 0.7295517853388197,
+        "pricing_settings": 0.6583297851651418,
+        "scope": 0.6767082281277693,
+        "notice": 0.6193296551532548,
+        "actions": 0.6658028604164272
+      }
+    }
+  ],
+  "geometry": {
+    "within_2dp": 31,
+    "measured_rectangles": 37,
+    "all_pass": false
+  },
+  "uniform_color_samples": {
+    "passed_deltaE_le_2": 6,
+    "samples": 6
+  },
+  "glyph_diagnostics": [
+    {
+      "configuration": "320-100",
+      "failures": 0,
+      "small_touch_regions_including_scroll_clips": 1
+    },
+    {
+      "configuration": "320-150",
+      "failures": 0,
+      "small_touch_regions_including_scroll_clips": 0
+    },
+    {
+      "configuration": "320-200",
+      "failures": 0,
+      "small_touch_regions_including_scroll_clips": 0
+    },
+    {
+      "configuration": "411-100",
+      "failures": 0,
+      "small_touch_regions_including_scroll_clips": 0
+    },
+    {
+      "configuration": "411-150",
+      "failures": 0,
+      "small_touch_regions_including_scroll_clips": 0
+    },
+    {
+      "configuration": "411-200",
+      "failures": 0,
+      "small_touch_regions_including_scroll_clips": 1
+    },
+    {
+      "configuration": "411-dark",
+      "failures": 0,
+      "small_touch_regions_including_scroll_clips": 0
+    }
+  ]
+}

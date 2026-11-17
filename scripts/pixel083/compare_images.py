@@ -50,7 +50,7 @@ if __name__=='__main__':
         err=np.abs(np.asarray(a,dtype=np.int16)-np.asarray(b,dtype=np.int16)).mean(2)
         hot=np.stack([np.minimum(255,err*4),np.maximum(0,255-err*7),np.zeros_like(err)],axis=2).astype('uint8')
         Image.fromarray(hot).save(args.out/(ref.stem+'-heatmap.png'))
-        side=Image.new('RGB',(941*2,1672),'white');side.paste(r,(0,0));side.paste(actual,(941,0));side.save(args.out/(ref.stem+'-reference-actual.png'))
+        side=Image.new('RGB',(941*2,h),'white');side.paste(b,(0,0));side.paste(a,(941,0));side.save(args.out/(ref.stem+'-reference-actual.png'))
         measurement=json.loads((args.reference.parent/(ref.stem+'-measurements.json')).read_text())
         components={}
         for label,v in measurement['rectangles'].items():

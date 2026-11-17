@@ -231,7 +231,7 @@ fun PremiumGeneralPricing(
     FoodCostCard(Modifier.testTag("pricing-target-card")) {
         @Composable
         fun target(modifier: Modifier) {
-            Column(modifier, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Column(modifier, verticalArrangement = Arrangement.spacedBy(0.dp)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(9.dp),
@@ -244,7 +244,7 @@ fun PremiumGeneralPricing(
                     )
                     Text(
                         "مقدار ${titles.getValue(input.method)}",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                     )
                 }
                 fun step(increase: Boolean) {
@@ -256,6 +256,7 @@ fun PremiumGeneralPricing(
                     )
                         onChange(input.withPercent(next.toPlainString()))
                 }
+                Spacer(Modifier.height(9.dp))
                 ReferenceField(
                     input.percent,
                     { onChange(input.withPercent(it)) },
@@ -265,13 +266,14 @@ fun PremiumGeneralPricing(
                     centered = true,
                     height = 30.dp,
                     fontSize = 20.sp,
+                    verticalPadding = 0.dp,
                     suffix = "٪",
                     enabled = enabled,
                     leading = {
                         IconButton(
                             { step(true) },
                             enabled = enabled,
-                            modifier = Modifier.size(26.dp),
+                            modifier = Modifier.size(24.dp).background(colors.surfaceContainerLow, RoundedCornerShape(6.dp)),
                         ) {
                             Icon(
                                 PremiumIcons.plus,
@@ -285,12 +287,13 @@ fun PremiumGeneralPricing(
                         IconButton(
                             { step(false) },
                             enabled = enabled,
-                            modifier = Modifier.size(26.dp),
+                            modifier = Modifier.size(24.dp).background(colors.surfaceContainerLow, RoundedCornerShape(6.dp)),
                         ) {
                             Icon(PremiumIcons.minus, "کاهش درصد", Modifier.size(22.dp))
                         }
                     },
                 )
+                Spacer(Modifier.height(8.dp))
                 Text(
                     when (input.method) {
                         MethodChoice.FOOD_COST -> "سهم هزینه مواد اولیه از قیمت فروش"

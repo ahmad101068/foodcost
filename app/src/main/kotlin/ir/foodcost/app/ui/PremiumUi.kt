@@ -397,6 +397,10 @@ fun FoodCostPercentageGauge(
     status: Pair<PriceStatus, String>? = null,
     valueFontSize: androidx.compose.ui.unit.TextUnit = 28.sp,
 ) {
+    // REF-05 places the target title lower inside the arc than the calculator title.
+    // Keep this calibration out of the reflowed large-font layout.
+    val targetReferenceLayout =
+        status == null && valueFontSize.value > 28f && LocalDensity.current.fontScale <= 1.25f
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier.fillMaxWidth()
@@ -430,13 +434,14 @@ fun FoodCostPercentageGauge(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier =
-                    Modifier.padding(
+                    Modifier.offset(y = if (targetReferenceLayout) 10.dp else 0.dp).padding(
                         top = if (valueFontSize.value > 28f) 4.dp else 18.dp,
                         bottom = 0.dp,
                     ),
             ) {
                 Text(
                     label,
+                    modifier = Modifier.offset(y = if (targetReferenceLayout) 7.dp else 0.dp),
                     style =
                         MaterialTheme.typography.titleSmall.copy(
                             fontSize = 12.sp,
@@ -554,7 +559,8 @@ fun FoodCostSwitch(
                 cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2),
             )
             val radius = size.height * .39f
-            val atRight = checked != rtl
+            // The approved light PNG uses a left thumb for off; keep boolean semantics intact.
+            val atRight = if (dark) checked != rtl else checked
             drawCircle(
                 thumb,
                 radius,

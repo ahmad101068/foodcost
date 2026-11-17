@@ -1,0 +1,963 @@
+{
+  "platform": "API26",
+  "cohort": "See capture_cohort per configuration",
+  "offline": true,
+  "note": "Raw paragraph overflow flags and glyph bounds are both retained. A short touch region at a scroll viewport edge needs scroll/visual review; these diagnostics do not certify accessibility.",
+  "rows": [
+    {
+      "configuration": "320-100",
+      "capture_cohort": {
+        "build_cohort": "build34",
+        "apk_sha256": "5626a780a449d532084ccc32a5b1c09ed129d080ef62de5a3366401874cec1c0",
+        "test_apk_sha256": "eef7210c8adf6483398b19ccb98fcf7463bbc7bcd7c0c7bbad7ccb6158f109b1",
+        "capture_script_sha256": "f52e7f57789db3935003c3c6a2dd1d6e1da9aec47df832609e2f92a557483da4",
+        "offline": true,
+        "primary_offline_rerun": false,
+        "native_capture": true
+      },
+      "native_test_pass": true,
+      "laid_out_texts": 210,
+      "raw_overflow_flags": 144,
+      "glyph_fit_failures": [],
+      "visible_clickable_nodes": 91,
+      "small_touch_bounds_including_scroll_clips": [
+        {
+          "page": "01-calculator-touch-bounds.json",
+          "tag": "main-extra-amount",
+          "description": "هزینه جانبی هر پرس",
+          "visibleBoundsPx": [
+            48,
+            1206,
+            684,
+            1217
+          ],
+          "touchBoundsPx": [
+            48,
+            1183.6,
+            684,
+            1271.9
+          ],
+          "touchWidthDp": 278.03278,
+          "touchHeightDp": 38.601112
+        }
+      ],
+      "frames": [
+        {
+          "file": "01-calculator.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "02-ingredients.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "03-recipes.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "04-settings.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "05-general-pricing.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        }
+      ],
+      "device": "widthDp=319\nheightDp=672\ndensity=2.2875001\nfontScale=1.0\napi=26\n"
+    },
+    {
+      "configuration": "320-150",
+      "capture_cohort": {
+        "build_cohort": "build34",
+        "apk_sha256": "5626a780a449d532084ccc32a5b1c09ed129d080ef62de5a3366401874cec1c0",
+        "test_apk_sha256": "eef7210c8adf6483398b19ccb98fcf7463bbc7bcd7c0c7bbad7ccb6158f109b1",
+        "capture_script_sha256": "f52e7f57789db3935003c3c6a2dd1d6e1da9aec47df832609e2f92a557483da4",
+        "offline": true,
+        "primary_offline_rerun": false,
+        "native_capture": true
+      },
+      "native_test_pass": true,
+      "laid_out_texts": 180,
+      "raw_overflow_flags": 122,
+      "glyph_fit_failures": [],
+      "visible_clickable_nodes": 63,
+      "small_touch_bounds_including_scroll_clips": [],
+      "frames": [
+        {
+          "file": "01-calculator.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "02-ingredients.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "03-recipes.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "04-settings.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "05-general-pricing.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        }
+      ],
+      "device": "widthDp=319\nheightDp=672\ndensity=2.2875001\nfontScale=1.5\napi=26\n"
+    },
+    {
+      "configuration": "320-200",
+      "capture_cohort": {
+        "build_cohort": "build34",
+        "apk_sha256": "5626a780a449d532084ccc32a5b1c09ed129d080ef62de5a3366401874cec1c0",
+        "test_apk_sha256": "eef7210c8adf6483398b19ccb98fcf7463bbc7bcd7c0c7bbad7ccb6158f109b1",
+        "capture_script_sha256": "f52e7f57789db3935003c3c6a2dd1d6e1da9aec47df832609e2f92a557483da4",
+        "offline": true,
+        "primary_offline_rerun": false,
+        "native_capture": true
+      },
+      "native_test_pass": true,
+      "laid_out_texts": 157,
+      "raw_overflow_flags": 80,
+      "glyph_fit_failures": [],
+      "visible_clickable_nodes": 56,
+      "small_touch_bounds_including_scroll_clips": [],
+      "frames": [
+        {
+          "file": "01-calculator.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "02-ingredients.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "03-recipes.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "04-settings.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "05-general-pricing.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        }
+      ],
+      "device": "widthDp=319\nheightDp=672\ndensity=2.2875001\nfontScale=2.0\napi=26\n"
+    },
+    {
+      "configuration": "411-100",
+      "capture_cohort": {
+        "build_cohort": "build34",
+        "apk_sha256": "5626a780a449d532084ccc32a5b1c09ed129d080ef62de5a3366401874cec1c0",
+        "test_apk_sha256": "eef7210c8adf6483398b19ccb98fcf7463bbc7bcd7c0c7bbad7ccb6158f109b1",
+        "capture_script_sha256": "f52e7f57789db3935003c3c6a2dd1d6e1da9aec47df832609e2f92a557483da4",
+        "offline": true,
+        "primary_offline_rerun": true,
+        "native_capture": true
+      },
+      "native_test_pass": true,
+      "laid_out_texts": 211,
+      "raw_overflow_flags": 173,
+      "glyph_fit_failures": [],
+      "visible_clickable_nodes": 112,
+      "small_touch_bounds_including_scroll_clips": [],
+      "frames": [
+        {
+          "file": "01-calculator.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              12,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "02-ingredients.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              23,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "03-recipes.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              27,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "04-settings.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              27,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "05-general-pricing.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              21,
+              255
+            ]
+          ],
+          "black_frame": false
+        }
+      ],
+      "device": "widthDp=411\nheightDp=672\ndensity=2.2875001\nfontScale=1.0\napi=26\n"
+    },
+    {
+      "configuration": "411-150",
+      "capture_cohort": {
+        "build_cohort": "build34",
+        "apk_sha256": "5626a780a449d532084ccc32a5b1c09ed129d080ef62de5a3366401874cec1c0",
+        "test_apk_sha256": "eef7210c8adf6483398b19ccb98fcf7463bbc7bcd7c0c7bbad7ccb6158f109b1",
+        "capture_script_sha256": "f52e7f57789db3935003c3c6a2dd1d6e1da9aec47df832609e2f92a557483da4",
+        "offline": true,
+        "primary_offline_rerun": false,
+        "native_capture": true
+      },
+      "native_test_pass": true,
+      "laid_out_texts": 180,
+      "raw_overflow_flags": 140,
+      "glyph_fit_failures": [],
+      "visible_clickable_nodes": 67,
+      "small_touch_bounds_including_scroll_clips": [],
+      "frames": [
+        {
+          "file": "01-calculator.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              21,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "02-ingredients.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              23,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "03-recipes.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              27,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "04-settings.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              27,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "05-general-pricing.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              21,
+              255
+            ]
+          ],
+          "black_frame": false
+        }
+      ],
+      "device": "widthDp=411\nheightDp=672\ndensity=2.2875001\nfontScale=1.5\napi=26\n"
+    },
+    {
+      "configuration": "411-200",
+      "capture_cohort": {
+        "build_cohort": "build34",
+        "apk_sha256": "5626a780a449d532084ccc32a5b1c09ed129d080ef62de5a3366401874cec1c0",
+        "test_apk_sha256": "eef7210c8adf6483398b19ccb98fcf7463bbc7bcd7c0c7bbad7ccb6158f109b1",
+        "capture_script_sha256": "f52e7f57789db3935003c3c6a2dd1d6e1da9aec47df832609e2f92a557483da4",
+        "offline": true,
+        "primary_offline_rerun": false,
+        "native_capture": true
+      },
+      "native_test_pass": true,
+      "laid_out_texts": 162,
+      "raw_overflow_flags": 111,
+      "glyph_fit_failures": [],
+      "visible_clickable_nodes": 59,
+      "small_touch_bounds_including_scroll_clips": [
+        {
+          "page": "04-settings-touch-bounds.json",
+          "visibleBoundsPx": [
+            72,
+            1317,
+            168,
+            1334
+          ],
+          "touchBoundsPx": [
+            65.1,
+            1296.6,
+            174.9,
+            1388.9
+          ],
+          "touchWidthDp": 47.999996,
+          "touchHeightDp": 40.349747
+        }
+      ],
+      "frames": [
+        {
+          "file": "01-calculator.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              21,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "02-ingredients.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              23,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "03-recipes.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              27,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "04-settings.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              28,
+              255
+            ],
+            [
+              26,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "05-general-pricing.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              21,
+              255
+            ]
+          ],
+          "black_frame": false
+        }
+      ],
+      "device": "widthDp=411\nheightDp=672\ndensity=2.2875001\nfontScale=2.0\napi=26\n"
+    },
+    {
+      "configuration": "411-dark",
+      "capture_cohort": {
+        "build_cohort": "build34",
+        "apk_sha256": "5626a780a449d532084ccc32a5b1c09ed129d080ef62de5a3366401874cec1c0",
+        "test_apk_sha256": "eef7210c8adf6483398b19ccb98fcf7463bbc7bcd7c0c7bbad7ccb6158f109b1",
+        "capture_script_sha256": "f52e7f57789db3935003c3c6a2dd1d6e1da9aec47df832609e2f92a557483da4",
+        "offline": true,
+        "primary_offline_rerun": false,
+        "native_capture": true
+      },
+      "native_test_pass": true,
+      "laid_out_texts": 211,
+      "raw_overflow_flags": 173,
+      "glyph_fit_failures": [],
+      "visible_clickable_nodes": 112,
+      "small_touch_bounds_including_scroll_clips": [],
+      "frames": [
+        {
+          "file": "01-calculator.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              20,
+              255
+            ],
+            [
+              15,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "02-ingredients.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              20,
+              255
+            ],
+            [
+              15,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "03-recipes.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              9,
+              255
+            ],
+            [
+              12,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "04-settings.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              20,
+              255
+            ],
+            [
+              15,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "05-general-pricing.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              20,
+              255
+            ],
+            [
+              15,
+              255
+            ]
+          ],
+          "black_frame": false
+        }
+      ],
+      "device": "widthDp=411\nheightDp=672\ndensity=2.2875001\nfontScale=1.0\napi=26\n"
+    }
+  ]
+}

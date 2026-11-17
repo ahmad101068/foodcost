@@ -1,0 +1,100 @@
+{
+  "status": "CANDIDATE — VISUAL ACCEPTANCE FAILED — NOT APPROVED FOR MERGE",
+  "criteria": [
+    {
+      "criterion": "Approved 0.8.3 source and isolated branch",
+      "status": "PASS",
+      "evidence_or_limit": "Archive and official commit match; no 0.9 implementation copied."
+    },
+    {
+      "criterion": "Version, SDK, storage, backup and financial engine preserved",
+      "status": "PASS",
+      "evidence_or_limit": "80 protected source/config files and 14 resources identical."
+    },
+    {
+      "criterion": "Debug, AndroidTest and R8 release build",
+      "status": "PASS",
+      "evidence_or_limit": "build34; release remains unsigned without owner production key."
+    },
+    {
+      "criterion": "Existing JVM tests",
+      "status": "PASS",
+      "evidence_or_limit": "296 tests; no failures/errors/skips."
+    },
+    {
+      "criterion": "Existing native tests",
+      "status": "PASS",
+      "evidence_or_limit": "32 tests, isolated cohorts build28 and affected flows rerun build34."
+    },
+    {
+      "criterion": "Baseline-to-candidate data preservation",
+      "status": "PASS",
+      "evidence_or_limit": "21 synthetic rows identical; verified logical SHA-256."
+    },
+    {
+      "criterion": "Native five-screen final evidence",
+      "status": "PASS",
+      "evidence_or_limit": "All five primary PNGs captured from build34 on API26."
+    },
+    {
+      "criterion": "Viewport/font/dark/empty/keyboard/error scenarios",
+      "status": "PASS",
+      "evidence_or_limit": "7 configurations; capture cohorts explicitly retained."
+    },
+    {
+      "criterion": "API34 functional execution",
+      "status": "PASS",
+      "evidence_or_limit": "build32; five pages, live edit, SQLite12 and R8 startup."
+    },
+    {
+      "criterion": "API35 functional execution",
+      "status": "PASS",
+      "evidence_or_limit": "build31; five pages, live edit, SQLite12, pricing and recovery4."
+    },
+    {
+      "criterion": "API34/API35 visual rendering verification",
+      "status": "NOT TESTED",
+      "evidence_or_limit": "ATD returns black frames; excluded from visual evidence."
+    },
+    {
+      "criterion": "UI SSIM >= 0.98",
+      "status": "FAIL",
+      "evidence_or_limit": "Raw scores retained including content differences."
+    },
+    {
+      "criterion": "All main component SSIM >= 0.97",
+      "status": "FAIL",
+      "evidence_or_limit": "See per-component measured scores."
+    },
+    {
+      "criterion": "All measured card edges <= 2dp",
+      "status": "FAIL",
+      "evidence_or_limit": "31/37 measured rectangles pass."
+    },
+    {
+      "criterion": "Uniform sampled color DeltaE2000 <= 2",
+      "status": "PASS",
+      "evidence_or_limit": "Six declared patches only; not the whole palette."
+    },
+    {
+      "criterion": "Recorded glyph extents fit",
+      "status": "PASS",
+      "evidence_or_limit": "0 diagnostics; raw paragraph flags retained separately."
+    },
+    {
+      "criterion": "Complete WCAG/TalkBack/Switch Access verification",
+      "status": "NOT PASSED",
+      "evidence_or_limit": "Low non-text reference border contrast; no physical assistive-technology test."
+    },
+    {
+      "criterion": "Physical-device performance/battery benchmark",
+      "status": "NOT TESTED",
+      "evidence_or_limit": "Software emulator observations only."
+    },
+    {
+      "criterion": "No main merge, auto-merge or production release",
+      "status": "PASS",
+      "evidence_or_limit": "Draft PR40 only; no owner approval to merge."
+    }
+  ]
+}

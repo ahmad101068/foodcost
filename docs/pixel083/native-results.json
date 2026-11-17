@@ -69,16 +69,16 @@
       "test": "WalkThroughTest",
       "count": 1,
       "pass": true,
-      "cohort": "build30",
+      "cohort": "build34",
       "log": "WalkThroughTest.log"
     },
     {
       "test": "ReferenceVisualTest",
       "count": 1,
       "pass": true,
-      "cohort": "build30",
+      "cohort": "build34",
       "log": "ReferenceVisualTest.log"
     }
   ],
-  "note": "All baseline tests executed as isolated processes. The two affected UI flows were rerun after final semantics/dark-theme corrections; other suites were unchanged. Original assertions retained."
+  "note": "All baseline tests executed as isolated processes. The two affected UI flows were rerun on final build34 after gauge, row action, currency typography and target-field calibration. Other suites remain the documented build28 cohort; financial/data source is unchanged. Original financial assertions retained."
 }

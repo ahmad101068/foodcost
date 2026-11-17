@@ -59,7 +59,7 @@ def patch(im,rect,target):
     return {'xywh_px':[x,y,8,8],'rgb':c,'max_channel_range':s}
 
 def main():
-    ap=argparse.ArgumentParser(); ap.add_argument('--root',type=Path,required=True); ap.add_argument('--actual',type=Path,required=True); ap.add_argument('--out',type=Path,required=True); args=ap.parse_args()
+    ap=argparse.ArgumentParser(); ap.add_argument('--root',type=Path,required=True); ap.add_argument('--actual',type=Path,required=True); ap.add_argument('--out',type=Path,required=True); ap.add_argument("--actual-status",type=int,default=55);args=ap.parse_args()
     assert abs(de00([50,2.6772,-79.7751],[50,0,-82.7485])-2.0425)<.0001
     tokens=dict(re.findall(r'val (\w+) = Color\(0xFF([0-9A-Fa-f]{6})\)',(args.root.parents[1]/'app/src/main/kotlin/ir/foodcost/app/ui/theme/PremiumTokens.kt').read_text()))
     # Broad, declared ROIs select only uniform samples; the nearest eligible patch is reported.
@@ -68,12 +68,14 @@ def main():
     for token,name,rect in regions:
         reference=Image.open(args.root/'reference'/name)
         actual=Image.open(args.actual/name)
+        if actual.width!=941: actual=actual.resize((941,round(actual.height*941/actual.width)),Image.Resampling.LANCZOS)
+        actual_rect=[rect[0],rect[1]-54+args.actual_status,rect[2],rect[3]-54+args.actual_status]
         # The 2px header rule is smaller than a uniform 8px patch; report explicit center pixel.
         if token=='topDivider':
             rp={'xywh_px':[400,181,1,1],'rgb':list(reference.convert('RGB').getpixel((400,181))),'max_channel_range':0}
-            apatch={'xywh_px':[400,185,1,1],'rgb':list(actual.convert('RGB').getpixel((400,185))),'max_channel_range':0}
+            apatch={'xywh_px':[400,args.actual_status+130,1,1],'rgb':list(actual.convert('RGB').getpixel((400,args.actual_status+130))),'max_channel_range':0}
         else:
-            rp=patch(reference,rect,rgb(tokens[token])); apatch=patch(actual,rect,rgb(tokens[token]))
+            rp=patch(reference,rect,rgb(tokens[token])); apatch=patch(actual,actual_rect,rgb(tokens[token]))
         d=None if not rp or not apatch else de00(lab(rp['rgb']),lab(apatch['rgb']))
         result.append({'token':token,'token_hex':'#'+tokens[token],'image':name,'declared_roi_px':rect,'reference_patch':rp,'actual_patch':apatch,'deltaE2000':d,'pass_le_2':d is not None and d<=2})
     pairs=[('textPrimary','surface'),('textSecondary','surface'),('primary','surface'),('warningText','warningSurface'),('foodAmountText','warningSurface'),('error','errorSurface'),('success','successSurface'),('foodCostAccent','surface')]

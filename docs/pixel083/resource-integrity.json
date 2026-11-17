@@ -1,0 +1,76 @@
+{
+  "baseline_commit": "6c2bf74b713f4febfda53019324af053298d56ef",
+  "all_unchanged": true,
+  "files": [
+    {
+      "path": "app/src/main/assets/licenses/vazirmatn-OFL.txt",
+      "sha256": "17e355067c8284f47743a1ee3b1ef7ff684ff0601eda357f9353b10b3016ab31",
+      "unchanged": true
+    },
+    {
+      "path": "app/src/main/res/drawable-nodpi/foodcost_chef_percent.webp",
+      "sha256": "60763f6d033f95380f6de35ada767f3b986c521b2fba66957f41960dc330c3e0",
+      "unchanged": true
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_launcher_foreground.xml",
+      "sha256": "959f80ba09fd164c95f546fe909ce248157cb36d80b39d4b253c17f495db1295",
+      "unchanged": true
+    },
+    {
+      "path": "app/src/main/res/font/vazirmatn_bold.ttf",
+      "sha256": "d0c8d728d939df28a64fca2ea184a148f40779a59e31d7cd03b5ec59ee2b9b58",
+      "unchanged": true
+    },
+    {
+      "path": "app/src/main/res/font/vazirmatn_medium.ttf",
+      "sha256": "29ba579992b9b8fdf77d99acc36ad7ac34407d74d0412f6a7974bd3412d4fa06",
+      "unchanged": true
+    },
+    {
+      "path": "app/src/main/res/font/vazirmatn_regular.ttf",
+      "sha256": "6aa9500a3a8277e5ee92bff773e63a37ed3532661e0bcb721aefa863b8d10814",
+      "unchanged": true
+    },
+    {
+      "path": "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "sha256": "32715ff646f6b9fef7c321138e4a14556c4a1f98a87b06070b56f41643dad718",
+      "unchanged": true
+    },
+    {
+      "path": "app/src/main/res/values-night/colors.xml",
+      "sha256": "594988eca93a817abc919c3411539234dd6b5f84f6c5624b957433b98c720cef",
+      "unchanged": true
+    },
+    {
+      "path": "app/src/main/res/values-night/themes.xml",
+      "sha256": "e605063c2207b69865a70f9293812809e310ea7dcaeb1c4d4c9e440af6b0d877",
+      "unchanged": true
+    },
+    {
+      "path": "app/src/main/res/values/colors.xml",
+      "sha256": "d3bde41c3e36d7986eba4740b85530b2693246276ac9b3467654e19567b24fca",
+      "unchanged": true
+    },
+    {
+      "path": "app/src/main/res/values/strings.xml",
+      "sha256": "e569df1e2d1845bf2e4d5b07238f68948ac1624c8c51cf5220a1a33a630691ab",
+      "unchanged": true
+    },
+    {
+      "path": "app/src/main/res/values/themes.xml",
+      "sha256": "f4f3cb7d074d70aff9f3cd93ea90f70a11f36fc9c41a8ba8fe2b7a276c4173af",
+      "unchanged": true
+    },
+    {
+      "path": "app/src/main/res/xml/backup_rules.xml",
+      "sha256": "1f559887aa2a74767166f74625066f303d6fbc628c78f7230415675133c8013c",
+      "unchanged": true
+    },
+    {
+      "path": "app/src/main/res/xml/data_extraction_rules.xml",
+      "sha256": "6f510babcded1b7db7fefe8587eebfcaf26bb06864912ba2373348aa77060c8e",
+      "unchanged": true
+    }
+  ]
+}

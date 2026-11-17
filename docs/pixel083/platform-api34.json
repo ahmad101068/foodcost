@@ -1,0 +1,16 @@
+{
+  "api": 34,
+  "source_cohort": "build32",
+  "native_five_screen_live_data_pass": true,
+  "sqlite_tests": 12,
+  "sqlite_pass": true,
+  "visual_capture": "UNAVAILABLE: AOSP ATD returns black frames",
+  "note": "The first cold TCG boot displayed a system-process ANR; the original test correctly failed. After explicitly choosing Wait in the system dialog and disabling Bluetooth, a fresh instrumentation process passed without weakening the test. System crash buffer showed Android Bluetooth crashes, not a FoodCost exception. This does not establish physical-device startup performance.",
+  "r8_build32_smoke": {
+    "start_status": "ok",
+    "cold_total_time_ms": 6656,
+    "pid_present": true,
+    "android_runtime_exception_buffer_empty": true,
+    "test_signature_only": true
+  }
+}

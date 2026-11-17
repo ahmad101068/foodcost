@@ -4,12 +4,18 @@
 set -u
 adb_bin=$1
 out=$2
+matrix_height=${3:-1704}
+if [ "$#" -gt 3 ]; then
+  configurations=("${@:4}")
+else
+  configurations=(411-100 411-150 411-200 320-100 320-150 320-200 411-dark)
+fi
 mkdir -p "$out"
 if [ "$("$adb_bin" shell getprop ro.kernel.qemu | tr -d '\r')" != 1 ]; then exit 2; fi
 failed=0
-for config in 411-100 411-150 411-200 320-100 320-150 320-200 411-dark; do
+for config in "${configurations[@]}"; do
   case "$config" in
-    320-*) "$adb_bin" shell wm size 732x1704 </dev/null ;;
+    320-*) "$adb_bin" shell wm size "732x${matrix_height}" </dev/null ;;
     *) "$adb_bin" shell wm size reset </dev/null ;;
   esac
   case "$config" in

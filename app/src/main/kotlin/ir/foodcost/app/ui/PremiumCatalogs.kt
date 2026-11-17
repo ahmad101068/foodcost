@@ -54,6 +54,7 @@ fun PremiumStatistic(
         Icon(icon, null, tint = accent, modifier = Modifier.size(if (compact) 18.dp else 20.dp))
         Text(
             "$label:",
+            modifier = Modifier.weight(1f, fill = false),
             style =
                 MaterialTheme.typography.bodyMedium.copy(
                     fontSize = if (compact) 10.sp else 11.sp,

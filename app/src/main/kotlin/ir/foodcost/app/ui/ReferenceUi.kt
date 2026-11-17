@@ -1,6 +1,7 @@
 package ir.foodcost.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -38,6 +39,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ir.foodcost.app.ui.theme.PremiumTokens
 import ir.foodcost.presentation.DigitGroups
 
 /** Geometry and visual primitives measured from the approved reference, at a 411dp viewport. */
@@ -166,6 +168,7 @@ fun ReferenceField(
     val interactions = remember { MutableInteractionSource() }
     val focused by interactions.collectIsFocusedAsState()
     val colors = MaterialTheme.colorScheme
+    val idleOutline = if (isSystemInDarkTheme()) colors.outlineVariant else PremiumTokens.outlineStrong
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     var width by remember { mutableIntStateOf(0) }
@@ -223,7 +226,7 @@ fun ReferenceField(
                             if (focused) 1.4.dp else 0.8.dp
                         } else 0.dp,
                         if (!outlined) Color.Transparent
-                        else if (focused) colors.primary else colors.outlineVariant,
+                        else if (focused) colors.primary else idleOutline,
                         RoundedCornerShape(9.dp),
                     )
                     .padding(horizontal = 9.dp, vertical = verticalPadding),
