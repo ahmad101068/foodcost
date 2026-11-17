@@ -1,0 +1,15 @@
+{
+  "baseline_debug": {
+    "size_bytes": 9970399,
+    "sha256": "887be080ee37916c4d96a69a6d92806eeb0d58f9bc43379b2cc734184a60afcc"
+  },
+  "candidate_debug": {
+    "size_bytes": 10687866,
+    "sha256": "8cebb9a620004b89572259aa8897f07f36fed578982d50a1f936ab3210fa082f"
+  },
+  "candidate_release_unsigned": {
+    "size_bytes": 1700318,
+    "sha256": "5f2dbb930a401dee587eca86ce41de74fbdbab313b2c0e6b4118ea315d0c0c26"
+  },
+  "debug_size_change_percent": 7.195970793144779
+}

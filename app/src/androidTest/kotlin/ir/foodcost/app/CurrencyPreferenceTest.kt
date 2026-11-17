@@ -69,16 +69,29 @@ class CurrencyPreferenceTest {
         assertEquals(DisplayCurrency.TOMAN, restarted.currency.value)
     }
 
-    @Test fun failedMigrationWriteRetainsTheOldUnitAndCanRetryAfterRestart() {
+    @Test
+    fun failedMigrationWriteRetainsTheOldUnitAndCanRetryAfterRestart() {
         prefs.edit().putString("currency", DisplayCurrency.NEW_RIAL.name).commit()
-        val legacy = QuickDrafts.encode(QuickInput(menuPrice = "630"), DisplayCurrency.NEW_RIAL)
-            .replace("\"currency\":\"NEW_RIAL\",", "")
+        val legacy =
+            QuickDrafts.encode(QuickInput(menuPrice = "630"), DisplayCurrency.NEW_RIAL)
+                .replace("\"currency\":\"NEW_RIAL\",", "")
         draftFile.writeText(legacy)
-        // A nonempty directory blocks AtomicFile.startWrite without damaging the old base file.
-        val blocker = File(context.filesDir, "calculator-draft.json.new")
-        blocker.mkdirs()
-        File(blocker, "blocked").writeText("full-storage simulation")
+        // API 26 AtomicFile writes through the base/.bak path, while newer versions may use .new.
+        // Block directory mutation AND writes to the base, preserving reads and exact original
+        // modes.
+        val directory = context.filesDir
+        val fileMode = android.system.Os.stat(draftFile.absolutePath).st_mode and 511
+        val dirMode = android.system.Os.stat(directory.absolutePath).st_mode and 511
+        fun restoreModes() {
+            android.system.Os.chmod(directory.absolutePath, dirMode)
+            android.system.Os.chmod(draftFile.absolutePath, fileMode)
+        }
         try {
+            android.system.Os.chmod(draftFile.absolutePath, 256)
+            android.system.Os.chmod(directory.absolutePath, 320)
+            check(!draftFile.canWrite() && !directory.canWrite()) {
+                "Storage-failure fixture must actually block writes"
+            }
             val first = AppContainer(context)
             assertEquals("630000", first.quickDraft.value.menuPrice)
             assertEquals(DisplayCurrency.NEW_RIAL.name, prefs.getString("currency", null))
@@ -86,12 +99,12 @@ class CurrencyPreferenceTest {
             val restarted = AppContainer(context)
             assertEquals("630000", restarted.quickDraft.value.menuPrice)
             assertEquals(DisplayCurrency.NEW_RIAL.name, prefs.getString("currency", null))
-            blocker.deleteRecursively()
+            restoreModes()
             restarted.saveDraft()
             assertEquals(DisplayCurrency.TOMAN.name, prefs.getString("currency", null))
             assertEquals("630000", AppContainer(context).quickDraft.value.menuPrice)
         } finally {
-            blocker.deleteRecursively()
+            restoreModes()
         }
     }
 

@@ -10,6 +10,8 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
@@ -77,7 +79,10 @@ class WalkThroughTest {
             try {
                 walk()
             } catch (e: Throwable) {
-                shot("99-failure")
+                runCatching { shot("99-failure") }.exceptionOrNull()?.let(e::addSuppressed)
+                runCatching {
+                    File(shots, "99-failure-semantics.txt").writeText(rule.onAllNodes(isRoot(), useUnmergedTree = true).onFirst().printToString())
+                }.exceptionOrNull()?.let(e::addSuppressed)
                 throw e
             }
         }
@@ -112,6 +117,8 @@ class WalkThroughTest {
         // The keyboard's tick closes it, and the display shows the line under its figures again.
         typeTag("menu-price", "630000")
         rule.onNodeWithTag("menu-price").performImeAction()
+        openCalculatorDetails()
+        clickTag("channel-details-toggle")
         waitForFigure("net-sales", "۵۷۲٬۷۲۷")
         waitForFigure("food-cost", "۶۳٫۶٪")
         waitForFigure("gross-profit", "۲۰۸٬۶۲۲")
@@ -146,7 +153,7 @@ class WalkThroughTest {
 
         // A new dish of new ingredients changes nothing saved, so it is saved at once.
         typeTag("dish-name", "چلوکباب کوبیده")
-        click("ذخیره")
+        click("ذخیره غذا")
         waitForPart("در غذاها ذخیره شد")
         shot("07-saved")
 
@@ -154,7 +161,7 @@ class WalkThroughTest {
         click("غذاها")
         waitFor("چلوکباب کوبیده")
         waitFor("خیلی پایین")
-        waitForFigure("food-filter-needs", "۱")
+        waitForFigure("food-needs-count", "۱")
         shot("08-dishes")
 
         // The saved dish opens in the calculator. A meat price with a zero too many is flagged at once.
@@ -195,7 +202,7 @@ class WalkThroughTest {
         back()
 
         // A new onion price from the list, in one field.
-        click("مواد")
+        click("مواد اولیه")
         // LazyColumn only exposes on-screen cards to the semantics tree. Scroll to the saved
         // meat ingredient before asserting its price; alphabetical order puts rice first.
         rule.onNodeWithTag("ingredients-list").performScrollToNode(hasText("گوشت"))
@@ -238,9 +245,9 @@ class WalkThroughTest {
         clickTag("settings-section-pricing")
         clickTag("pricing-scope-general")
         waitForTag("settings-save-pricing")
-        click("حاشیهٔ سود")
+        clickTag("general-method-MARGIN")
         waitFor("65")
-        click("مارک‌آپ")
+        clickTag("general-method-MARKUP")
         waitForPart("185.714285714285")
         waitForPart("یعنی فودکاست ۳۵٪ و حاشیهٔ سود ۶۵٪")
         quiet()

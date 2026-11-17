@@ -1,0 +1,31 @@
+{
+  "baseline": {
+    "cold_start_ms": [
+      2810,
+      2462,
+      2526
+    ],
+    "median_ms": 2526,
+    "total_pss_kb": [
+      40319,
+      40079,
+      41739
+    ],
+    "median_pss_kb": 40319
+  },
+  "candidate": {
+    "cold_start_ms": [
+      2917,
+      2508,
+      2407
+    ],
+    "median_ms": 2508,
+    "total_pss_kb": [
+      41262,
+      39696,
+      39056
+    ],
+    "median_pss_kb": 39696
+  },
+  "limitation": "Software-emulated API26, same synthetic fixture and physical panel. Three samples do not establish device performance or a statistically meaningful improvement."
+}

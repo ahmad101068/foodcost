@@ -1,0 +1,84 @@
+{
+  "tests": 32,
+  "all_pass": true,
+  "rows": [
+    {
+      "test": "CurrencyPreferenceTest",
+      "count": 3,
+      "pass": true,
+      "cohort": "build28",
+      "log": "CurrencyPreferenceTest.log"
+    },
+    {
+      "test": "ExitConfirmationTest",
+      "count": 6,
+      "pass": true,
+      "cohort": "build28",
+      "log": "ExitConfirmationTest.log"
+    },
+    {
+      "test": "PricingMethodsTest",
+      "count": 1,
+      "pass": true,
+      "cohort": "build28",
+      "log": "PricingMethodsTest.log"
+    },
+    {
+      "test": "RecoveryGuardTest",
+      "count": 4,
+      "pass": true,
+      "cohort": "build28",
+      "log": "RecoveryGuardTest.log"
+    },
+    {
+      "test": "SettingsScopeTest",
+      "count": 1,
+      "pass": true,
+      "cohort": "build28",
+      "log": "SettingsScopeTest.log"
+    },
+    {
+      "test": "UnreadableWarningTest-everyScreenBlocksUnverifiedFinancialResultsAfterWarningAcknowledgement",
+      "count": 1,
+      "pass": true,
+      "cohort": "build28",
+      "log": "UnreadableWarningTest-everyScreenBlocksUnverifiedFinancialResultsAfterWarningAcknowledgement.log"
+    },
+    {
+      "test": "UnreadableWarningTest-goingOnWithoutTheUnreadablePriceShowsTheFiguresWithoutIt",
+      "count": 1,
+      "pass": true,
+      "cohort": "build28",
+      "log": "UnreadableWarningTest-goingOnWithoutTheUnreadablePriceShowsTheFiguresWithoutIt.log"
+    },
+    {
+      "test": "UnreadableWarningTest-ingredientListAndDetailDoNotPresentStalePricesAsVerified",
+      "count": 1,
+      "pass": true,
+      "cohort": "build28",
+      "log": "UnreadableWarningTest-ingredientListAndDetailDoNotPresentStalePricesAsVerified.log"
+    },
+    {
+      "test": "data.SqliteOperationStoreTest",
+      "count": 12,
+      "pass": true,
+      "cohort": "build28",
+      "log": "data.SqliteOperationStoreTest.log"
+    },
+    {
+      "test": "WalkThroughTest",
+      "count": 1,
+      "pass": true,
+      "cohort": "build30",
+      "log": "WalkThroughTest.log"
+    },
+    {
+      "test": "ReferenceVisualTest",
+      "count": 1,
+      "pass": true,
+      "cohort": "build30",
+      "log": "ReferenceVisualTest.log"
+    }
+  ],
+  "note": "All baseline tests executed as isolated processes. The two affected UI flows were rerun after final semantics/dark-theme corrections; other suites were unchanged. Original assertions retained."
+}

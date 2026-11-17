@@ -1,0 +1,226 @@
+[
+  {
+    "module": "core",
+    "suite": "ir.foodcost.core.ReportsTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "core",
+    "suite": "ir.foodcost.core.PricingScopeTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "core",
+    "suite": "ir.foodcost.core.FinanceScenariosTest",
+    "tests": 8,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "core",
+    "suite": "ir.foodcost.core.CorePricingAudit20261113Test",
+    "tests": 8,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "core",
+    "suite": "ir.foodcost.core.PricingGuaranteeTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "core",
+    "suite": "ir.foodcost.core.PricingTest",
+    "tests": 15,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "core",
+    "suite": "ir.foodcost.core.AcceptanceTest",
+    "tests": 8,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "core",
+    "suite": "ir.foodcost.core.SpecAcceptanceTest",
+    "tests": 10,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "core",
+    "suite": "ir.foodcost.core.CostEngineTest",
+    "tests": 14,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "data",
+    "suite": "ir.foodcost.data.ClosedPeriodPropertyTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "data",
+    "suite": "ir.foodcost.data.LedgerTest",
+    "tests": 27,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "data",
+    "suite": "ir.foodcost.data.JsonAndClockTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "data",
+    "suite": "ir.foodcost.data.PricingScopeCodecTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "data",
+    "suite": "ir.foodcost.data.FinanceScenariosLedgerTest",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "data",
+    "suite": "ir.foodcost.data.ClosedFiguresTest",
+    "tests": 19,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "data",
+    "suite": "ir.foodcost.data.Legacy074ReadTest",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "data",
+    "suite": "ir.foodcost.data.BackupSafetyTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "data",
+    "suite": "ir.foodcost.data.OperationCodecTest",
+    "tests": 10,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "presentation",
+    "suite": "ir.foodcost.presentation.FormsTest",
+    "tests": 11,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "presentation",
+    "suite": "ir.foodcost.presentation.DataSafetyTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "presentation",
+    "suite": "ir.foodcost.presentation.SettingsScopeTest",
+    "tests": 7,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "presentation",
+    "suite": "ir.foodcost.presentation.QuickCalculatorTest",
+    "tests": 45,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "presentation",
+    "suite": "ir.foodcost.presentation.DaysTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "presentation",
+    "suite": "ir.foodcost.presentation.TextTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "presentation",
+    "suite": "ir.foodcost.presentation.PresentationPricingAudit20261113Test",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "presentation",
+    "suite": "ir.foodcost.presentation.ScreensTest",
+    "tests": 15,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "presentation",
+    "suite": "ir.foodcost.presentation.JalaliDateTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "presentation",
+    "suite": "ir.foodcost.presentation.HelpTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "presentation",
+    "suite": "ir.foodcost.presentation.CalculatorScopeTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "presentation",
+    "suite": "ir.foodcost.presentation.BackupTextsTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "presentation",
+    "suite": "ir.foodcost.presentation.SettingsConversionTest",
+    "tests": 19,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "module": "presentation",
+    "suite": "ir.foodcost.presentation.CategoryConversionTest",
+    "tests": 9,
+    "failures": 0,
+    "errors": 0
+  }
+]

@@ -1,0 +1,166 @@
+{
+  "reference": "02-ingredients.png",
+  "source_size_px": [
+    941,
+    1672
+  ],
+  "calibration_width_dp": 411,
+  "pixels_per_dp": 2.289537712895377,
+  "rectangles": {
+    "app_bar": {
+      "xyxy_px": [
+        0,
+        54,
+        941,
+        186
+      ],
+      "xywh_dp": [
+        0.0,
+        23.59,
+        411.0,
+        57.65
+      ]
+    },
+    "search": {
+      "xyxy_px": [
+        248,
+        213,
+        916,
+        299
+      ],
+      "xywh_dp": [
+        108.32,
+        93.03,
+        291.76,
+        37.56
+      ]
+    },
+    "filter": {
+      "xyxy_px": [
+        27,
+        213,
+        225,
+        299
+      ],
+      "xywh_dp": [
+        11.79,
+        93.03,
+        86.48,
+        37.56
+      ]
+    },
+    "statistics": {
+      "xyxy_px": [
+        24,
+        321,
+        916,
+        432
+      ],
+      "xywh_dp": [
+        10.48,
+        140.2,
+        389.6,
+        48.48
+      ]
+    },
+    "ingredient_1": {
+      "xyxy_px": [
+        24,
+        455,
+        916,
+        617
+      ],
+      "xywh_dp": [
+        10.48,
+        198.73,
+        389.6,
+        70.76
+      ]
+    },
+    "ingredient_2": {
+      "xyxy_px": [
+        24,
+        631,
+        916,
+        793
+      ],
+      "xywh_dp": [
+        10.48,
+        275.6,
+        389.6,
+        70.76
+      ]
+    },
+    "ingredient_3": {
+      "xyxy_px": [
+        24,
+        806,
+        916,
+        958
+      ],
+      "xywh_dp": [
+        10.48,
+        352.04,
+        389.6,
+        66.39
+      ]
+    },
+    "ingredient_4": {
+      "xyxy_px": [
+        24,
+        970,
+        916,
+        1130
+      ],
+      "xywh_dp": [
+        10.48,
+        423.67,
+        389.6,
+        69.88
+      ]
+    },
+    "ingredient_5": {
+      "xyxy_px": [
+        24,
+        1142,
+        916,
+        1305
+      ],
+      "xywh_dp": [
+        10.48,
+        498.79,
+        389.6,
+        71.19
+      ]
+    },
+    "add": {
+      "xyxy_px": [
+        24,
+        1348,
+        916,
+        1433
+      ],
+      "xywh_dp": [
+        10.48,
+        588.77,
+        389.6,
+        37.13
+      ]
+    },
+    "bottom_navigation": {
+      "xyxy_px": [
+        0,
+        1461,
+        941,
+        1594
+      ],
+      "xywh_dp": [
+        0.0,
+        638.12,
+        411.0,
+        58.09
+      ]
+    }
+  },
+  "method": "Card boundaries read from the original PNG at native resolution; edge uncertainty ±2px. Device density must be calibrated independently."
+}

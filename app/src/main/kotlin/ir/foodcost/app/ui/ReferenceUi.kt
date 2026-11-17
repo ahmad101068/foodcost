@@ -1,6 +1,5 @@
 package ir.foodcost.app.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,21 +20,24 @@ import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.role
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.Dp
 import ir.foodcost.presentation.DigitGroups
 
 /** Geometry and visual primitives measured from the approved reference, at a 411dp viewport. */
@@ -143,11 +145,23 @@ object ReferenceIcons {
 /** Compact editable well; label and field layout are supplied by the reference row around it. */
 @Composable
 fun ReferenceField(
-    value: String, onValueChange: (String) -> Unit, label: String, modifier: Modifier = Modifier,
-    number: Boolean = false, suffix: String? = null, imeAction: ImeAction = ImeAction.Default,
-    onImeAction: (() -> Unit)? = null, centered: Boolean = false, height: androidx.compose.ui.unit.Dp = 36.dp,
-    trailing: (@Composable () -> Unit)? = null, leading: (@Composable () -> Unit)? = null,
-    fontSize: TextUnit = 16.sp, verticalPadding: Dp = 3.dp,
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    number: Boolean = false,
+    suffix: String? = null,
+    imeAction: ImeAction = ImeAction.Default,
+    onImeAction: (() -> Unit)? = null,
+    centered: Boolean = false,
+    height: androidx.compose.ui.unit.Dp = 36.dp,
+    trailing: (@Composable () -> Unit)? = null,
+    leading: (@Composable () -> Unit)? = null,
+    fontSize: TextUnit = 16.sp,
+    verticalPadding: Dp = 3.dp,
+    enabled: Boolean = true,
+    outlined: Boolean = true,
+    plainSuffix: Boolean = false,
 ) {
     val interactions = remember { MutableInteractionSource() }
     val focused by interactions.collectIsFocusedAsState()
@@ -155,37 +169,121 @@ fun ReferenceField(
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     var width by remember { mutableIntStateOf(0) }
-    val base = MaterialTheme.typography.bodyLarge.copy(
-        color = colors.onSurface, fontWeight = FontWeight.Bold, fontSize = fontSize, lineHeight = fontSize * 1.35f,
-        textAlign = if (centered) TextAlign.Center else TextAlign.Start,
-    )
-    val style = remember(value, suffix, width, base, number, density) {
-        val room = width - with(density) { 24.dp.roundToPx() }
-        if (number && width > 0) fitted(measurer, DigitGroups.of(value)?.shown ?: value, suffix, base, room) else base
-    }
+    val base =
+        MaterialTheme.typography.bodyLarge.copy(
+            color = colors.onSurface,
+            fontWeight = FontWeight.Bold,
+            fontSize = fontSize,
+            lineHeight = fontSize * 1.35f,
+            textAlign = if (centered) TextAlign.Center else TextAlign.Start,
+        )
+    val style =
+        remember(value, suffix, width, base, number, density) {
+            val room = width - with(density) { 24.dp.roundToPx() }
+            if (number && width > 0)
+                fitted(measurer, DigitGroups.of(value)?.shown ?: value, suffix, base, room)
+            else base
+        }
     BasicTextField(
-        value = value, onValueChange = onValueChange, singleLine = true, textStyle = style,
-        interactionSource = interactions, cursorBrush = SolidColor(colors.primary),
-        keyboardOptions = KeyboardOptions(keyboardType = if (number) KeyboardType.Decimal else KeyboardType.Text, imeAction = imeAction),
-        keyboardActions = if (onImeAction != null) KeyboardActions(onAny = { onImeAction() }) else KeyboardActions.Default,
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = true,
+        textStyle = style,
+        enabled = enabled,
+        interactionSource = interactions,
+        cursorBrush = SolidColor(colors.primary),
+        keyboardOptions =
+            KeyboardOptions(
+                keyboardType = if (number) KeyboardType.Decimal else KeyboardType.Text,
+                imeAction = imeAction,
+            ),
+        keyboardActions =
+            if (onImeAction != null) KeyboardActions(onAny = { onImeAction() })
+            else KeyboardActions.Default,
         visualTransformation = if (number) GroupDigits else VisualTransformation.None,
-        modifier = modifier.fillMaxWidth().onSizeChanged { width = it.width }.semantics { contentDescription = label },
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .onSizeChanged { width = it.width }
+                .semantics { contentDescription = label },
         decorationBox = { inner ->
             Row(
-                Modifier.fillMaxWidth().heightIn(min = height)
-                    .background(colors.surfaceContainerLowest, RoundedCornerShape(9.dp))
-                    .border(if (focused) 1.4.dp else 0.8.dp, if (focused) colors.primary else colors.outlineVariant, RoundedCornerShape(9.dp))
+                Modifier.fillMaxWidth()
+                    .heightIn(
+                        min =
+                            if (LocalDensity.current.fontScale > 1.25f) maxOf(height, 48.dp)
+                            else height
+                    )
+                    .background(
+                        if (outlined) colors.surfaceContainerLowest else Color.Transparent,
+                        RoundedCornerShape(9.dp),
+                    )
+                    .border(
+                        if (outlined) {
+                            if (focused) 1.4.dp else 0.8.dp
+                        } else 0.dp,
+                        if (!outlined) Color.Transparent
+                        else if (focused) colors.primary else colors.outlineVariant,
+                        RoundedCornerShape(9.dp),
+                    )
                     .padding(horizontal = 9.dp, vertical = verticalPadding),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 leading?.invoke()
-                Box(Modifier.weight(1f), contentAlignment = if (centered) Alignment.Center else Alignment.CenterStart) {
-                    if (value.isEmpty()) Text(label, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
-                    inner()
+                Box(
+                    Modifier.weight(1f),
+                    contentAlignment = if (centered) Alignment.Center else Alignment.CenterStart,
+                ) {
+                    if (value.isEmpty())
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colors.onSurfaceVariant,
+                        )
+                    if (suffix == "٪" && centered) {
+                        // Keep the percent sign next to the editable number in a stable LTR run.
+                        val measured =
+                            measurer
+                                .measure(DigitGroups.of(value)?.shown ?: value, style = style)
+                                .size
+                                .width
+                        BoxWithConstraints(
+                            Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            val numberWidth =
+                                minOf(
+                                    maxWidth - 24.dp,
+                                    maxOf(24.dp, with(density) { measured.toDp() } + 3.dp),
+                                )
+                            CompositionLocalProvider(
+                                LocalLayoutDirection provides LayoutDirection.Ltr
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(Modifier.width(numberWidth)) { inner() }
+                                    Text("٪", style = style)
+                                }
+                            }
+                        }
+                    } else inner()
                 }
-                if (suffix != null) Surface(color = colors.surfaceContainer, shape = RoundedCornerShape(6.dp)) {
-                    Text(suffix, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
-                }
+                if (suffix == "٪" && !centered) Text(suffix, style = style)
+                else if (suffix != null && suffix != "٪")
+                    if (plainSuffix)
+                        Text(
+                            suffix,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.onSurfaceVariant,
+                        )
+                    else
+                        Surface(color = colors.surfaceContainer, shape = RoundedCornerShape(6.dp)) {
+                            Text(
+                                suffix,
+                                style = MaterialTheme.typography.labelMedium,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                            )
+                        }
                 trailing?.invoke()
             }
         },
@@ -195,23 +293,61 @@ fun ReferenceField(
 @Composable
 fun ReferenceBottomBar(nav: Navigator, actions: AppActions) {
     val scheme = MaterialTheme.colorScheme
-    Surface(color = scheme.surfaceContainerLowest, shadowElevation = 1.dp) {
+    Surface(
+        modifier = Modifier.testTag("foodcost-bottom-navigation"),
+        color = scheme.surfaceContainerLowest,
+        shadowElevation = 2.dp,
+        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
+    ) {
         Column(Modifier.navigationBarsPadding()) {
-            HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.65f), thickness = 0.5.dp)
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 listOf(Tab.CALC, Tab.INGREDIENTS, Tab.RECIPES, Tab.SETTINGS).forEach { tab ->
                     val selected = nav.tab == tab
-                    val brush = if (selected) Brush.verticalGradient(listOf(scheme.primary, scheme.primary.copy(red = scheme.primary.red * .85f, green = scheme.primary.green * .85f, blue = scheme.primary.blue * .85f)))
+                    val label = if (tab == Tab.INGREDIENTS) "مواد اولیه" else tab.label
+                    val brush =
+                        if (selected) premiumBrush()
                         else Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
                     Column(
-                        Modifier.weight(1f).background(brush, RoundedCornerShape(14.dp))
-                            .semantics { this.selected = selected; role = Role.Tab }.clickable(onClickLabel = tab.label) { actions.snackbar.currentSnackbarData?.dismiss(); nav.tab(tab) }
-                            .padding(horizontal = 2.dp, vertical = 6.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp),
+                        Modifier.weight(1f)
+                            .background(brush, RoundedCornerShape(13.dp))
+                            .semantics {
+                                this.selected = selected
+                                role = Role.Tab
+                            }
+                            .clickable(onClickLabel = label) {
+                                actions.snackbar.currentSnackbarData?.dismiss()
+                                nav.tab(tab)
+                            }
+                            .padding(horizontal = 2.dp, vertical = 1.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
-                        Icon(when (tab) { Tab.CALC -> ReferenceIcons.calculator; Tab.RECIPES -> ReferenceIcons.dishes; Tab.INGREDIENTS -> ReferenceIcons.layers; Tab.SETTINGS -> ReferenceIcons.settings },
-                            contentDescription = null, tint = if (selected) scheme.onPrimary else scheme.onSurface, modifier = Modifier.size(24.dp))
-                        FitText(tab.label, MaterialTheme.typography.labelLarge, color = if (selected) scheme.onPrimary else scheme.onSurface)
+                        Icon(
+                            when (tab) {
+                                Tab.CALC -> ReferenceIcons.calculator
+                                Tab.RECIPES -> ReferenceIcons.dishes
+                                Tab.INGREDIENTS -> ReferenceIcons.layers
+                                Tab.SETTINGS -> ReferenceIcons.settings
+                            },
+                            null,
+                            tint = if (selected) Color.White else scheme.onSurface,
+                            modifier = Modifier.size(24.dp),
+                        )
+                        Text(
+                            if (tab == Tab.CALC && LocalDensity.current.fontScale > 1.25f)
+                                "ماشین\nحساب"
+                            else label,
+                            style =
+                                MaterialTheme.typography.labelMedium.copy(
+                                    fontSize = 12.sp,
+                                    lineHeight = 18.sp,
+                                ),
+                            color = if (selected) Color.White else scheme.onSurface,
+                            textAlign = TextAlign.Center,
+                        )
                     }
                 }
             }

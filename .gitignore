@@ -10,3 +10,12 @@ local.properties
 *.keystore
 *.jks
 *.p12
+
+# Owner-provided artwork and generated native evidence ship in the private review package.
+docs/pixel083/reference/
+docs/pixel083/evidence/
+docs/pixel083/generated/
+
+.kotlin/
+
+__pycache__/
