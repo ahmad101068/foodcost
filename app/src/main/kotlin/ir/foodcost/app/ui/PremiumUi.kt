@@ -187,7 +187,7 @@ fun FoodCostCard(modifier: Modifier = Modifier, content: @Composable ColumnScope
         shape = RoundedCornerShape(T.cardRadius),
         colors = whiteCardColors(),
         border = BorderStroke(.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .7f)),
-        elevation = CardDefaults.cardElevation(1.5.dp),
+        elevation = CardDefaults.cardElevation(.5.dp),
     ) {
         Column(content = content)
     }
@@ -243,13 +243,15 @@ fun FoodCostOutlinedButton(
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     compact: Boolean = false,
+    neutral: Boolean = false,
 ) {
     Surface(
         onClick = onClick,
         modifier = modifier.heightIn(min = if (compact) 26.dp else 36.dp),
         shape = RoundedCornerShape(T.controlRadius),
         color = Color.Transparent,
-        border = BorderStroke(.8.dp, MaterialTheme.colorScheme.primary),
+        border =
+            BorderStroke(.8.dp, if (neutral) T.inputOutline else MaterialTheme.colorScheme.primary),
     ) {
         Row(
             Modifier.padding(horizontal = 10.dp, vertical = if (compact) 2.dp else 6.dp),
@@ -267,7 +269,9 @@ fun FoodCostOutlinedButton(
             }
             Text(
                 text,
-                color = MaterialTheme.colorScheme.primary,
+                color =
+                    if (neutral) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.primary,
                 style =
                     MaterialTheme.typography.labelLarge.copy(
                         fontSize = if (compact) 13.sp else 15.sp,
@@ -324,7 +328,7 @@ fun FoodCostAppBar(
                     shownTitle,
                     style =
                         MaterialTheme.typography.titleLarge.copy(
-                            fontSize = 18.sp,
+                            fontSize = 17.5.sp,
                             lineHeight = 26.sp,
                         ),
                     fontWeight = FontWeight.Bold,
@@ -334,7 +338,7 @@ fun FoodCostAppBar(
                         subtitle,
                         style =
                             MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 12.sp,
+                                fontSize = 11.5.sp,
                                 lineHeight = 18.sp,
                             ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -434,10 +438,11 @@ fun FoodCostPercentageGauge(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier =
-                    Modifier.offset(y = if (targetReferenceLayout) 10.dp else 0.dp).padding(
-                        top = if (valueFontSize.value > 28f) 4.dp else 18.dp,
-                        bottom = 0.dp,
-                    ),
+                    Modifier.offset(y = if (targetReferenceLayout) 10.dp else 0.dp)
+                        .padding(
+                            top = if (valueFontSize.value > 28f) 4.dp else 18.dp,
+                            bottom = 0.dp,
+                        ),
             ) {
                 Text(
                     label,
@@ -478,7 +483,7 @@ fun FoodCostSectionHeader(text: String, icon: ImageVector = ReferenceIcons.layer
     Row(
         Modifier.fillMaxWidth()
             .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(9.dp))
-            .padding(horizontal = 9.dp, vertical = 5.dp),
+            .padding(horizontal = 9.dp, vertical = 4.5.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -499,6 +504,7 @@ fun FoodCostSettingsRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     verticalPadding: Dp = 7.dp,
+    showChevron: Boolean? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(
@@ -510,12 +516,15 @@ fun FoodCostSettingsRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 title,
                 style =
-                    MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp, lineHeight = 20.sp),
+                    MaterialTheme.typography.titleMedium.copy(
+                        fontSize = 13.5.sp,
+                        lineHeight = 20.sp,
+                    ),
             )
             Text(
                 subtitle,
@@ -524,7 +533,7 @@ fun FoodCostSettingsRow(
             )
         }
         trailing?.invoke()
-        if (trailing == null)
+        if (showChevron ?: (trailing == null))
             Icon(
                 ReferenceIcons.chevron,
                 null,

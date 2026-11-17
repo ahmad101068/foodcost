@@ -38,7 +38,11 @@ fun PremiumSettingsOverview(
     navigate: (SettingsPage) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
-    FoodCostCard(Modifier.testTag("settings-general-group")) {
+    val referenceScale = LocalDensity.current.fontScale <= 1.25f
+    FoodCostCard(
+        Modifier.heightIn(min = if (referenceScale) 250.dp else 0.dp)
+            .testTag("settings-general-group")
+    ) {
         Column(Modifier.padding(top = 8.dp, start = 8.dp, end = 8.dp)) {
             FoodCostSectionHeader("عمومی", ReferenceIcons.sliders)
             FoodCostSettingsRow(
@@ -74,11 +78,12 @@ fun PremiumSettingsOverview(
                 { navigate(SettingsPage.CURRENCY) },
                 Modifier.testTag("settings-section-currency"),
                 verticalPadding = 6.5.dp,
+                showChevron = true,
             ) {
                 Surface(color = scheme.primaryContainer, shape = RoundedCornerShape(50)) {
                     Text(
                         Labels.currency(currency),
-                        Modifier.padding(horizontal = 12.dp, vertical = 3.dp),
+                        Modifier.padding(horizontal = 14.dp, vertical = 3.dp),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -109,7 +114,9 @@ fun PremiumSettingsOverview(
             }
         }
     }
-    FoodCostCard(Modifier.testTag("settings-data-group")) {
+    FoodCostCard(
+        Modifier.heightIn(min = if (referenceScale) 146.dp else 0.dp).testTag("settings-data-group")
+    ) {
         Column(Modifier.padding(top = 8.dp, start = 8.dp, end = 8.dp)) {
             FoodCostSectionHeader("داده‌ها")
             FoodCostSettingsRow(
@@ -132,7 +139,9 @@ fun PremiumSettingsOverview(
             )
         }
     }
-    FoodCostCard(Modifier.testTag("settings-help-group")) {
+    FoodCostCard(
+        Modifier.heightIn(min = if (referenceScale) 111.dp else 0.dp).testTag("settings-help-group")
+    ) {
         FoodCostSettingsRow(
             "راهنما",
             "سؤالات متداول و راهنمای استفاده",
@@ -273,7 +282,12 @@ fun PremiumGeneralPricing(
                         IconButton(
                             { step(true) },
                             enabled = enabled,
-                            modifier = Modifier.size(24.dp).background(colors.surfaceContainerLow, RoundedCornerShape(6.dp)),
+                            modifier =
+                                Modifier.size(24.dp)
+                                    .background(
+                                        colors.surfaceContainerLow,
+                                        RoundedCornerShape(6.dp),
+                                    ),
                         ) {
                             Icon(
                                 PremiumIcons.plus,
@@ -287,7 +301,12 @@ fun PremiumGeneralPricing(
                         IconButton(
                             { step(false) },
                             enabled = enabled,
-                            modifier = Modifier.size(24.dp).background(colors.surfaceContainerLow, RoundedCornerShape(6.dp)),
+                            modifier =
+                                Modifier.size(24.dp)
+                                    .background(
+                                        colors.surfaceContainerLow,
+                                        RoundedCornerShape(6.dp),
+                                    ),
                         ) {
                             Icon(PremiumIcons.minus, "کاهش درصد", Modifier.size(22.dp))
                         }
@@ -514,7 +533,7 @@ fun PremiumGeneralPricing(
     }
     FoodCostCard(Modifier.testTag("pricing-scope")) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {

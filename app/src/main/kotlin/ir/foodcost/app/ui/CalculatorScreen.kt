@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -72,6 +73,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -261,7 +263,7 @@ fun CalculatorScreen(
                     if (state.pricing.menuPriceIncludesVat)
                         "قیمت منو با مالیات ${Persian.digits(state.pricing.vatPercent.stripTrailingZeros().toPlainString())}٪"
                     else "قیمت منو بدون مالیات",
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.5.dp),
                 onExplain = { explaining = listOf(it) },
             )
             Column(
@@ -275,8 +277,8 @@ fun CalculatorScreen(
                     modifier = Modifier.fillMaxWidth().testTag("calculator-form"),
                 ) {
                     Column(
-                        Modifier.padding(9.dp),
-                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                        Modifier.padding(horizontal = 11.dp, vertical = 9.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         val largeText =
                             LocalDensity.current.fontScale > 1.25f ||
@@ -334,7 +336,9 @@ fun CalculatorScreen(
                                 Modifier.testTag("dish-name"),
                                 imeAction = ImeAction.Next,
                                 height = 27.dp,
-                                fontSize = 14.sp,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                horizontalPadding = 8.dp,
                             )
                         }
                         fieldRow("تعداد پرس", PremiumIcons.people, 140.dp) {
@@ -347,23 +351,30 @@ fun CalculatorScreen(
                                 centered = true,
                                 height = 27.dp,
                                 fontSize = 14.sp,
+                                verticalPadding = 1.5.dp,
                                 leading = {
                                     Icon(
                                         PremiumIcons.plus,
                                         "افزایش تعداد پرس",
-                                        Modifier.size(20.dp).clickable {
-                                            val n =
-                                                ir.foodcost.presentation.Numbers.parse(
-                                                    input.portions
-                                                ) ?: java.math.BigDecimal.ONE
-                                            update(
-                                                input.copy(
-                                                    portions =
-                                                        n.add(java.math.BigDecimal.ONE)
-                                                            .toPlainString()
-                                                )
+                                        Modifier.size(24.dp)
+                                            .background(
+                                                MaterialTheme.colorScheme.surfaceContainerLow,
+                                                RoundedCornerShape(6.dp),
                                             )
-                                        },
+                                            .clickable {
+                                                val n =
+                                                    ir.foodcost.presentation.Numbers.parse(
+                                                        input.portions
+                                                    ) ?: java.math.BigDecimal.ONE
+                                                update(
+                                                    input.copy(
+                                                        portions =
+                                                            n.add(java.math.BigDecimal.ONE)
+                                                                .toPlainString()
+                                                    )
+                                                )
+                                            }
+                                            .padding(3.dp),
                                         tint = MaterialTheme.colorScheme.primary,
                                     )
                                 },
@@ -371,20 +382,26 @@ fun CalculatorScreen(
                                     Icon(
                                         PremiumIcons.minus,
                                         "کاهش تعداد پرس",
-                                        Modifier.size(20.dp).clickable {
-                                            val n =
-                                                ir.foodcost.presentation.Numbers.parse(
-                                                    input.portions
-                                                ) ?: java.math.BigDecimal.ONE
-                                            if (n > java.math.BigDecimal.ONE)
-                                                update(
-                                                    input.copy(
-                                                        portions =
-                                                            n.subtract(java.math.BigDecimal.ONE)
-                                                                .toPlainString()
+                                        Modifier.size(24.dp)
+                                            .background(
+                                                MaterialTheme.colorScheme.surfaceContainerLow,
+                                                RoundedCornerShape(6.dp),
+                                            )
+                                            .clickable {
+                                                val n =
+                                                    ir.foodcost.presentation.Numbers.parse(
+                                                        input.portions
+                                                    ) ?: java.math.BigDecimal.ONE
+                                                if (n > java.math.BigDecimal.ONE)
+                                                    update(
+                                                        input.copy(
+                                                            portions =
+                                                                n.subtract(java.math.BigDecimal.ONE)
+                                                                    .toPlainString()
+                                                        )
                                                     )
-                                                )
-                                        },
+                                            }
+                                            .padding(3.dp),
                                     )
                                 },
                             )
@@ -398,9 +415,11 @@ fun CalculatorScreen(
                                 number = true,
                                 suffix = money.unit,
                                 imeAction = ImeAction.Done,
-                                centered = true,
+                                textAlign = TextAlign.Left,
+                                textInsetEnd = 14.dp,
+                                horizontalPadding = 5.dp,
                                 height = 27.dp,
-                                fontSize = 14.sp,
+                                fontSize = 13.sp,
                             )
                         }
                         val mainExtraIndex = input.extras.indexOfFirst { !it.takeawayOnly }
@@ -431,9 +450,11 @@ fun CalculatorScreen(
                                 number = true,
                                 suffix = money.unit,
                                 imeAction = ImeAction.Done,
-                                centered = true,
+                                textAlign = TextAlign.Left,
+                                textInsetEnd = 14.dp,
+                                horizontalPadding = 5.dp,
                                 height = 27.dp,
-                                fontSize = 14.sp,
+                                fontSize = 13.sp,
                             )
                         }
                         val discountProblem = QuickCalculator.discountProblem(input, money)
@@ -526,7 +547,7 @@ fun CalculatorScreen(
                     modifier = Modifier.fillMaxWidth().testTag("calculator-ingredients"),
                 ) {
                     Column(
-                        Modifier.padding(6.dp),
+                        Modifier.padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 10.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -879,6 +900,7 @@ private fun Display(
     val scheme = MaterialTheme.colorScheme
     val accents = ir.foodcost.app.ui.theme.dashboardColors()
     val large = LocalDensity.current.fontScale > 1.25f
+    val referenceViewport = !large && LocalConfiguration.current.screenWidthDp >= 380
     FoodCostCard(modifier.testTag("calculator-dashboard")) {
         Column(
             Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
@@ -931,7 +953,10 @@ private fun Display(
                                     val unitStart = value.lastIndexOf(money.unit)
                                     if (unitStart >= 0) {
                                         addStyle(
-                                            SpanStyle(fontSize = 12.sp, fontWeight = FontWeight.Normal),
+                                            SpanStyle(
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Normal,
+                                            ),
                                             unitStart,
                                             unitStart + money.unit.length,
                                         )
@@ -982,7 +1007,9 @@ private fun Display(
                     result.foodCostValue?.toFloat(),
                     result.foodCostPercent ?: "—",
                     "فودکاست",
-                    modifier.testTag("food-cost-gauge"),
+                    modifier
+                        .absoluteOffset(x = if (referenceViewport) 5.dp else 0.dp)
+                        .testTag("food-cost-gauge"),
                     status = if (result.hasLines) result.status to result.statusLabel else null,
                 )
             }
@@ -994,7 +1021,7 @@ private fun Display(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(9.dp),
                 ) {
-                    metrics(Modifier.weight(1.9f))
+                    metrics(Modifier.weight(if (referenceViewport) 1.85f else 1.9f))
                     androidx.compose.material3.VerticalDivider(
                         Modifier.height(98.dp),
                         color = scheme.outlineVariant,
@@ -1013,17 +1040,31 @@ private fun Display(
                 horizontalArrangement = Arrangement.spacedBy(9.dp),
             ) {
                 Row(
-                    Modifier.weight(1f)
+                    Modifier.weight(if (referenceViewport) .93f else 1f)
+                        .absoluteOffset(x = if (referenceViewport) (-3).dp else 0.dp)
                         .semantics(mergeDescendants = true) {}
                         .clickable { onExplain(Glossary.FOOD_COST) }
                         .testTag("food-cost"),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(
+                            if (referenceViewport) 9.dp else 5.dp,
+                            Alignment.CenterHorizontally,
+                        ),
                 ) {
-                    Text("فودکاست:", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        "فودکاست:",
+                        style =
+                            MaterialTheme.typography.bodySmall.copy(
+                                fontSize = if (referenceViewport) 10.5.sp else 11.sp
+                            ),
+                    )
                     Text(
                         result.foodCostPercent ?: "—",
-                        style = MaterialTheme.typography.titleMedium,
+                        style =
+                            MaterialTheme.typography.titleMedium.copy(
+                                fontSize = if (referenceViewport) 17.sp else 14.5.sp
+                            ),
                         color = scheme.tertiary,
                     )
                 }
@@ -1031,12 +1072,16 @@ private fun Display(
                     Modifier.height(28.dp),
                     color = scheme.outlineVariant,
                 )
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    Modifier.weight(1f).padding(start = if (referenceViewport) 30.dp else 0.dp),
+                    horizontalAlignment =
+                        if (referenceViewport) Alignment.Start else Alignment.CenterHorizontally,
+                ) {
                     Text(
                         vatNote,
                         style =
                             MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 10.sp,
+                                fontSize = if (referenceViewport) 9.5.sp else 10.sp,
                                 lineHeight = 14.sp,
                             ),
                         color = scheme.onSurfaceVariant,
@@ -1044,6 +1089,8 @@ private fun Display(
                     Text(
                         result.menuRials?.let(money::full) ?: "—",
                         style = MaterialTheme.typography.titleSmall,
+                        color = scheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium,
                     )
                 }
             }
@@ -1557,7 +1604,7 @@ private fun RowCard(
             onImeAction = { priceFocus.requestFocus() },
             outlined = false,
             height = 26.dp,
-            fontSize = 14.sp,
+            fontSize = 12.5.sp,
             verticalPadding = 2.dp,
         )
     }
@@ -1575,7 +1622,7 @@ private fun RowCard(
             onImeAction = { quantityFocus.requestFocus() },
             outlined = false,
             height = 26.dp,
-            fontSize = 14.sp,
+            fontSize = 12.5.sp,
             verticalPadding = 2.dp,
         )
     }
@@ -1587,13 +1634,14 @@ private fun RowCard(
             label = "مقدار",
             modifier = modifier.focusRequester(quantityFocus).testTag("row-$index-qty"),
             number = true,
-            suffix = Labels.uom(row.uom),
+            suffix = null,
             trailing = {
                 UnitMenu(
                     row.uom,
                     result.units,
                     Modifier.testTag("row-$index-unit"),
                     compact = true,
+                    textOnly = true,
                 ) {
                     onChange(row.copy(uom = it))
                 }
@@ -1602,7 +1650,7 @@ private fun RowCard(
             onImeAction = onNextRow,
             outlined = false,
             height = 26.dp,
-            fontSize = 14.sp,
+            fontSize = 12.5.sp,
             verticalPadding = 2.dp,
             centered = true,
         )
@@ -1736,22 +1784,35 @@ private fun UnitMenu(
     options: List<Uom>,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
+    textOnly: Boolean = false,
     onSelect: (Uom) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
         Row(
             Modifier.focusProperties { canFocus = false }
+                .then(
+                    if (textOnly)
+                        Modifier.semantics {
+                            contentDescription = "واحد مقدار: ${Labels.uom(selected)}"
+                        }
+                    else Modifier
+                )
                 .clickable(onClickLabel = "واحد مقدار: ${Labels.uom(selected)}") { open = true }
                 .padding(if (compact) 0.dp else 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (!compact) Text(Labels.uom(selected), style = MaterialTheme.typography.labelMedium)
-            Icon(
-                Icons.Filled.KeyboardArrowDown,
-                contentDescription = "واحد مقدار: ${Labels.uom(selected)}",
-                modifier = Modifier.size(if (compact) 16.dp else 20.dp),
-            )
+            if (!compact || textOnly)
+                Text(
+                    Labels.uom(selected),
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                )
+            if (!textOnly)
+                Icon(
+                    Icons.Filled.KeyboardArrowDown,
+                    contentDescription = "واحد مقدار: ${Labels.uom(selected)}",
+                    modifier = Modifier.size(if (compact) 16.dp else 20.dp),
+                )
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             options.forEach { uom ->

@@ -1,6 +1,6 @@
 # بازتولید و بازبینی کاندید
 
-این شاخه کاندید بررسی مالک است و مجوز ادغام یا انتشار ندارد. مبنا `6c2bf74b713f4febfda53019324af053298d56ef`، نسخهٔ برنامه 0.8.3، minSdk برابر 26 و targetSdk برابر 36 باقی مانده‌اند.
+مالک در دستور اخیر، ادغام را خواسته است؛ وضعیت واقعی ادغام در HANDOFF.json و PR ثبت می‌شود. هدف SSIM هنوز قبول نشده است و مجوز انتشار production داده نشده است. مبنا `6c2bf74b713f4febfda53019324af053298d56ef`، نسخهٔ برنامه 0.8.3، minSdk برابر 26 و targetSdk برابر 36 باقی مانده‌اند.
 
 ## سورس و Build
 
@@ -27,10 +27,10 @@ cd foodcost-review
 ابزارهای Python تحلیل به Pillow، NumPy و ReportLab نیاز دارند؛ هیچ‌کدام وابستگی runtime اپلیکیشن نیستند. فرمان‌های بازتولید پس از استخراج بسته:
 
 ```sh
-python3 scripts/pixel083/compare_images.py --reference docs/pixel083/reference --actual evidence/matrix-delivery-api26/411-100 --out comparison-reproduced
-python3 scripts/pixel083/geometry_audit.py --spec docs/pixel083 --actual evidence/matrix-delivery-api26/411-100 --out geometry-reproduced.json
-python3 scripts/pixel083/color_audit.py --root docs/pixel083 --actual evidence/matrix-delivery-api26/411-100 --out color-reproduced.json
-python3 scripts/pixel083/audit_native_layouts.py --matrix evidence/matrix-delivery-api26 --out viewport-reproduced.json
+python3 scripts/pixel083/compare_images.py --reference docs/pixel083/reference --actual evidence/matrix-final40-api26/411-100 --out comparison-reproduced
+python3 scripts/pixel083/geometry_audit.py --spec docs/pixel083 --actual evidence/matrix-final40-api26/411-100 --out geometry-reproduced.json
+python3 scripts/pixel083/color_audit.py --root docs/pixel083 --actual evidence/matrix-final40-api26/411-100 --out color-reproduced.json
+python3 scripts/pixel083/audit_native_layouts.py --matrix evidence/matrix-final40-api26 --out viewport-reproduced.json
 ```
 
 در این فرمان‌ها فرض می‌شود تصاویر مرجع در مسیر `docs/pixel083/reference` و شواهد در مسیر `evidence` کنار سورس استخراج شده‌اند. فایل‌های مرجع و شواهد حجیم به مخزن عمومی فرستاده نشده‌اند؛ نسخهٔ دقیق آن‌ها فقط در بستهٔ خصوصی همراه است. نوارهای سیستم API26 با inset بالای 55px و پایین 110px کنار گذاشته می‌شوند. تصویر 942px با مقیاس یکنواخت به عرض 941px تبدیل می‌شود؛ هیچ کشیدگی عمودی یا حذف متن مالی انجام نمی‌شود.

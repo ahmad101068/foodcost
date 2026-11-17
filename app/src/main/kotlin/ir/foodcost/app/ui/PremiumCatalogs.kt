@@ -1,5 +1,6 @@
 package ir.foodcost.app.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -10,10 +11,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.foodcost.app.ui.theme.premiumWarningColors
@@ -97,7 +107,8 @@ fun PremiumIngredientCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val large = LocalDensity.current.fontScale > 1.25f
+    val large =
+        LocalDensity.current.fontScale > 1.25f || LocalConfiguration.current.screenWidthDp < 380
     val colors = MaterialTheme.colorScheme
     val unit =
         when (state.ingredients[row.id]?.baseDimension) {
@@ -109,14 +120,15 @@ fun PremiumIngredientCard(
     FoodCostCard(Modifier.testTag("ingredient-${row.id.value}")) {
         Row(
             Modifier.fillMaxWidth()
+                .heightIn(min = if (large) 0.dp else if (row.unitPrice == null) 66.dp else 70.dp)
                 .clickable(onClick = onToggle)
-                .padding(horizontal = 8.dp, vertical = 6.5.dp),
+                .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(9.dp),
         ) {
             if (!large) RowSymbol(ReferenceIcons.layers)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(row.name, style = MaterialTheme.typography.titleMedium)
+                Text(row.name, style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp))
                 Surface(color = colors.surfaceContainerLow, shape = RoundedCornerShape(50)) {
                     Text(
                         unit,
@@ -132,18 +144,30 @@ fun PremiumIngredientCard(
                         dataUnreliable,
                         onReprice,
                         Modifier.fillMaxWidth(),
+                        money.unit,
                     )
             }
             if (!large)
-                IngredientPrice(row, price, today, dataUnreliable, onReprice, Modifier.weight(1f))
-            VerticalDivider(Modifier.height(40.dp), color = colors.outlineVariant)
+                IngredientPrice(
+                    row,
+                    price,
+                    today,
+                    dataUnreliable,
+                    onReprice,
+                    Modifier.width(118.dp),
+                    money.unit,
+                )
+            VerticalDivider(
+                Modifier.padding(horizontal = 4.dp).height(40.dp),
+                color = colors.outlineVariant,
+            )
             if (large)
                 Column {
                     CatalogAction(PremiumIcons.edit, "ویرایش ${row.name}", onEdit)
                     CatalogAction(ReferenceIcons.trash, "حذف ${row.name}", onDelete)
                 }
             else
-                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(11.dp)) {
                     CatalogAction(PremiumIcons.edit, "ویرایش ${row.name}", onEdit)
                     CatalogAction(ReferenceIcons.trash, "حذف ${row.name}", onDelete)
                 }
@@ -177,6 +201,7 @@ private fun IngredientPrice(
     unreliable: Boolean,
     onReprice: () -> Unit,
     modifier: Modifier,
+    currencyUnit: String,
 ) {
     val colors = MaterialTheme.colorScheme
     Column(
@@ -201,20 +226,31 @@ private fun IngredientPrice(
                     if (row.unitPrice == null) "ingredient-register-${row.id.value}"
                     else "ingredient-price-${row.id.value}"
                 )
-                .padding(horizontal = 5.dp, vertical = 2.dp),
+                .padding(horizontal = 5.dp, vertical = 0.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (row.unitPrice != null && !unreliable)
                 Text(
                     "قیمت آخرین",
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                     style =
                         MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 10.sp,
+                            fontSize = 9.5.sp,
                             lineHeight = 14.sp,
                         ),
                 )
             Text(
-                if (unreliable) BackupTexts.UNVERIFIED_PRICE else price,
+                buildAnnotatedString {
+                    val displayed = if (unreliable) BackupTexts.UNVERIFIED_PRICE else price
+                    append(displayed)
+                    val start = displayed.lastIndexOf(currencyUnit)
+                    if (start >= 0)
+                        addStyle(
+                            SpanStyle(fontSize = 11.sp, fontWeight = FontWeight.Normal),
+                            start,
+                            start + currencyUnit.length,
+                        )
+                },
                 style =
                     MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp, lineHeight = 18.sp),
                 color =
@@ -224,8 +260,9 @@ private fun IngredientPrice(
         }
         if (!unreliable)
             Row(
+                Modifier.fillMaxWidth().padding(horizontal = 3.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.Start),
             ) {
                 Icon(
                     PremiumIcons.clock,
@@ -234,7 +271,8 @@ private fun IngredientPrice(
                     tint = colors.onSurfaceVariant,
                 )
                 Text(
-                    "به‌روزرسانی: ${priceDay(row,today)}",
+                    if (row.unitPrice == null) priceDay(row, today)
+                    else "به‌روزرسانی: ${priceDay(row,today)}",
                     style =
                         MaterialTheme.typography.bodySmall.copy(
                             fontSize = 10.sp,
@@ -284,7 +322,8 @@ fun PremiumRecipeCard(
     val scheme = MaterialTheme.colorScheme
     val result = if (!unreliable) state.calculator().evaluate(row.recipeId, today) else null
     val detail = RecipeScreens.detail(state, row.recipeId, today, money)
-    val large = LocalDensity.current.fontScale > 1.25f
+    val large =
+        LocalDensity.current.fontScale > 1.25f || LocalConfiguration.current.screenWidthDp < 380
     FoodCostCard(
         Modifier.testTag("food-${row.recipeId.value}")
             .combinedClickable(
@@ -317,14 +356,14 @@ fun PremiumRecipeCard(
             else {
                 @Composable
                 fun metrics(first: Boolean, modifier: Modifier) {
-                    Row(modifier, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (first) {
                             FoodCostFinancialMetric(
                                 "هزینه مواد اولیه هر پرس",
                                 row.foodCost,
                                 money,
                                 ReferenceIcons.tag,
-                                Modifier.weight(1.25f),
+                                Modifier.weight(1.05f),
                                 accent = scheme.primary,
                             )
                             VerticalDivider(Modifier.height(43.dp), color = scheme.outlineVariant)
@@ -341,8 +380,9 @@ fun PremiumRecipeCard(
                                 row.foodCostPercent ?: "—",
                                 money,
                                 null,
-                                Modifier.weight(1f),
+                                Modifier.weight(.92f),
                                 accent = ir.foodcost.app.ui.theme.statusColors(row.status).content,
+                                percentage = result?.foodCostPercent?.toFloat(),
                             )
                             VerticalDivider(Modifier.height(43.dp), color = scheme.outlineVariant)
                             FoodCostFinancialMetric(
@@ -367,7 +407,7 @@ fun PremiumRecipeCard(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
-                        metrics(true, Modifier.weight(1.35f))
+                        metrics(true, Modifier.weight(1.25f))
                         VerticalDivider(Modifier.height(43.dp), color = scheme.outlineVariant)
                         metrics(false, Modifier.weight(1f))
                     }
@@ -390,16 +430,38 @@ fun PremiumRecipeCard(
                                 detail?.lines?.take(5)?.joinToString("، ") { it.name } ?: "",
                                 Modifier.weight(1f),
                                 style = MaterialTheme.typography.bodySmall,
+                                textAlign = TextAlign.End,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                         HorizontalDivider(
                             Modifier.padding(vertical = 3.dp),
                             color = scheme.surfaceContainerLowest,
                         )
-                        Text(
-                            "مواد اولیه (${Persian.digits(detail?.lines?.size?:0)} ماده)",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
+                        Row(
+                            Modifier.fillMaxWidth().clickable(onClick = onDetails),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
+                        ) {
+                            Icon(
+                                ReferenceIcons.layers,
+                                null,
+                                Modifier.size(19.dp),
+                                tint = scheme.primary,
+                            )
+                            Text(
+                                "مواد اولیه (${Persian.digits(detail?.lines?.size?:0)} ماده)",
+                                Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                            )
+                            Icon(
+                                ReferenceIcons.chevron,
+                                null,
+                                Modifier.size(16.dp),
+                                tint = scheme.primary,
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.height(4.dp))
@@ -432,6 +494,7 @@ fun FoodCostFinancialMetric(
     icon: androidx.compose.ui.graphics.vector.ImageVector?,
     modifier: Modifier = Modifier,
     accent: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface,
+    percentage: Float? = null,
 ) {
     Column(
         modifier.semantics(mergeDescendants = true) {},
@@ -440,24 +503,51 @@ fun FoodCostFinancialMetric(
     ) {
         Text(
             label,
-            style = MaterialTheme.typography.bodySmall.copy(fontSize = 9.sp, lineHeight = 14.sp),
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 9.5.sp, lineHeight = 14.sp),
             textAlign = TextAlign.Center,
         )
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally),
         ) {
-            if (icon != null)
+            if (percentage != null)
+                Canvas(Modifier.size(17.dp, 10.dp)) {
+                    val stroke = 1.8.dp.toPx()
+                    val diameter = size.width - stroke
+                    val topLeft = Offset(stroke / 2, stroke / 2)
+                    drawArc(
+                        ir.foodcost.app.ui.theme.PremiumTokens.gaugeTrack,
+                        180f,
+                        180f,
+                        false,
+                        topLeft,
+                        Size(diameter, diameter),
+                        style = Stroke(stroke, cap = StrokeCap.Round),
+                    )
+                    drawArc(
+                        accent,
+                        180f,
+                        180f * (percentage / 100).coerceIn(0f, 1f),
+                        false,
+                        topLeft,
+                        Size(diameter, diameter),
+                        style = Stroke(stroke, cap = StrokeCap.Round),
+                    )
+                }
+            if (icon != null && (label == "هزینه مواد اولیه هر پرس" || label == "سود ناخالص"))
                 Icon(
                     icon,
                     null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(14.dp),
+                    modifier = Modifier.size(16.dp),
                 )
             Text(
                 value.removeSuffix(" ${money.unit}"),
                 style =
-                    MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp, lineHeight = 19.sp),
+                    MaterialTheme.typography.titleSmall.copy(
+                        fontSize = 12.5.sp,
+                        lineHeight = 19.sp,
+                    ),
                 color = accent,
                 textAlign = TextAlign.Center,
             )

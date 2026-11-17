@@ -17,6 +17,8 @@ object PremiumTokens {
     val textSecondary = Color(0xFF65686C)
     val outline = Color(0xFFD4DDDA)
     val outlineStrong = Color(0xFFBCC9C5)
+    val inputOutline = Color(0xFFBDC3CE)
+    val recipeSelection = Color(0xFFC3EEDC)
     val warning = Color(0xFFC85A19)
     val warningText = Color(0xFFA54817)
     val foodAmountText = Color(0xFFB84A0C)

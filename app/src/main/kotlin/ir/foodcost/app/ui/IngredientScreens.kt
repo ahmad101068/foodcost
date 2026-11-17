@@ -163,6 +163,8 @@ fun IngredientsScreen(
                                 .testTag("ingredients-category-options"),
                             if (LocalDensity.current.fontScale > 1.25f) null
                             else PremiumIcons.filter,
+                            compact = true,
+                            neutral = true,
                         )
                         DropdownMenu(categoryOptions, { categoryOptions = false }) {
                             DropdownMenuItem(
@@ -223,7 +225,11 @@ fun IngredientsScreen(
                             warning = true,
                             onClick = { if (!dataUnreliable) missingOnly = true },
                         )
-                        if (LocalDensity.current.fontScale <= 1.25f && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 380) {
+                        if (
+                            LocalDensity.current.fontScale <= 1.25f &&
+                                androidx.compose.ui.platform.LocalConfiguration.current
+                                    .screenWidthDp >= 380
+                        ) {
                             val latest =
                                 state.prices.values
                                     .filter { !it.voided }

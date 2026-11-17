@@ -7,38 +7,54 @@
     {
       "configuration": "320-100",
       "capture_cohort": {
-        "build_cohort": "build34",
-        "apk_sha256": "5626a780a449d532084ccc32a5b1c09ed129d080ef62de5a3366401874cec1c0",
-        "test_apk_sha256": "eef7210c8adf6483398b19ccb98fcf7463bbc7bcd7c0c7bbad7ccb6158f109b1",
-        "capture_script_sha256": "f52e7f57789db3935003c3c6a2dd1d6e1da9aec47df832609e2f92a557483da4",
-        "offline": true,
-        "primary_offline_rerun": false,
-        "native_capture": true
+        "cohort": "build40",
+        "apk_sha256": "be8f7ec1008cf2fb96449fa753b6bb0348ffc78834717cacb3b05203800b051b",
+        "test_apk_sha256": "73d06c6d3b10b252c6c14f62fc70a2c0c92d1fd425b5e3c4325c2174de220101",
+        "native_app": true,
+        "controlled_idle_focus": "Hardware Tab, then actual navigation focus; startup autofocus retained.",
+        "pixel_masks_or_vertical_stretch": false
       },
       "native_test_pass": true,
-      "laid_out_texts": 210,
-      "raw_overflow_flags": 144,
+      "laid_out_texts": 197,
+      "raw_overflow_flags": 140,
       "glyph_fit_failures": [],
-      "visible_clickable_nodes": 91,
+      "visible_clickable_nodes": 87,
       "small_touch_bounds_including_scroll_clips": [
         {
           "page": "01-calculator-touch-bounds.json",
           "tag": "main-extra-amount",
           "description": "هزینه جانبی هر پرس",
           "visibleBoundsPx": [
-            48,
-            1206,
-            684,
+            52,
+            1208,
+            680,
             1217
           ],
           "touchBoundsPx": [
-            48,
-            1183.6,
-            684,
+            52,
+            1185.6,
+            680,
             1271.9
           ],
-          "touchWidthDp": 278.03278,
-          "touchHeightDp": 38.601112
+          "touchWidthDp": 274.5355,
+          "touchHeightDp": 37.726795
+        },
+        {
+          "page": "02-ingredients-touch-bounds.json",
+          "visibleBoundsPx": [
+            27,
+            1308,
+            705,
+            1327
+          ],
+          "touchBoundsPx": [
+            27,
+            1308,
+            705,
+            1381.9
+          ],
+          "touchWidthDp": 296.39343,
+          "touchHeightDp": 32.30602
         }
       ],
       "frames": [
@@ -158,19 +174,18 @@
     {
       "configuration": "320-150",
       "capture_cohort": {
-        "build_cohort": "build34",
-        "apk_sha256": "5626a780a449d532084ccc32a5b1c09ed129d080ef62de5a3366401874cec1c0",
-        "test_apk_sha256": "eef7210c8adf6483398b19ccb98fcf7463bbc7bcd7c0c7bbad7ccb6158f109b1",
-        "capture_script_sha256": "f52e7f57789db3935003c3c6a2dd1d6e1da9aec47df832609e2f92a557483da4",
-        "offline": true,
-        "primary_offline_rerun": false,
-        "native_capture": true
+        "cohort": "build40",
+        "apk_sha256": "be8f7ec1008cf2fb96449fa753b6bb0348ffc78834717cacb3b05203800b051b",
+        "test_apk_sha256": "73d06c6d3b10b252c6c14f62fc70a2c0c92d1fd425b5e3c4325c2174de220101",
+        "native_app": true,
+        "controlled_idle_focus": "Hardware Tab, then actual navigation focus; startup autofocus retained.",
+        "pixel_masks_or_vertical_stretch": false
       },
       "native_test_pass": true,
       "laid_out_texts": 180,
-      "raw_overflow_flags": 122,
+      "raw_overflow_flags": 116,
       "glyph_fit_failures": [],
-      "visible_clickable_nodes": 63,
+      "visible_clickable_nodes": 64,
       "small_touch_bounds_including_scroll_clips": [],
       "frames": [
         {
@@ -289,19 +304,18 @@
     {
       "configuration": "320-200",
       "capture_cohort": {
-        "build_cohort": "build34",
-        "apk_sha256": "5626a780a449d532084ccc32a5b1c09ed129d080ef62de5a3366401874cec1c0",
-        "test_apk_sha256": "eef7210c8adf6483398b19ccb98fcf7463bbc7bcd7c0c7bbad7ccb6158f109b1",
-        "capture_script_sha256": "f52e7f57789db3935003c3c6a2dd1d6e1da9aec47df832609e2f92a557483da4",
-        "offline": true,
-        "primary_offline_rerun": false,
-        "native_capture": true
+        "cohort": "build40",
+        "apk_sha256": "be8f7ec1008cf2fb96449fa753b6bb0348ffc78834717cacb3b05203800b051b",
+        "test_apk_sha256": "73d06c6d3b10b252c6c14f62fc70a2c0c92d1fd425b5e3c4325c2174de220101",
+        "native_app": true,
+        "controlled_idle_focus": "Hardware Tab, then actual navigation focus; startup autofocus retained.",
+        "pixel_masks_or_vertical_stretch": false
       },
       "native_test_pass": true,
       "laid_out_texts": 157,
-      "raw_overflow_flags": 80,
+      "raw_overflow_flags": 78,
       "glyph_fit_failures": [],
-      "visible_clickable_nodes": 56,
+      "visible_clickable_nodes": 57,
       "small_touch_bounds_including_scroll_clips": [],
       "frames": [
         {
@@ -420,20 +434,37 @@
     {
       "configuration": "411-100",
       "capture_cohort": {
-        "build_cohort": "build34",
-        "apk_sha256": "5626a780a449d532084ccc32a5b1c09ed129d080ef62de5a3366401874cec1c0",
-        "test_apk_sha256": "eef7210c8adf6483398b19ccb98fcf7463bbc7bcd7c0c7bbad7ccb6158f109b1",
-        "capture_script_sha256": "f52e7f57789db3935003c3c6a2dd1d6e1da9aec47df832609e2f92a557483da4",
-        "offline": true,
-        "primary_offline_rerun": true,
-        "native_capture": true
+        "cohort": "build40",
+        "apk_sha256": "be8f7ec1008cf2fb96449fa753b6bb0348ffc78834717cacb3b05203800b051b",
+        "test_apk_sha256": "73d06c6d3b10b252c6c14f62fc70a2c0c92d1fd425b5e3c4325c2174de220101",
+        "native_app": true,
+        "controlled_idle_focus": "Hardware Tab, then actual navigation focus; startup autofocus retained.",
+        "pixel_masks_or_vertical_stretch": false
       },
       "native_test_pass": true,
-      "laid_out_texts": 211,
-      "raw_overflow_flags": 173,
+      "laid_out_texts": 216,
+      "raw_overflow_flags": 167,
       "glyph_fit_failures": [],
-      "visible_clickable_nodes": 112,
-      "small_touch_bounds_including_scroll_clips": [],
+      "visible_clickable_nodes": 114,
+      "small_touch_bounds_including_scroll_clips": [
+        {
+          "page": "02-ingredients-touch-bounds.json",
+          "visibleBoundsPx": [
+            27,
+            1317,
+            915,
+            1327
+          ],
+          "touchBoundsPx": [
+            27,
+            1317,
+            915,
+            1381.9
+          ],
+          "touchWidthDp": 388.1967,
+          "touchHeightDp": 28.371593
+        }
+      ],
       "frames": [
         {
           "file": "01-calculator.png",
@@ -551,20 +582,38 @@
     {
       "configuration": "411-150",
       "capture_cohort": {
-        "build_cohort": "build34",
-        "apk_sha256": "5626a780a449d532084ccc32a5b1c09ed129d080ef62de5a3366401874cec1c0",
-        "test_apk_sha256": "eef7210c8adf6483398b19ccb98fcf7463bbc7bcd7c0c7bbad7ccb6158f109b1",
-        "capture_script_sha256": "f52e7f57789db3935003c3c6a2dd1d6e1da9aec47df832609e2f92a557483da4",
-        "offline": true,
-        "primary_offline_rerun": false,
-        "native_capture": true
+        "cohort": "build40",
+        "apk_sha256": "be8f7ec1008cf2fb96449fa753b6bb0348ffc78834717cacb3b05203800b051b",
+        "test_apk_sha256": "73d06c6d3b10b252c6c14f62fc70a2c0c92d1fd425b5e3c4325c2174de220101",
+        "native_app": true,
+        "controlled_idle_focus": "Hardware Tab, then actual navigation focus; startup autofocus retained.",
+        "pixel_masks_or_vertical_stretch": false
       },
       "native_test_pass": true,
       "laid_out_texts": 180,
-      "raw_overflow_flags": 140,
+      "raw_overflow_flags": 136,
       "glyph_fit_failures": [],
       "visible_clickable_nodes": 67,
-      "small_touch_bounds_including_scroll_clips": [],
+      "small_touch_bounds_including_scroll_clips": [
+        {
+          "page": "01-calculator-touch-bounds.json",
+          "tag": "food-cost",
+          "visibleBoundsPx": [
+            493,
+            1053,
+            897,
+            1078
+          ],
+          "touchBoundsPx": [
+            493,
+            1037.6,
+            897,
+            1132.9
+          ],
+          "touchWidthDp": 176.61201,
+          "touchHeightDp": 41.66122
+        }
+      ],
       "frames": [
         {
           "file": "01-calculator.png",
@@ -582,7 +631,7 @@
               255
             ],
             [
-              21,
+              12,
               255
             ]
           ],
@@ -644,11 +693,11 @@
               255
             ],
             [
-              29,
+              28,
               255
             ],
             [
-              27,
+              26,
               255
             ]
           ],
@@ -682,36 +731,35 @@
     {
       "configuration": "411-200",
       "capture_cohort": {
-        "build_cohort": "build34",
-        "apk_sha256": "5626a780a449d532084ccc32a5b1c09ed129d080ef62de5a3366401874cec1c0",
-        "test_apk_sha256": "eef7210c8adf6483398b19ccb98fcf7463bbc7bcd7c0c7bbad7ccb6158f109b1",
-        "capture_script_sha256": "f52e7f57789db3935003c3c6a2dd1d6e1da9aec47df832609e2f92a557483da4",
-        "offline": true,
-        "primary_offline_rerun": false,
-        "native_capture": true
+        "cohort": "build40",
+        "apk_sha256": "be8f7ec1008cf2fb96449fa753b6bb0348ffc78834717cacb3b05203800b051b",
+        "test_apk_sha256": "73d06c6d3b10b252c6c14f62fc70a2c0c92d1fd425b5e3c4325c2174de220101",
+        "native_app": true,
+        "controlled_idle_focus": "Hardware Tab, then actual navigation focus; startup autofocus retained.",
+        "pixel_masks_or_vertical_stretch": false
       },
       "native_test_pass": true,
       "laid_out_texts": 162,
-      "raw_overflow_flags": 111,
+      "raw_overflow_flags": 106,
       "glyph_fit_failures": [],
-      "visible_clickable_nodes": 59,
+      "visible_clickable_nodes": 60,
       "small_touch_bounds_including_scroll_clips": [
         {
           "page": "04-settings-touch-bounds.json",
           "visibleBoundsPx": [
             72,
-            1317,
+            1309,
             168,
             1334
           ],
           "touchBoundsPx": [
             65.1,
-            1296.6,
+            1288.6,
             174.9,
             1388.9
           ],
           "touchWidthDp": 47.999996,
-          "touchHeightDp": 40.349747
+          "touchHeightDp": 43.84701
         }
       ],
       "frames": [
@@ -731,7 +779,7 @@
               255
             ],
             [
-              21,
+              12,
               255
             ]
           ],
@@ -831,20 +879,37 @@
     {
       "configuration": "411-dark",
       "capture_cohort": {
-        "build_cohort": "build34",
-        "apk_sha256": "5626a780a449d532084ccc32a5b1c09ed129d080ef62de5a3366401874cec1c0",
-        "test_apk_sha256": "eef7210c8adf6483398b19ccb98fcf7463bbc7bcd7c0c7bbad7ccb6158f109b1",
-        "capture_script_sha256": "f52e7f57789db3935003c3c6a2dd1d6e1da9aec47df832609e2f92a557483da4",
-        "offline": true,
-        "primary_offline_rerun": false,
-        "native_capture": true
+        "cohort": "build40",
+        "apk_sha256": "be8f7ec1008cf2fb96449fa753b6bb0348ffc78834717cacb3b05203800b051b",
+        "test_apk_sha256": "73d06c6d3b10b252c6c14f62fc70a2c0c92d1fd425b5e3c4325c2174de220101",
+        "native_app": true,
+        "controlled_idle_focus": "Hardware Tab, then actual navigation focus; startup autofocus retained.",
+        "pixel_masks_or_vertical_stretch": false
       },
       "native_test_pass": true,
-      "laid_out_texts": 211,
-      "raw_overflow_flags": 173,
+      "laid_out_texts": 216,
+      "raw_overflow_flags": 167,
       "glyph_fit_failures": [],
-      "visible_clickable_nodes": 112,
-      "small_touch_bounds_including_scroll_clips": [],
+      "visible_clickable_nodes": 114,
+      "small_touch_bounds_including_scroll_clips": [
+        {
+          "page": "02-ingredients-touch-bounds.json",
+          "visibleBoundsPx": [
+            27,
+            1317,
+            915,
+            1327
+          ],
+          "touchBoundsPx": [
+            27,
+            1317,
+            915,
+            1381.9
+          ],
+          "touchWidthDp": 388.1967,
+          "touchHeightDp": 28.371593
+        }
+      ],
       "frames": [
         {
           "file": "01-calculator.png",

@@ -177,11 +177,14 @@ fun RecipesScreen(
     ) { padding ->
         LazyColumn(
             Modifier.padding(padding).testTag("food-list"),
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    Modifier.padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     FoodCostCard(Modifier.weight(1.1f)) {
                         Box(Modifier.padding(5.dp)) {
                             PremiumStatistic(
@@ -207,7 +210,10 @@ fun RecipesScreen(
                 }
             }
             item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     CountChoice(
                         "همه",
                         "",
@@ -326,23 +332,39 @@ fun RecipesScreen(
                         )
                 }
             items(plates, key = { "food-${it.recipeId.value}" }) { row ->
-                PremiumRecipeCard(
-                    row,
-                    state,
-                    money,
-                    today,
-                    expandedId == row.recipeId.value,
-                    dataUnreliable,
-                    onToggle = { expandedId = row.recipeId.value.takeUnless { expandedId == it } },
-                    onOpen = { nav.open(dishScreen(state, row.recipeId, today, money)) },
-                    onDetails = { nav.open(Screen.Recipe(row.recipeId.value)) },
-                    onDelete = { deleteTarget = row.recipeId to row.name },
-                )
+                Column(
+                    Modifier.padding(
+                        bottom = if (expandedId == row.recipeId.value) 7.5.dp else 8.75.dp
+                    )
+                ) {
+                    PremiumRecipeCard(
+                        row,
+                        state,
+                        money,
+                        today,
+                        expandedId == row.recipeId.value,
+                        dataUnreliable,
+                        onToggle = {
+                            expandedId = row.recipeId.value.takeUnless { expandedId == it }
+                        },
+                        onOpen = { nav.open(dishScreen(state, row.recipeId, today, money)) },
+                        onDetails = { nav.open(Screen.Recipe(row.recipeId.value)) },
+                        onDelete = { deleteTarget = row.recipeId to row.name },
+                    )
+                }
             }
             if (preparations.isNotEmpty()) {
-                item { GroupHeading("دستورهای پایه", preparations.size, "دستور") }
+                item {
+                    Box(Modifier.padding(vertical = 5.dp)) {
+                        GroupHeading("دستورهای پایه", preparations.size, "دستور")
+                    }
+                }
                 items(preparations, key = { "prep-${it.id.value}" }) { row ->
-                    PreparationCard(row, dataUnreliable) { nav.open(Screen.Recipe(row.id.value)) }
+                    Box(Modifier.padding(bottom = 10.dp)) {
+                        PreparationCard(row, dataUnreliable) {
+                            nav.open(Screen.Recipe(row.id.value))
+                        }
+                    }
                 }
             }
             item {

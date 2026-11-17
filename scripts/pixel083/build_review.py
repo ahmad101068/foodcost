@@ -18,6 +18,10 @@ def main():
     ap=argparse.ArgumentParser();ap.add_argument('--spec',type=Path,required=True);ap.add_argument('--actual',type=Path,required=True);ap.add_argument('--before',type=Path,required=True);ap.add_argument('--comparison',type=Path,required=True);ap.add_argument('--summary',type=Path,required=True);ap.add_argument('--out',type=Path,required=True);args=ap.parse_args()
     args.out.mkdir(parents=True,exist_ok=True); images=args.out/'images'; images.mkdir(exist_ok=True)
     summary=json.loads(args.summary.read_text());metrics=json.loads((args.comparison/'metrics.json').read_text())
+    merged=bool(summary.get('merged',False))
+    authorized=bool(summary.get('owner_merge_authorized',False))
+    status_fa=('ادغام با دستور مالک انجام شده است؛ انتشار نهایی انجام نشده است.' if merged else 'مالک دستور ادغام داده است؛ وضعیت اجرای آن در گزارش تحویل ثبت می‌شود.' if authorized else 'ادغام و انتشار نهایی انجام نشده است.')
+    status_en=('OWNER-AUTHORIZED MERGE - VISUAL TARGET NOT PASSED' if merged else 'OWNER-AUTHORIZED INTEGRATION - VISUAL TARGET NOT PASSED' if authorized else 'CANDIDATE FOR OWNER REVIEW - NOT APPROVED FOR MERGE')
     for group,source in [('reference',args.spec/'reference'),('before',args.before),('actual',args.actual)]:
         dest=images/group;dest.mkdir(exist_ok=True)
         for stem in NAMES:shutil.copy2(source/f'{stem}.png',dest/f'{stem}.png')
@@ -35,15 +39,15 @@ def main():
         sections.append(f'''<section id="{stem}"><h2>{title}</h2><p>SSIM خامِ ناحیهٔ برنامه: <b dir="ltr">{m['ssim_rgb']:.4f}</b> — هدف ۰٫۹۸: <strong class="fail">Fail</strong>. اختلاف داده‌ها و متن‌ها حذف نشده است.</p><div class="panels">{panels}</div><details><summary>لایهٔ تطبیق و نقشهٔ اختلاف</summary><label>شفافیت اجرای واقعی <input type="range" min="0" max="100" value="50" oninput="document.getElementById('{stem}-actual').style.opacity=this.value/100"></label><div class="compare"><img src="images/{stem}-ui-reference.png"><img id="{stem}-actual" class="over" src="images/{stem}-ui-actual.png"></div><a href="images/{stem}-heatmap.png">نقشهٔ اختلاف با اندازهٔ اصلی</a><img class="heat" src="images/{stem}-heatmap.png" loading="lazy"></details></section>''')
     links=' · '.join(f'<a href="#{s}">{t}</a>' for s,t in zip(NAMES,FA))
     body='''<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FoodCost 0.8.3 — بسته بازبینی</title><style>body{margin:0;background:#f6f8f4;color:#1c2a25;font:16px/1.8 Tahoma,Arial,sans-serif}main{max-width:1400px;margin:auto;padding:24px}h1{font-size:26px}h2{font-size:22px}header,section{background:white;border:1px solid #d4ddda;padding:24px;margin-bottom:20px;border-radius:12px}a{color:#006453}nav{position:sticky;top:0;background:#fff;padding:12px;border-bottom:2px solid #d3e860;z-index:2}.panels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}figure{margin:0}figcaption{font-weight:bold;margin-bottom:8px}figure img{width:100%;border:1px solid #ddd}.fail{color:#b3323c}.compare{position:relative;width:min(100%,600px);margin:16px auto}.compare img{display:block;width:100%}.compare .over{position:absolute;inset:0;opacity:.5}.heat{display:block;max-width:420px;width:100%;margin:16px auto}input{width:200px}summary{cursor:pointer;font-weight:bold}code{direction:ltr;unicode-bidi:embed;overflow-wrap:anywhere}@media(max-width:700px){main{padding:10px}header,section{padding:14px}.panels{grid-template-columns:1fr}}</style><main>'''
-    body+=f'''<header><h1>FoodCost 0.8.3 — کاندید بازبینی مالک</h1><p><b>ادغام و انتشار نهایی انجام نشده است.</b> تصاویر این صفحه از خود برنامهٔ اندروید گرفته شده‌اند. مرجع تصویری، اجرای مبنا و اجرای کاندید را جداگانه مشاهده کنید.</p><p>معیار SSIM سراسری هنوز قبول نشده است. وضعیت هر آزمون و محدودیت‌ها در گزارش همراه بسته آمده‌اند؛ این گالری به معنی تأیید نهایی نیست.</p><p>مبنا: <code>6c2bf74b713f4febfda53019324af053298d56ef</code><br>شاخه: <code>{html.escape(summary['branch'])}</code></p><p>برای مشاهدهٔ تمام جزئیات، روی هر تصویر بزنید. در مقایسهٔ لایه‌ای فقط نوارهای سیستم کنار گذاشته شده‌اند؛ مقادیر مالی ماسک نشده‌اند و تصویر عمودی کشیده نشده است.</p></header><nav>{links}</nav>'''
+    body+=f'''<header><h1>FoodCost 0.8.3 — شواهد تطبیق و بازبینی</h1><p><b>{status_fa}</b> تصاویر این صفحه از خود برنامهٔ اندروید گرفته شده‌اند. مرجع تصویری، اجرای مبنا و اجرای کاندید را جداگانه مشاهده کنید.</p><p>معیار SSIM سراسری هنوز قبول نشده است. وضعیت هر آزمون و محدودیت‌ها در گزارش همراه بسته آمده‌اند؛ این گالری به معنی تأیید تطبیق پیکسلی نیست.</p><p>مبنا: <code>6c2bf74b713f4febfda53019324af053298d56ef</code><br>شاخه: <code>{html.escape(summary['branch'])}</code></p><p>برای مشاهدهٔ تمام جزئیات، روی هر تصویر بزنید. در مقایسهٔ لایه‌ای فقط نوارهای سیستم کنار گذاشته شده‌اند؛ مقادیر مالی ماسک نشده‌اند و تصویر عمودی کشیده نشده است.</p></header><nav>{links}</nav>'''
     body+=''.join(sections)+'</main></html>'
     (args.out/'index.html').write_text(body)
     pdf=args.out/'FoodCost-0.8.3-Reference-Before-After.pdf'; c=canvas.Canvas(str(pdf),pagesize=landscape(A3));w,h=landscape(A3)
-    c.setTitle('FoodCost 0.8.3 native reference review - not approved for merge')
+    c.setTitle('FoodCost 0.8.3 native reference review - visual target not passed')
     def text(y,value,size=13,color='#1c2a25'):
         c.setFillColor(HexColor(color));c.setFont('Helvetica',size);c.drawString(40,y,value)
     text(h-70,'FOODCOST 0.8.3 | NATIVE REFERENCE IMPLEMENTATION',24)
-    text(h-104,'CANDIDATE FOR OWNER REVIEW - NOT APPROVED FOR MERGE',16,'#b3323c')
+    text(h-104,status_en,16,'#b3323c')
     lines=[
         'Baseline: 6c2bf74b713f4febfda53019324af053298d56ef',
         'Branch: '+summary['branch'],
@@ -56,7 +60,7 @@ def main():
         'Geometry, color samples, native semantics, test logs and source diff accompany this PDF.',
         'Some concept content is incompatible with baseline formulas/features; see the Persian report.',
         'Open index.html in the extracted package for the opacity slider and full-resolution images.',
-        'This package is evidence for review, not a production release or a merge authorization.',
+        'Merge status is recorded in HANDOFF.json. This is not a production release or visual certification.',
     ]
     for i,line in enumerate(lines): text(h-156-i*30,line,12)
     c.showPage()

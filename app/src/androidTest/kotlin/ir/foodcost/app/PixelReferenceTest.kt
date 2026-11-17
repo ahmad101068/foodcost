@@ -135,6 +135,16 @@ class PixelReferenceTest {
                 instrumentation.waitForIdleSync()
                 Thread.sleep(600)
             }
+            // Match the reference's idle input state through a real focus action; no pixels or
+            // values are replaced. Startup autofocus and the separate IME-state test stay intact.
+            shell("input keyevent KEYCODE_TAB")
+            rule.waitForIdle()
+            rule.onNodeWithTag("foodcost-nav-calc").performSemanticsAction(
+                SemanticsActions.RequestFocus
+            ) {
+                check(it())
+            }
+            rule.waitForIdle()
             rule.onAllNodesWithTag("exit-confirmation").assertCountEquals(0)
             rule.onNodeWithTag("cost").assertTextContains(computed.costPerPortion, substring = true)
             shot("01-calculator")
