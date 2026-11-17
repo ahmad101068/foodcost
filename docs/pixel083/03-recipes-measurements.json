@@ -1,0 +1,124 @@
+{
+  "reference": "03-recipes.png",
+  "source_size_px": [
+    941,
+    1672
+  ],
+  "calibration_width_dp": 411,
+  "pixels_per_dp": 2.289537712895377,
+  "rectangles": {
+    "app_bar": {
+      "xyxy_px": [
+        0,
+        54,
+        941,
+        186
+      ],
+      "xywh_dp": [
+        0.0,
+        23.59,
+        411.0,
+        57.65
+      ]
+    },
+    "statistics": {
+      "xyxy_px": [
+        28,
+        211,
+        916,
+        307
+      ],
+      "xywh_dp": [
+        12.23,
+        92.16,
+        387.85,
+        41.93
+      ]
+    },
+    "filters": {
+      "xyxy_px": [
+        28,
+        334,
+        914,
+        405
+      ],
+      "xywh_dp": [
+        12.23,
+        145.88,
+        386.98,
+        31.01
+      ]
+    },
+    "recipe_1": {
+      "xyxy_px": [
+        24,
+        432,
+        919,
+        661
+      ],
+      "xywh_dp": [
+        10.48,
+        188.68,
+        390.91,
+        100.02
+      ]
+    },
+    "recipe_2": {
+      "xyxy_px": [
+        24,
+        681,
+        919,
+        1132
+      ],
+      "xywh_dp": [
+        10.48,
+        297.44,
+        390.91,
+        196.98
+      ]
+    },
+    "recipe_3": {
+      "xyxy_px": [
+        24,
+        1149,
+        919,
+        1371
+      ],
+      "xywh_dp": [
+        10.48,
+        501.85,
+        390.91,
+        96.96
+      ]
+    },
+    "add": {
+      "xyxy_px": [
+        27,
+        1393,
+        914,
+        1459
+      ],
+      "xywh_dp": [
+        11.79,
+        608.42,
+        387.41,
+        28.83
+      ]
+    },
+    "bottom_navigation": {
+      "xyxy_px": [
+        0,
+        1461,
+        941,
+        1594
+      ],
+      "xywh_dp": [
+        0.0,
+        638.12,
+        411.0,
+        58.09
+      ]
+    }
+  },
+  "method": "Card boundaries read from the original PNG at native resolution; edge uncertainty ±2px. Device density must be calibrated independently."
+}

@@ -1,0 +1,82 @@
+{
+  "reference": "04-settings.png",
+  "source_size_px": [
+    941,
+    1672
+  ],
+  "calibration_width_dp": 411,
+  "pixels_per_dp": 2.289537712895377,
+  "rectangles": {
+    "app_bar": {
+      "xyxy_px": [
+        0,
+        54,
+        941,
+        186
+      ],
+      "xywh_dp": [
+        0.0,
+        23.59,
+        411.0,
+        57.65
+      ]
+    },
+    "general_group": {
+      "xyxy_px": [
+        28,
+        210,
+        915,
+        782
+      ],
+      "xywh_dp": [
+        12.23,
+        91.72,
+        387.41,
+        249.83
+      ]
+    },
+    "data_group": {
+      "xyxy_px": [
+        28,
+        800,
+        915,
+        1135
+      ],
+      "xywh_dp": [
+        12.23,
+        349.42,
+        387.41,
+        146.32
+      ]
+    },
+    "help_group": {
+      "xyxy_px": [
+        28,
+        1153,
+        915,
+        1407
+      ],
+      "xywh_dp": [
+        12.23,
+        503.6,
+        387.41,
+        110.94
+      ]
+    },
+    "bottom_navigation": {
+      "xyxy_px": [
+        0,
+        1461,
+        941,
+        1594
+      ],
+      "xywh_dp": [
+        0.0,
+        638.12,
+        411.0,
+        58.09
+      ]
+    }
+  },
+  "method": "Card boundaries read from the original PNG at native resolution; edge uncertainty ±2px. Device density must be calibrated independently."
+}

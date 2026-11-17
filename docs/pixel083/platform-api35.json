@@ -1,0 +1,25 @@
+{
+  "api": 35,
+  "source_cohort": "build31",
+  "native_five_screen_live_data_pass": true,
+  "additional_suites": [
+    {
+      "suite": "SqliteOperationStoreTest",
+      "tests": 12,
+      "pass": true
+    },
+    {
+      "suite": "PricingMethodsTest",
+      "tests": 1,
+      "pass": true
+    },
+    {
+      "suite": "RecoveryGuardTest",
+      "tests": 4,
+      "pass": true
+    }
+  ],
+  "narrow_statistics_verified": true,
+  "visual_capture": "UNAVAILABLE: AOSP ATD returns black frames",
+  "note": "Do not use black ATD frames as screenshot evidence. Startup ANR on first cold software-emulated boot retained in diagnostic logs. Retried after boot/cache warm-up; no production code workaround was added."
+}

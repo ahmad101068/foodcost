@@ -1,0 +1,100 @@
+{
+  "status": "ENGINEERING PASS — VISUAL TARGET FAIL — OWNER MERGE AUTHORIZED",
+  "criteria": [
+    {
+      "criterion": "Approved 0.8.3 baseline and isolated feature branch",
+      "status": "PASS",
+      "evidence_or_limit": "Baseline 6c2bf74; no 0.9 implementation transferred."
+    },
+    {
+      "criterion": "Financial/data/configuration/resources preserved",
+      "status": "PASS",
+      "evidence_or_limit": "80 protected source/config files and 14 resources byte-identical."
+    },
+    {
+      "criterion": "Debug, AndroidTest and optimized R8 release build",
+      "status": "PASS",
+      "evidence_or_limit": "Final build40; production release unsigned."
+    },
+    {
+      "criterion": "Existing JVM tests",
+      "status": "PASS",
+      "evidence_or_limit": "296 fresh tests; zero failures/errors/skips."
+    },
+    {
+      "criterion": "Existing native Android tests",
+      "status": "PASS",
+      "evidence_or_limit": "All 32 rerun on final build40; original financial assertions retained."
+    },
+    {
+      "criterion": "Same-version data preservation",
+      "status": "PASS",
+      "evidence_or_limit": "Prior build28 check: 21 synthetic rows identical. Persistence unchanged since."
+    },
+    {
+      "criterion": "Five primary native screenshot evidence",
+      "status": "PASS",
+      "evidence_or_limit": "Final build40 on API26; no screenshot backgrounds."
+    },
+    {
+      "criterion": "Width/font/dark/empty/keyboard/error",
+      "status": "PASS",
+      "evidence_or_limit": "All seven viewport configurations and separate keyboard/empty/error test on build40."
+    },
+    {
+      "criterion": "API34 / API35 final-build execution",
+      "status": "NOT TESTED",
+      "evidence_or_limit": "Earlier functional cohorts build32/build31 passed; final build40 not rerun."
+    },
+    {
+      "criterion": "API34 / API35 visual verification",
+      "status": "NOT TESTED",
+      "evidence_or_limit": "ATD black frames excluded from visual proof."
+    },
+    {
+      "criterion": "UI SSIM >= 0.98",
+      "status": "FAIL",
+      "evidence_or_limit": "Actual scores retained including financial/text differences."
+    },
+    {
+      "criterion": "All main components SSIM >= 0.97",
+      "status": "FAIL",
+      "evidence_or_limit": "See component scores; no threshold waiver recorded."
+    },
+    {
+      "criterion": "All measured card edges <= 2dp",
+      "status": "FAIL",
+      "evidence_or_limit": "34/37 rectangles pass."
+    },
+    {
+      "criterion": "Sampled uniform color DeltaE2000 <= 2",
+      "status": "PASS",
+      "evidence_or_limit": "Six declared patches only."
+    },
+    {
+      "criterion": "Recorded glyph bounds fit",
+      "status": "PASS",
+      "evidence_or_limit": "0 failures across seven final configurations."
+    },
+    {
+      "criterion": "Complete WCAG / physical assistive technology",
+      "status": "NOT PASSED",
+      "evidence_or_limit": "Reference non-text contrast low; TalkBack/Switch Access not physically tested."
+    },
+    {
+      "criterion": "Final physical-device performance/battery",
+      "status": "NOT TESTED",
+      "evidence_or_limit": "Older software-emulator observations only."
+    },
+    {
+      "criterion": "Owner authorization for merge",
+      "status": "PASS",
+      "evidence_or_limit": "Latest owner instruction explicitly requests alignment and merge. Visual threshold not declared waived."
+    },
+    {
+      "criterion": "No production release/version bump/production signing",
+      "status": "PASS",
+      "evidence_or_limit": "Only debug-signed separate installable candidate; actual merge state in HANDOFF.json."
+    }
+  ]
+}

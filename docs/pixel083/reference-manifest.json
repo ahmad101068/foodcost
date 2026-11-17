@@ -1,0 +1,42 @@
+[
+  {
+    "file": "01-calculator.png",
+    "sha256": "5f7620aea53d5b5d49a27fbe5221149bd23c6a24e50ed72b47929c5b2d266b76",
+    "pixels": [
+      941,
+      1672
+    ]
+  },
+  {
+    "file": "02-ingredients.png",
+    "sha256": "deb65372044d091d92dbf7abea6afd62db9132190aea5a4eb42facd2bff46c4b",
+    "pixels": [
+      941,
+      1672
+    ]
+  },
+  {
+    "file": "03-recipes.png",
+    "sha256": "b755729b1e7f96a43a560ec05bfafe626d21e878c023cc6d0aadd2e2ec01c184",
+    "pixels": [
+      941,
+      1672
+    ]
+  },
+  {
+    "file": "04-settings.png",
+    "sha256": "6ec99c0c93324d2ed2a7e7aa8713fc2392dc9255f1a92d7b22ff96c25291e430",
+    "pixels": [
+      941,
+      1672
+    ]
+  },
+  {
+    "file": "05-general-pricing.png",
+    "sha256": "7b2112ca27d8ca30ec6f09a9aa96825d1a8854b5b1dbd96badfde22b16e490cc",
+    "pixels": [
+      941,
+      1672
+    ]
+  }
+]

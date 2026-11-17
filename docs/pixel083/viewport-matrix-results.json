@@ -1,0 +1,1028 @@
+{
+  "platform": "API26",
+  "cohort": "See capture_cohort per configuration",
+  "offline": true,
+  "note": "Raw paragraph overflow flags and glyph bounds are both retained. A short touch region at a scroll viewport edge needs scroll/visual review; these diagnostics do not certify accessibility.",
+  "rows": [
+    {
+      "configuration": "320-100",
+      "capture_cohort": {
+        "cohort": "build40",
+        "apk_sha256": "be8f7ec1008cf2fb96449fa753b6bb0348ffc78834717cacb3b05203800b051b",
+        "test_apk_sha256": "73d06c6d3b10b252c6c14f62fc70a2c0c92d1fd425b5e3c4325c2174de220101",
+        "native_app": true,
+        "controlled_idle_focus": "Hardware Tab, then actual navigation focus; startup autofocus retained.",
+        "pixel_masks_or_vertical_stretch": false
+      },
+      "native_test_pass": true,
+      "laid_out_texts": 197,
+      "raw_overflow_flags": 140,
+      "glyph_fit_failures": [],
+      "visible_clickable_nodes": 87,
+      "small_touch_bounds_including_scroll_clips": [
+        {
+          "page": "01-calculator-touch-bounds.json",
+          "tag": "main-extra-amount",
+          "description": "هزینه جانبی هر پرس",
+          "visibleBoundsPx": [
+            52,
+            1208,
+            680,
+            1217
+          ],
+          "touchBoundsPx": [
+            52,
+            1185.6,
+            680,
+            1271.9
+          ],
+          "touchWidthDp": 274.5355,
+          "touchHeightDp": 37.726795
+        },
+        {
+          "page": "02-ingredients-touch-bounds.json",
+          "visibleBoundsPx": [
+            27,
+            1308,
+            705,
+            1327
+          ],
+          "touchBoundsPx": [
+            27,
+            1308,
+            705,
+            1381.9
+          ],
+          "touchWidthDp": 296.39343,
+          "touchHeightDp": 32.30602
+        }
+      ],
+      "frames": [
+        {
+          "file": "01-calculator.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "02-ingredients.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "03-recipes.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "04-settings.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "05-general-pricing.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        }
+      ],
+      "device": "widthDp=319\nheightDp=672\ndensity=2.2875001\nfontScale=1.0\napi=26\n"
+    },
+    {
+      "configuration": "320-150",
+      "capture_cohort": {
+        "cohort": "build40",
+        "apk_sha256": "be8f7ec1008cf2fb96449fa753b6bb0348ffc78834717cacb3b05203800b051b",
+        "test_apk_sha256": "73d06c6d3b10b252c6c14f62fc70a2c0c92d1fd425b5e3c4325c2174de220101",
+        "native_app": true,
+        "controlled_idle_focus": "Hardware Tab, then actual navigation focus; startup autofocus retained.",
+        "pixel_masks_or_vertical_stretch": false
+      },
+      "native_test_pass": true,
+      "laid_out_texts": 180,
+      "raw_overflow_flags": 116,
+      "glyph_fit_failures": [],
+      "visible_clickable_nodes": 64,
+      "small_touch_bounds_including_scroll_clips": [],
+      "frames": [
+        {
+          "file": "01-calculator.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "02-ingredients.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "03-recipes.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "04-settings.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "05-general-pricing.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        }
+      ],
+      "device": "widthDp=319\nheightDp=672\ndensity=2.2875001\nfontScale=1.5\napi=26\n"
+    },
+    {
+      "configuration": "320-200",
+      "capture_cohort": {
+        "cohort": "build40",
+        "apk_sha256": "be8f7ec1008cf2fb96449fa753b6bb0348ffc78834717cacb3b05203800b051b",
+        "test_apk_sha256": "73d06c6d3b10b252c6c14f62fc70a2c0c92d1fd425b5e3c4325c2174de220101",
+        "native_app": true,
+        "controlled_idle_focus": "Hardware Tab, then actual navigation focus; startup autofocus retained.",
+        "pixel_masks_or_vertical_stretch": false
+      },
+      "native_test_pass": true,
+      "laid_out_texts": 157,
+      "raw_overflow_flags": 78,
+      "glyph_fit_failures": [],
+      "visible_clickable_nodes": 57,
+      "small_touch_bounds_including_scroll_clips": [],
+      "frames": [
+        {
+          "file": "01-calculator.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "02-ingredients.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "03-recipes.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "04-settings.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "05-general-pricing.png",
+          "size_px": [
+            732,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ],
+            [
+              0,
+              255
+            ]
+          ],
+          "black_frame": false
+        }
+      ],
+      "device": "widthDp=319\nheightDp=672\ndensity=2.2875001\nfontScale=2.0\napi=26\n"
+    },
+    {
+      "configuration": "411-100",
+      "capture_cohort": {
+        "cohort": "build40",
+        "apk_sha256": "be8f7ec1008cf2fb96449fa753b6bb0348ffc78834717cacb3b05203800b051b",
+        "test_apk_sha256": "73d06c6d3b10b252c6c14f62fc70a2c0c92d1fd425b5e3c4325c2174de220101",
+        "native_app": true,
+        "controlled_idle_focus": "Hardware Tab, then actual navigation focus; startup autofocus retained.",
+        "pixel_masks_or_vertical_stretch": false
+      },
+      "native_test_pass": true,
+      "laid_out_texts": 216,
+      "raw_overflow_flags": 167,
+      "glyph_fit_failures": [],
+      "visible_clickable_nodes": 114,
+      "small_touch_bounds_including_scroll_clips": [
+        {
+          "page": "02-ingredients-touch-bounds.json",
+          "visibleBoundsPx": [
+            27,
+            1317,
+            915,
+            1327
+          ],
+          "touchBoundsPx": [
+            27,
+            1317,
+            915,
+            1381.9
+          ],
+          "touchWidthDp": 388.1967,
+          "touchHeightDp": 28.371593
+        }
+      ],
+      "frames": [
+        {
+          "file": "01-calculator.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              12,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "02-ingredients.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              23,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "03-recipes.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              27,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "04-settings.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              27,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "05-general-pricing.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              21,
+              255
+            ]
+          ],
+          "black_frame": false
+        }
+      ],
+      "device": "widthDp=411\nheightDp=672\ndensity=2.2875001\nfontScale=1.0\napi=26\n"
+    },
+    {
+      "configuration": "411-150",
+      "capture_cohort": {
+        "cohort": "build40",
+        "apk_sha256": "be8f7ec1008cf2fb96449fa753b6bb0348ffc78834717cacb3b05203800b051b",
+        "test_apk_sha256": "73d06c6d3b10b252c6c14f62fc70a2c0c92d1fd425b5e3c4325c2174de220101",
+        "native_app": true,
+        "controlled_idle_focus": "Hardware Tab, then actual navigation focus; startup autofocus retained.",
+        "pixel_masks_or_vertical_stretch": false
+      },
+      "native_test_pass": true,
+      "laid_out_texts": 180,
+      "raw_overflow_flags": 136,
+      "glyph_fit_failures": [],
+      "visible_clickable_nodes": 67,
+      "small_touch_bounds_including_scroll_clips": [
+        {
+          "page": "01-calculator-touch-bounds.json",
+          "tag": "food-cost",
+          "visibleBoundsPx": [
+            493,
+            1053,
+            897,
+            1078
+          ],
+          "touchBoundsPx": [
+            493,
+            1037.6,
+            897,
+            1132.9
+          ],
+          "touchWidthDp": 176.61201,
+          "touchHeightDp": 41.66122
+        }
+      ],
+      "frames": [
+        {
+          "file": "01-calculator.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              12,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "02-ingredients.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              23,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "03-recipes.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              27,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "04-settings.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              28,
+              255
+            ],
+            [
+              26,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "05-general-pricing.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              21,
+              255
+            ]
+          ],
+          "black_frame": false
+        }
+      ],
+      "device": "widthDp=411\nheightDp=672\ndensity=2.2875001\nfontScale=1.5\napi=26\n"
+    },
+    {
+      "configuration": "411-200",
+      "capture_cohort": {
+        "cohort": "build40",
+        "apk_sha256": "be8f7ec1008cf2fb96449fa753b6bb0348ffc78834717cacb3b05203800b051b",
+        "test_apk_sha256": "73d06c6d3b10b252c6c14f62fc70a2c0c92d1fd425b5e3c4325c2174de220101",
+        "native_app": true,
+        "controlled_idle_focus": "Hardware Tab, then actual navigation focus; startup autofocus retained.",
+        "pixel_masks_or_vertical_stretch": false
+      },
+      "native_test_pass": true,
+      "laid_out_texts": 162,
+      "raw_overflow_flags": 106,
+      "glyph_fit_failures": [],
+      "visible_clickable_nodes": 60,
+      "small_touch_bounds_including_scroll_clips": [
+        {
+          "page": "04-settings-touch-bounds.json",
+          "visibleBoundsPx": [
+            72,
+            1309,
+            168,
+            1334
+          ],
+          "touchBoundsPx": [
+            65.1,
+            1288.6,
+            174.9,
+            1388.9
+          ],
+          "touchWidthDp": 47.999996,
+          "touchHeightDp": 43.84701
+        }
+      ],
+      "frames": [
+        {
+          "file": "01-calculator.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              12,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "02-ingredients.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              23,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "03-recipes.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              27,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "04-settings.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              28,
+              255
+            ],
+            [
+              26,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "05-general-pricing.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              29,
+              255
+            ],
+            [
+              21,
+              255
+            ]
+          ],
+          "black_frame": false
+        }
+      ],
+      "device": "widthDp=411\nheightDp=672\ndensity=2.2875001\nfontScale=2.0\napi=26\n"
+    },
+    {
+      "configuration": "411-dark",
+      "capture_cohort": {
+        "cohort": "build40",
+        "apk_sha256": "be8f7ec1008cf2fb96449fa753b6bb0348ffc78834717cacb3b05203800b051b",
+        "test_apk_sha256": "73d06c6d3b10b252c6c14f62fc70a2c0c92d1fd425b5e3c4325c2174de220101",
+        "native_app": true,
+        "controlled_idle_focus": "Hardware Tab, then actual navigation focus; startup autofocus retained.",
+        "pixel_masks_or_vertical_stretch": false
+      },
+      "native_test_pass": true,
+      "laid_out_texts": 216,
+      "raw_overflow_flags": 167,
+      "glyph_fit_failures": [],
+      "visible_clickable_nodes": 114,
+      "small_touch_bounds_including_scroll_clips": [
+        {
+          "page": "02-ingredients-touch-bounds.json",
+          "visibleBoundsPx": [
+            27,
+            1317,
+            915,
+            1327
+          ],
+          "touchBoundsPx": [
+            27,
+            1317,
+            915,
+            1381.9
+          ],
+          "touchWidthDp": 388.1967,
+          "touchHeightDp": 28.371593
+        }
+      ],
+      "frames": [
+        {
+          "file": "01-calculator.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              20,
+              255
+            ],
+            [
+              15,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "02-ingredients.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              20,
+              255
+            ],
+            [
+              15,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "03-recipes.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              9,
+              255
+            ],
+            [
+              12,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "04-settings.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              20,
+              255
+            ],
+            [
+              15,
+              255
+            ]
+          ],
+          "black_frame": false
+        },
+        {
+          "file": "05-general-pricing.png",
+          "size_px": [
+            942,
+            1704
+          ],
+          "rgb_extrema": [
+            [
+              0,
+              255
+            ],
+            [
+              20,
+              255
+            ],
+            [
+              15,
+              255
+            ]
+          ],
+          "black_frame": false
+        }
+      ],
+      "device": "widthDp=411\nheightDp=672\ndensity=2.2875001\nfontScale=1.0\napi=26\n"
+    }
+  ]
+}

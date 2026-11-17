@@ -1,33 +1,24 @@
 package ir.foodcost.app.ui
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.sp
-import ir.foodcost.app.ui.theme.statusColors
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
@@ -38,16 +29,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -62,15 +46,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
-import ir.foodcost.app.ui.theme.FoodSectionColors
-import ir.foodcost.app.ui.theme.foodSectionColors
 import ir.foodcost.core.model.IngredientId
 import ir.foodcost.core.pricing.PriceStatus
 import ir.foodcost.core.units.Dimension
@@ -95,81 +76,276 @@ import java.time.LocalDate
 
 /** The ingredients tab: everything bought, with today's price per kilo. */
 @Composable
-fun IngredientsScreen(state: LedgerState, money: MoneyFormat, today: LocalDate, nav: Navigator, actions: AppActions) {
+fun IngredientsScreen(
+    state: LedgerState,
+    money: MoneyFormat,
+    today: LocalDate,
+    nav: Navigator,
+    actions: AppActions,
+) {
     var query by rememberSaveable { mutableStateOf("") }
     var repricing by remember { mutableStateOf<IngredientRow?>(null) }
     var missingOnly by rememberSaveable { mutableStateOf(false) }
     var categoryFilter by rememberSaveable { mutableStateOf<String?>(null) }
-    var grouped by rememberSaveable { mutableStateOf(true) }
+    var grouped by rememberSaveable { mutableStateOf(false) }
     var categoryOptions by remember { mutableStateOf(false) }
     val allRows = remember(state, money, today) { IngredientScreens.rows(state, today, money) }
-    var expandedId by rememberSaveable { mutableStateOf(allRows.firstOrNull()?.id?.value) }
-    val categories = allRows.mapNotNull { it.category?.trim()?.takeIf(String::isNotEmpty) }.distinct().sortedWith(Persian.nameOrder())
+    var expandedId by rememberSaveable { mutableStateOf<String?>(null) }
+    var deleting by remember { mutableStateOf<IngredientRow?>(null) }
+    val categories =
+        allRows
+            .mapNotNull { it.category?.trim()?.takeIf(String::isNotEmpty) }
+            .distinct()
+            .sortedWith(Persian.nameOrder())
     val activeCategory = categoryFilter?.takeIf { it in categories }
     val dataUnreliable = actions.unreadableRows > 0
     val showMissingOnly = missingOnly && !dataUnreliable
-    val matching = allRows.filter { Persian.matches(it.name, query) && (activeCategory == null || it.category?.trim() == activeCategory) }
+    val matching =
+        allRows.filter {
+            (Persian.matches(it.name, query) ||
+                Persian.matches(it.priceLabel, query) ||
+                Persian.matches(
+                    when (state.ingredients[it.id]?.baseDimension) {
+                        Dimension.MASS -> "کیلوگرم گرم کیلو"
+                        Dimension.VOLUME -> "لیتر میلی‌لیتر"
+                        else -> "عدد"
+                    },
+                    query,
+                )) && (activeCategory == null || it.category?.trim() == activeCategory)
+        }
     val rows = matching.filter { !showMissingOnly || it.unitPrice == null }
-    val groups = rows.groupBy { if (grouped) it.category?.trim()?.takeIf(String::isNotEmpty) ?: "بدون دسته" else "مواد اولیه" }.toSortedMap(Persian.nameOrder())
-    TabScaffold(title = "مواد اولیه", nav = nav, actions = actions,
-        topActions = { HeaderAddButton("افزودن ماده", onClick = { nav.open(Screen.EditIngredient(null)) }) }) { padding ->
-        LazyColumn(Modifier.padding(padding).testTag("ingredients-list"),
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp)) {
-            item { SearchField(query, { query = it }, "جستجوی ماده", onOptions = { categoryOptions = true }) }
+    val groups =
+        rows
+            .groupBy {
+                if (grouped) it.category?.trim()?.takeIf(String::isNotEmpty) ?: "بدون دسته"
+                else "مواد اولیه"
+            }
+            .toSortedMap(Persian.nameOrder())
+    TabScaffold(
+        title = "مواد اولیه",
+        nav = nav,
+        actions = actions,
+        bottomActions = {
+            Box(Modifier.padding(horizontal = 12.dp, vertical = 11.dp)) {
+                FoodCostPrimaryButton(
+                    "افزودن ماده",
+                    { nav.open(Screen.EditIngredient(null)) },
+                    Modifier.fillMaxWidth().testTag("ingredients-add"),
+                    PremiumIcons.plus,
+                )
+            }
+        },
+    ) { padding ->
+        LazyColumn(
+            Modifier.padding(padding).testTag("ingredients-list"),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 11.dp, bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             item {
-                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
-                    CountChoice("همه", Persian.digits(matching.size), !showMissingOnly, Modifier.weight(1f).testTag("ingredients-filter-all")) { missingOnly = false }
-                    CountChoice("بدون قیمت", if (dataUnreliable) "—" else Persian.digits(matching.count { it.unitPrice == null }), showMissingOnly,
-                        Modifier.weight(1.3f).testTag("ingredients-filter-missing"), enabled = !dataUnreliable, tone = PriceStatus.NEAR) { missingOnly = true }
-                    Box(Modifier.weight(1.1f)) {
-                        OutlinedButton(onClick = { categoryOptions = true }, shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 8.dp),
-                            modifier = Modifier.testTag("ingredients-category-options")) { Text("دسته‌بندی", style = MaterialTheme.typography.labelLarge) }
-                        DropdownMenu(categoryOptions, onDismissRequest = { categoryOptions = false }) {
-                            DropdownMenuItem(text = { Text("همهٔ دسته‌ها") }, onClick = { categoryFilter = null; categoryOptions = false })
-                            categories.forEach { category -> DropdownMenuItem(text = { Text(category) }, onClick = { categoryFilter = category; categoryOptions = false },
-                                modifier = Modifier.testTag("ingredient-category-$category")) }
-                            DropdownMenuItem(text = { Text(if (grouped) "نمایش یک‌جا، بر اساس نام" else "نمایش دسته‌بندی‌شده") }, onClick = { grouped = !grouped; categoryOptions = false })
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    SearchField(
+                        query,
+                        { query = it },
+                        "جستجوی ماده (نام، واحد و ...)",
+                        Modifier.weight(1f).testTag("ingredients-search"),
+                    )
+                    Box {
+                        FoodCostOutlinedButton(
+                            "فیلتر",
+                            { categoryOptions = true },
+                            Modifier.width(
+                                    if (LocalDensity.current.fontScale > 1.25f) 100.dp else 86.dp
+                                )
+                                .heightIn(min = 38.dp)
+                                .testTag("ingredients-category-options"),
+                            if (LocalDensity.current.fontScale > 1.25f) null
+                            else PremiumIcons.filter,
+                            compact = true,
+                            neutral = true,
+                        )
+                        DropdownMenu(categoryOptions, { categoryOptions = false }) {
+                            DropdownMenuItem(
+                                text = { Text("همهٔ دسته‌ها") },
+                                onClick = {
+                                    categoryFilter = null
+                                    missingOnly = false
+                                    categoryOptions = false
+                                },
+                            )
+                            categories.forEach { category ->
+                                DropdownMenuItem(
+                                    text = { Text(category) },
+                                    onClick = {
+                                        categoryFilter = category
+                                        categoryOptions = false
+                                    },
+                                    modifier = Modifier.testTag("ingredient-category-$category"),
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (grouped) "نمایش یک‌جا، بر اساس نام"
+                                        else "نمایش دسته‌بندی‌شده"
+                                    )
+                                },
+                                onClick = {
+                                    grouped = !grouped
+                                    categoryOptions = false
+                                },
+                            )
                         }
                     }
                 }
             }
-            activeCategory?.let { category -> item { TextButton(onClick = { categoryFilter = null }) { Text("دسته: $category ×") } } }
-            if (rows.isEmpty()) item {
-                when {
-                    allRows.isEmpty() -> EmptyState("هنوز ماده‌ای ثبت نشده", "مواد مصرفی را بسازید و قیمت خرید هر کدام را وارد کنید.")
-                    showMissingOnly -> EmptyState("مادهٔ بدون قیمت با این فیلتر ندارید", "برای دیدن همهٔ مواد، فیلتر را بردارید.", action = "نمایش همهٔ مواد", onAction = { missingOnly = false; categoryFilter = null; query = "" })
-                    else -> EmptyState("ماده‌ای با این نام پیدا نشد", "نام یا دستهٔ دیگری را انتخاب کنید.")
-                }
-            }
-            groups.forEach { (category, group) ->
-                item(key = "ingredient-heading-$category") { GroupHeading(category, group.size, "ماده") }
-                itemsIndexed(group, key = { _, row -> row.id.value }) { index, row ->
-                    GroupedRow(index == 0, index == group.lastIndex) {
-                        GroupedIngredient(row, state, money, today, expandedId == row.id.value, dataUnreliable,
-                            onToggle = { expandedId = row.id.value.takeUnless { it == expandedId } },
-                            onReprice = { repricing = row },
-                            onHistory = { nav.open(Screen.Ingredient(row.id.value)) },
-                            onEdit = { nav.open(Screen.EditIngredient(row.id.value)) })
+            item {
+                FoodCostCard(
+                    Modifier.padding(top = 3.5.dp, bottom = 5.dp).testTag("ingredients-statistics")
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    ) {
+                        PremiumStatistic(
+                            "تعداد مواد",
+                            Persian.digits(matching.size),
+                            ReferenceIcons.layers,
+                            Modifier.weight(1f).testTag("ingredients-filter-all"),
+                            onClick = { missingOnly = false },
+                        )
+                        PremiumStatistic(
+                            "بدون قیمت",
+                            if (dataUnreliable) "—"
+                            else Persian.digits(matching.count { it.unitPrice == null }),
+                            ReferenceIcons.info,
+                            Modifier.weight(1f).testTag("ingredients-filter-missing"),
+                            warning = true,
+                            onClick = { if (!dataUnreliable) missingOnly = true },
+                        )
+                        if (
+                            LocalDensity.current.fontScale <= 1.25f &&
+                                androidx.compose.ui.platform.LocalConfiguration.current
+                                    .screenWidthDp >= 380
+                        ) {
+                            val latest =
+                                state.prices.values
+                                    .filter { !it.voided }
+                                    .maxOfOrNull { it.recordedAt.wallMillis }
+                                    ?.let {
+                                        java.time.Instant.ofEpochMilli(it)
+                                            .atZone(java.time.ZoneId.systemDefault())
+                                            .toLocalDate()
+                                    }
+                            PremiumStatistic(
+                                "آخرین به‌روزرسانی",
+                                when (latest) {
+                                    null -> "—"
+                                    today -> "امروز"
+                                    else -> JalaliDate.of(latest).format()
+                                },
+                                PremiumIcons.calendar,
+                                Modifier.weight(1.3f),
+                                compact = true,
+                            )
+                        }
                     }
                 }
             }
+            activeCategory?.let { category ->
+                item {
+                    TextButton(onClick = { categoryFilter = null }) { Text("دسته: $category ×") }
+                }
+            }
+            if (showMissingOnly)
+                item { TextButton(onClick = { missingOnly = false }) { Text("بدون قیمت ×") } }
+            if (rows.isEmpty())
+                item {
+                    when {
+                        allRows.isEmpty() ->
+                            EmptyState(
+                                "هنوز ماده‌ای ثبت نشده",
+                                "مواد مصرفی را بسازید و قیمت خرید هر کدام را وارد کنید.",
+                            )
+                        showMissingOnly ->
+                            EmptyState(
+                                "مادهٔ بدون قیمت با این فیلتر ندارید",
+                                "برای دیدن همهٔ مواد، فیلتر را بردارید.",
+                                action = "نمایش همهٔ مواد",
+                                onAction = {
+                                    missingOnly = false
+                                    categoryFilter = null
+                                    query = ""
+                                },
+                            )
+                        else ->
+                            EmptyState(
+                                "ماده‌ای با این نام پیدا نشد",
+                                "نام یا دستهٔ دیگری را انتخاب کنید.",
+                            )
+                    }
+                }
+            groups.forEach { (category, group) ->
+                if (grouped)
+                    item(key = "ingredient-heading-$category") {
+                        GroupHeading(category, group.size, "ماده")
+                    }
+                items(group, key = { it.id.value }) { row ->
+                    PremiumIngredientCard(
+                        row,
+                        state,
+                        money,
+                        today,
+                        dataUnreliable,
+                        expandedId == row.id.value,
+                        onToggle = { expandedId = row.id.value.takeUnless { it == expandedId } },
+                        onReprice = { repricing = row },
+                        onHistory = { nav.open(Screen.Ingredient(row.id.value)) },
+                        onEdit = { nav.open(Screen.EditIngredient(row.id.value)) },
+                        onDelete = { deleting = row },
+                    )
+                }
+            }
         }
+    }
+    deleting?.let { row ->
+        ConfirmDialog(
+            "حذف «${row.name}»؟",
+            "این ماده از فهرست‌ها برداشته می‌شود. سابقهٔ قیمت و هزینهٔ دستورهایی که آن را دارند حفظ می‌شود.",
+            "حذف",
+            {
+                actions.run({ it.updateIngredient(row.id, archived = Opt.Value(true)) }) {
+                    deleting = null
+                }
+            },
+            { deleting = null },
+        )
     }
     repricing?.let { row ->
         QuickPriceDialog(
             row = row,
             money = money,
-            warningFor = { text -> state.catalog.ingredient(row.id)?.let { QuickCalculator.quickPriceWarning(state, it, text, money, today) } },
+            warningFor = { text ->
+                state.catalog.ingredient(row.id)?.let {
+                    QuickCalculator.quickPriceWarning(state, it, text, money, today)
+                }
+            },
             onDismiss = { repricing = null },
             onSave = { text ->
                 val ingredient = state.catalog.ingredient(row.id)
-                when (val checked = ingredient?.let { QuickCalculator.quickPrice(it, text, money, today) }) {
+                when (
+                    val checked =
+                        ingredient?.let { QuickCalculator.quickPrice(it, text, money, today) }
+                ) {
                     null -> repricing = null
                     is Checked.Invalid -> actions.say(checked.errors.values.first())
-                    is Checked.Valid -> actions.run({ it.recordPrice(checked.value) }) {
-                        repricing = null
-                        actions.say("قیمت «${row.name}» به‌روز شد.")
-                    }
+                    is Checked.Valid ->
+                        actions.run({ it.recordPrice(checked.value) }) {
+                            repricing = null
+                            actions.say("قیمت «${row.name}» به‌روز شد.")
+                        }
                 }
             },
         )
@@ -206,7 +382,9 @@ private fun QuickPriceDialog(
                 onValueChange = { text = it },
                 label = "${row.priceLabel} از امروز",
                 error = warning,
-                supporting = money.parse(text)?.let { money.full(it) } ?: row.unitPrice?.let { "قیمت فعلی: $it" },
+                supporting =
+                    money.parse(text)?.let { money.full(it) }
+                        ?: row.unitPrice?.let { "قیمت فعلی: $it" },
                 number = true,
                 suffix = money.unit,
                 modifier = Modifier.focusRequester(field).testTag("quick-price"),
@@ -215,86 +393,25 @@ private fun QuickPriceDialog(
             )
             LaunchedEffect(Unit) { runCatching { field.requestFocus() } }
         },
-        confirmButton = { TextButton(onClick = { submit() }) { Text(if (asks) "ذخیره با همین قیمت" else "ذخیره") } },
+        confirmButton = {
+            TextButton(onClick = { submit() }) { Text(if (asks) "ذخیره با همین قیمت" else "ذخیره") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } },
     )
 }
 
-@Composable
-private fun GroupedIngredient(row: IngredientRow, state: LedgerState, money: MoneyFormat, today: LocalDate,
-    expanded: Boolean, dataUnreliable: Boolean, onToggle: () -> Unit, onReprice: () -> Unit, onHistory: () -> Unit, onEdit: () -> Unit) {
-    val large = LocalDensity.current.fontScale > 1.25f
-    val unit = row.priceLabel.removePrefix("قیمت هر ")
-    fun amount(text: String?) = text?.removePrefix("هر $unit ") ?: "ثبت نشده"
-    val day = row.priceEffectiveFrom
-    val dateLabel = when {
-        day == null -> null
-        day == today -> "امروز"
-        day == today.minusDays(1) -> "دیروز"
-        day.isBefore(today) && day.isAfter(today.minusDays(7)) -> "${Persian.digits(java.time.temporal.ChronoUnit.DAYS.between(day, today))} روز پیش"
-        else -> row.priceDate
-    }
-    @Composable fun price(modifier: Modifier) {
-        when {
-            dataUnreliable -> Text(BackupTexts.UNVERIFIED_PRICE, modifier, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-            row.unitPrice == null -> OutlinedButton(onClick = onReprice, shape = RoundedCornerShape(10.dp), modifier = modifier.testTag("ingredient-register-${row.id.value}")) { Text("ثبت قیمت") }
-            else -> Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-                GroupAmount(amount(row.unitPrice), money.unit, Modifier.fillMaxWidth().testTag("ingredient-price-${row.id.value}"), unitCaption = "${money.unit} / $unit")
-                dateLabel?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            }
-        }
-    }
-    Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel = "جزئیات ${row.name}", onClick = onToggle)
-        .padding(horizontal = 9.dp, vertical = 10.dp).testTag("ingredient-${row.id.value}"),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        if (!large) RowSymbol(ReferenceIcons.layers)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(row.name, style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp))
-            if (!dataUnreliable) Surface(color = if (row.unitPrice == null) statusColors(PriceStatus.NEAR).container else MaterialTheme.colorScheme.tertiaryContainer, shape = RoundedCornerShape(50)) {
-                Text(if (row.unitPrice == null) "بدون قیمت" else row.yieldLabel ?: "بازده ۱۰۰٪", style = MaterialTheme.typography.labelMedium,
-                    color = if (row.unitPrice == null) statusColors(PriceStatus.NEAR).content else MaterialTheme.colorScheme.tertiary,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
-            }
-            if (!dataUnreliable && row.unitPrice == null) row.priceProblem?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-            if (large) price(Modifier.fillMaxWidth().padding(top = 4.dp))
-        }
-        if (!large) price(Modifier.width(112.dp))
-        RowChevron(expanded, onToggle)
-        RowMenu("ingredient-menu-${row.id.value}") { close ->
-            DropdownMenuItem(text = { Text("ثبت قیمت تازه") }, onClick = { close(); onReprice() }, enabled = !dataUnreliable)
-            DropdownMenuItem(text = { Text("تاریخچه و جزئیات") }, onClick = { close(); onHistory() })
-            DropdownMenuItem(text = { Text("ویرایش ماده") }, onClick = { close(); onEdit() }, enabled = !dataUnreliable)
-        }
-    }
-    if (expanded) {
-        val detail = remember(state, row.id, today, money) { IngredientScreens.detail(state, row.id, today, money) }
-        Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(12.dp), modifier = Modifier.padding(start = 10.dp, end = 10.dp, bottom = 10.dp)) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (dataUnreliable) Text(BackupTexts.UNVERIFIED_PRICE, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                else if (detail != null) {
-                    val previous = detail.previousUnitPrice
-                    if (large) {
-                        SmallFact("قیمت قبلی (هر $unit)", amount(previous))
-                        SmallFact("بهای هر $unit قابل مصرف", amount(detail.usableUnitPrice ?: detail.unitPrice))
-                    } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        SmallFact("قیمت قبلی (هر $unit)", amount(previous), Modifier.weight(1f))
-                        SmallFact("بهای هر $unit قابل مصرف", amount(detail.usableUnitPrice ?: detail.unitPrice), Modifier.weight(1f))
-                    }
-                }
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Button(onClick = onReprice, enabled = !dataUnreliable, shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.testTag("ingredient-reprice-${row.id.value}").semantics { contentDescription = "قیمت تازهٔ ${row.name}" }) { Text("ثبت قیمت تازه") }
-                    OutlinedButton(onClick = onHistory, shape = RoundedCornerShape(10.dp), modifier = Modifier.testTag("ingredient-history-${row.id.value}")) { Text("تاریخچه") }
-                }
-            }
-        }
-    }
-}
-
 /** One ingredient: its price today, the price history and where it is used. */
 @Composable
-fun IngredientScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, today: LocalDate, nav: Navigator, actions: AppActions) {
-    val detail = remember(state, money, today, id) { IngredientScreens.detail(state, id, today, money) }
+fun IngredientScreen(
+    id: IngredientId,
+    state: LedgerState,
+    money: MoneyFormat,
+    today: LocalDate,
+    nav: Navigator,
+    actions: AppActions,
+) {
+    val detail =
+        remember(state, money, today, id) { IngredientScreens.detail(state, id, today, money) }
     if (detail == null) {
         LaunchedEffect(id) { nav.back() }
         return
@@ -334,11 +451,18 @@ fun IngredientScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
                     PriceItem(price, onVoid = { voiding = price })
                 }
             } else {
-                item { Text(BackupTexts.UNVERIFIED_HISTORY, color = MaterialTheme.colorScheme.error) }
+                item {
+                    Text(BackupTexts.UNVERIFIED_HISTORY, color = MaterialTheme.colorScheme.error)
+                }
             }
             if (detail.usedIn.isNotEmpty()) {
                 item { SectionTitle("در این دستورها به کار رفته", Modifier.padding(top = 8.dp)) }
-                item { Text(detail.usedIn.joinToString("، "), style = MaterialTheme.typography.bodyMedium) }
+                item {
+                    Text(
+                        detail.usedIn.joinToString("، "),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
         }
     }
@@ -346,7 +470,9 @@ fun IngredientScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
         VoidPriceDialog(
             price = price,
             onDismiss = { voiding = null },
-            onVoid = { reason -> actions.run({ it.voidPrice(price.priceId, reason) }) { voiding = null } },
+            onVoid = { reason ->
+                actions.run({ it.voidPrice(price.priceId, reason) }) { voiding = null }
+            },
         )
     }
 }
@@ -355,10 +481,11 @@ fun IngredientScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
 private fun IngredientCard(detail: IngredientDetail, dataUnreliable: Boolean) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        ),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            ),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
@@ -367,11 +494,17 @@ private fun IngredientCard(detail: IngredientDetail, dataUnreliable: Boolean) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                (if (dataUnreliable) BackupTexts.UNVERIFIED_PRICE else detail.unitPrice ?: detail.priceProblem.orEmpty()),
+                (if (dataUnreliable) BackupTexts.UNVERIFIED_PRICE
+                else detail.unitPrice ?: detail.priceProblem.orEmpty()),
                 style = MaterialTheme.typography.titleLarge,
-                color = if (dataUnreliable || detail.unitPrice == null) MaterialTheme.colorScheme.error else Color.Unspecified,
+                color =
+                    if (dataUnreliable || detail.unitPrice == null) MaterialTheme.colorScheme.error
+                    else Color.Unspecified,
             )
-            if (!dataUnreliable) detail.usableUnitPrice?.let { Text("بعد از پاک کردن: $it", style = MaterialTheme.typography.bodyMedium) }
+            if (!dataUnreliable)
+                detail.usableUnitPrice?.let {
+                    Text("بعد از پاک کردن: $it", style = MaterialTheme.typography.bodyMedium)
+                }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 LabeledValue("بازدهی", detail.yieldLabel, Modifier.weight(1f))
                 detail.conversionsLabel?.let { LabeledValue("تبدیل‌ها", it, Modifier.weight(1f)) }
@@ -384,10 +517,17 @@ private fun IngredientCard(detail: IngredientDetail, dataUnreliable: Boolean) {
 private fun PriceItem(price: PriceRow, onVoid: () -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     Card(modifier = Modifier.fillMaxWidth(), colors = whiteCardColors()) {
-        Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(price.date, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        price.date,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     if (price.inForce) {
                         Spacer(Modifier.width(8.dp))
                         StatusChip(PriceStatus.OK, "قیمت امروز")
@@ -403,10 +543,18 @@ private fun PriceItem(price: PriceRow, onVoid: () -> Unit) {
                     textDecoration = if (price.voided) TextDecoration.LineThrough else null,
                 )
                 price.unitPrice?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 price.details?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
             if (!price.voided) {
@@ -437,21 +585,32 @@ private fun VoidPriceDialog(price: PriceRow, onDismiss: () -> Unit, onVoid: (Str
         title = { Text("باطل کردن قیمت") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("قیمت ${price.date} (${price.packageLabel} به ${price.total}) دیگر در حساب‌ها نمی‌آید، ولی در سابقه می‌ماند.")
+                Text(
+                    "قیمت ${price.date} (${price.packageLabel} به ${price.total}) دیگر در حساب‌ها نمی‌آید، ولی در سابقه می‌ماند."
+                )
                 TextInput(reason, { reason = it }, "دلیل (اختیاری)")
             }
         },
-        confirmButton = { TextButton(onClick = { onVoid(reason.trim().ifEmpty { null }) }) { Text("باطل کن") } },
+        confirmButton = {
+            TextButton(onClick = { onVoid(reason.trim().ifEmpty { null }) }) { Text("باطل کن") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } },
     )
 }
 
 /** The ingredient form, for a new ingredient when [id] is null. */
 @Composable
-fun IngredientEditScreen(id: IngredientId?, state: LedgerState, today: LocalDate, nav: Navigator, actions: AppActions) {
+fun IngredientEditScreen(
+    id: IngredientId?,
+    state: LedgerState,
+    today: LocalDate,
+    nav: Navigator,
+    actions: AppActions,
+) {
     val record = id?.let { state.ingredients[it] }
     val editing = record != null
-    var input by remember(id) { mutableStateOf(record?.let { IngredientInput.of(it) } ?: IngredientInput()) }
+    var input by
+        remember(id) { mutableStateOf(record?.let { IngredientInput.of(it) } ?: IngredientInput()) }
     var errors by remember { mutableStateOf(emptyMap<Field, String>()) }
     var showConversions by rememberSaveable {
         mutableStateOf(input.gramsPerPiece.isNotEmpty() || input.gramsPerMilliliter.isNotEmpty())
@@ -470,17 +629,29 @@ fun IngredientEditScreen(id: IngredientId?, state: LedgerState, today: LocalDate
         },
     ) { padding ->
         Column(
-            Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            Modifier.padding(padding)
+                .consumeWindowInsets(padding)
+                .imePadding()
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            TextInput(input.name, { input = input.copy(name = it) }, "نام ماده", error = errors[Field.NAME])
+            TextInput(
+                input.name,
+                { input = input.copy(name = it) },
+                "نام ماده",
+                error = errors[Field.NAME],
+            )
             Text("با چه واحدی خریده و مصرف می‌شود؟", style = MaterialTheme.typography.labelLarge)
             Segmented(
                 listOf(Dimension.MASS, Dimension.VOLUME, Dimension.COUNT),
                 input.dimension,
                 { Labels.dimension(it) },
                 enabled = !editing,
-            ) { input = input.copy(dimension = it) }
+            ) {
+                input = input.copy(dimension = it)
+            }
             Text(
                 dimensionHint(input.dimension, editing),
                 style = MaterialTheme.typography.bodySmall,
@@ -491,7 +662,8 @@ fun IngredientEditScreen(id: IngredientId?, state: LedgerState, today: LocalDate
                 onValueChange = { input = input.copy(yieldPercent = it) },
                 label = "بازدهی",
                 error = errors[Field.YIELD],
-                supporting = "چند درصد از آنچه می‌خرید بعد از پاک کردن در غذا می‌رود؟ مثلاً مرغ کامل حدود ۷۰.",
+                supporting =
+                    "چند درصد از آنچه می‌خرید بعد از پاک کردن در غذا می‌رود؟ مثلاً مرغ کامل حدود ۷۰.",
                 number = true,
                 suffix = "٪",
             )
@@ -519,7 +691,8 @@ fun IngredientEditScreen(id: IngredientId?, state: LedgerState, today: LocalDate
                     onValueChange = { input = input.copy(gramsPerMilliliter = it) },
                     label = "وزن هر میلی‌لیتر",
                     error = errors[Field.DENSITY],
-                    supporting = "برای چیزهایی مثل روغن که وزنی خریده و حجمی مصرف می‌شوند؛ روغن حدود ۰٫۹۲.",
+                    supporting =
+                        "برای چیزهایی مثل روغن که وزنی خریده و حجمی مصرف می‌شوند؛ روغن حدود ۰٫۹۲.",
                     number = true,
                     suffix = "گرم",
                 )
@@ -531,10 +704,17 @@ fun IngredientEditScreen(id: IngredientId?, state: LedgerState, today: LocalDate
                         is Checked.Valid -> {
                             val draft = checked.value
                             if (IngredientScreens.nameTaken(state, draft.name, except = id)) {
-                                errors = mapOf(Field.NAME to "«${draft.name}» از قبل در فهرست مواد هست.")
+                                errors =
+                                    mapOf(Field.NAME to "«${draft.name}» از قبل در فهرست مواد هست.")
                             } else if (id == null) {
                                 actions.run({
-                                    it.createIngredient(draft.name, draft.dimension, draft.category, draft.yields, draft.conversions)
+                                    it.createIngredient(
+                                        draft.name,
+                                        draft.dimension,
+                                        draft.category,
+                                        draft.yields,
+                                        draft.conversions,
+                                    )
                                 }) { newId ->
                                     nav.replace(Screen.Ingredient(newId.value))
                                     nav.open(Screen.NewPrice(newId.value))
@@ -547,26 +727,34 @@ fun IngredientEditScreen(id: IngredientId?, state: LedgerState, today: LocalDate
                                         category = Opt.Value(draft.category),
                                         yields = Opt.Value(draft.yields),
                                         conversions = Opt.Value(draft.conversions),
-                                        // A new yield counts from today on; the days before keep their costs.
+                                        // A new yield counts from today on; the days before keep
+                                        // their costs.
                                         effectiveFrom = today,
                                     )
-                                }) { nav.back() }
+                                }) {
+                                    nav.back()
+                                }
                             }
                         }
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("ذخیره") }
+            ) {
+                Text("ذخیره")
+            }
         }
     }
     if (confirmArchive && id != null) {
         ConfirmDialog(
             title = "حذف «${input.name}»؟",
-            text = "این ماده از فهرست‌ها برداشته می‌شود. دستورهایی که آن را دارند همچنان با آخرین قیمتش حساب می‌شوند.",
+            text =
+                "این ماده از فهرست‌ها برداشته می‌شود. دستورهایی که آن را دارند همچنان با آخرین قیمتش حساب می‌شوند.",
             confirm = "حذف",
             onConfirm = {
                 confirmArchive = false
-                actions.run({ it.updateIngredient(id, archived = Opt.Value(true)) }) { nav.tab(Tab.INGREDIENTS) }
+                actions.run({ it.updateIngredient(id, archived = Opt.Value(true)) }) {
+                    nav.tab(Tab.INGREDIENTS)
+                }
             },
             onDismiss = { confirmArchive = false },
         )
@@ -574,35 +762,53 @@ fun IngredientEditScreen(id: IngredientId?, state: LedgerState, today: LocalDate
 }
 
 private fun dimensionHint(dimension: Dimension, editing: Boolean): String {
-    val hint = when (dimension) {
-        Dimension.MASS -> "قیمت هر کیلو حساب می‌شود؛ مثل برنج، گوشت و سبزی."
-        Dimension.VOLUME -> "قیمت هر لیتر حساب می‌شود؛ مثل شیر و آب‌لیمو."
-        Dimension.COUNT -> "قیمت هر عدد حساب می‌شود؛ مثل تخم‌مرغ و نان."
-        Dimension.PORTION -> ""
-    }
+    val hint =
+        when (dimension) {
+            Dimension.MASS -> "قیمت هر کیلو حساب می‌شود؛ مثل برنج، گوشت و سبزی."
+            Dimension.VOLUME -> "قیمت هر لیتر حساب می‌شود؛ مثل شیر و آب‌لیمو."
+            Dimension.COUNT -> "قیمت هر عدد حساب می‌شود؛ مثل تخم‌مرغ و نان."
+            Dimension.PORTION -> ""
+        }
     return if (editing) "$hint نوع ماده بعد از ثبت عوض نمی‌شود." else hint
 }
 
 /** Records a purchase: when, how much, and for how much. */
 @Composable
-fun PriceEntryScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, today: LocalDate, nav: Navigator, actions: AppActions) {
+fun PriceEntryScreen(
+    id: IngredientId,
+    state: LedgerState,
+    money: MoneyFormat,
+    today: LocalDate,
+    nav: Navigator,
+    actions: AppActions,
+) {
     val ingredient = remember(state, id) { state.catalog.ingredient(id) }
     if (ingredient == null) {
         LaunchedEffect(id) { nav.back() }
         return
     }
-    val units = remember(ingredient) { UnitOptions.forIngredient(ingredient.baseDimension, ingredient.conversions) }
+    val units =
+        remember(ingredient) {
+            UnitOptions.forIngredient(ingredient.baseDimension, ingredient.conversions)
+        }
     var input by remember(id) { mutableStateOf(PriceInput.new(today, ingredient.baseDimension)) }
     var errors by remember { mutableStateOf(emptyMap<Field, String>()) }
     var showMore by rememberSaveable { mutableStateOf(false) }
     val preview = input.unitPrice(ingredient, money)
-    // A price about ten times the last one is recorded only on a second press, once it has been seen.
+    // A price about ten times the last one is recorded only on a second press, once it has been
+    // seen.
     val warning = QuickCalculator.purchaseWarning(state, ingredient, input, money, today)
     var confirmed by remember(id) { mutableStateOf<PriceInput?>(null) }
     val asks = warning != null && confirmed == input
-    DetailScaffold(title = "قیمت خرید ${ingredient.name}", nav = nav, actions = actions) { padding ->
+    DetailScaffold(title = "قیمت خرید ${ingredient.name}", nav = nav, actions = actions) { padding
+        ->
         Column(
-            Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            Modifier.padding(padding)
+                .consumeWindowInsets(padding)
+                .imePadding()
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             TextInput(
@@ -613,8 +819,16 @@ fun PriceEntryScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
                 supporting = JalaliDate.parse(input.date)?.formatLong(),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AssistChip(onClick = { input = input.copy(date = JalaliDate.of(today).format()) }, label = { Text("امروز") })
-                AssistChip(onClick = { input = input.copy(date = JalaliDate.of(today.minusDays(1)).format()) }, label = { Text("دیروز") })
+                AssistChip(
+                    onClick = { input = input.copy(date = JalaliDate.of(today).format()) },
+                    label = { Text("امروز") },
+                )
+                AssistChip(
+                    onClick = {
+                        input = input.copy(date = JalaliDate.of(today.minusDays(1)).format())
+                    },
+                    label = { Text("دیروز") },
+                )
             }
             TextInput(
                 value = input.packageQty,
@@ -624,7 +838,9 @@ fun PriceEntryScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
                 number = true,
                 suffix = Labels.uom(input.packageUom),
             )
-            ChoiceChips(units, input.packageUom, { Labels.uom(it) }) { input = input.copy(packageUom = it) }
+            ChoiceChips(units, input.packageUom, { Labels.uom(it) }) {
+                input = input.copy(packageUom = it)
+            }
             TextInput(
                 value = input.amount,
                 onValueChange = { input = input.copy(amount = it) },
@@ -637,13 +853,24 @@ fun PriceEntryScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
             preview?.let { text ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    colors =
+                        CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        ),
                 ) {
-                    Text(text, modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text,
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
                 }
             }
             warning?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
             TextButton(onClick = { showMore = !showMore }) {
                 Text(if (showMore) "بستن جزئیات" else "تخفیف، مالیات، حمل و فروشنده")
@@ -686,16 +913,19 @@ fun PriceEntryScreen(id: IngredientId, state: LedgerState, money: MoneyFormat, t
                 onClick = {
                     when (val checked = input.check(id, money)) {
                         is Checked.Invalid -> errors = checked.errors
-                        is Checked.Valid -> if (warning != null && confirmed != input) {
-                            errors = emptyMap()
-                            confirmed = input
-                        } else {
-                            actions.run({ it.recordPrice(checked.value) }) { nav.back() }
-                        }
+                        is Checked.Valid ->
+                            if (warning != null && confirmed != input) {
+                                errors = emptyMap()
+                                confirmed = input
+                            } else {
+                                actions.run({ it.recordPrice(checked.value) }) { nav.back() }
+                            }
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text(if (asks) "ثبت با همین قیمت" else "ثبت قیمت") }
+            ) {
+                Text(if (asks) "ثبت با همین قیمت" else "ثبت قیمت")
+            }
         }
     }
 }

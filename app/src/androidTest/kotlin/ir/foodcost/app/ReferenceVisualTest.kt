@@ -96,7 +96,7 @@ class ReferenceVisualTest {
             alignCalculatorSection("calculator-ingredients")
             shot("07-calculator-lower")
 
-            tab("مواد")
+            tab("مواد اولیه")
             rule.onNodeWithTag("ingredients-list").performScrollToNode(hasTestTag("ingredient-$sampleMeat"))
             if (!exists("ingredient-history-$sampleMeat")) clickTag("ingredient-$sampleMeat")
             rule.onNodeWithTag("ingredients-list").performScrollToIndex(0)
@@ -132,7 +132,7 @@ class ReferenceVisualTest {
             clickTag("settings-back")
             waitTag("general-pricing-percent")
             rule.onNodeWithTag("settings-save-pricing").performScrollTo().assertIsDisplayed()
-            rule.onNodeWithTag("pricing-scope-general").performScrollTo()
+            rule.onNodeWithTag("pricing-scope").performScrollTo()
             shot("05-pricing")
             clickTag("settings-back")
             tab("ماشین‌حساب")

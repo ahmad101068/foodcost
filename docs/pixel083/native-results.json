@@ -1,0 +1,84 @@
+{
+  "tests": 32,
+  "all_pass": true,
+  "rows": [
+    {
+      "test": "CurrencyPreferenceTest",
+      "count": 3,
+      "pass": true,
+      "cohort": "build40",
+      "log": "native-final40-api26/CurrencyPreferenceTest.log"
+    },
+    {
+      "test": "ExitConfirmationTest",
+      "count": 6,
+      "pass": true,
+      "cohort": "build40",
+      "log": "native-final40-api26/ExitConfirmationTest.log"
+    },
+    {
+      "test": "PricingMethodsTest",
+      "count": 1,
+      "pass": true,
+      "cohort": "build40",
+      "log": "native-final40-api26/PricingMethodsTest.log"
+    },
+    {
+      "test": "RecoveryGuardTest",
+      "count": 4,
+      "pass": true,
+      "cohort": "build40",
+      "log": "native-final40-api26/RecoveryGuardTest.log"
+    },
+    {
+      "test": "ReferenceVisualTest",
+      "count": 1,
+      "pass": true,
+      "cohort": "build40",
+      "log": "native-final40-api26/ReferenceVisualTest.log"
+    },
+    {
+      "test": "SettingsScopeTest",
+      "count": 1,
+      "pass": true,
+      "cohort": "build40",
+      "log": "native-final40-api26/SettingsScopeTest.log"
+    },
+    {
+      "test": "UnreadableWarningTest-everyScreenBlocksUnverifiedFinancialResultsAfterWarningAcknowledgement",
+      "count": 1,
+      "pass": true,
+      "cohort": "build40",
+      "log": "native-final40-api26/UnreadableWarningTest-everyScreenBlocksUnverifiedFinancialResultsAfterWarningAcknowledgement.log"
+    },
+    {
+      "test": "UnreadableWarningTest-goingOnWithoutTheUnreadablePriceShowsTheFiguresWithoutIt",
+      "count": 1,
+      "pass": true,
+      "cohort": "build40",
+      "log": "native-final40-api26/UnreadableWarningTest-goingOnWithoutTheUnreadablePriceShowsTheFiguresWithoutIt.log"
+    },
+    {
+      "test": "UnreadableWarningTest-ingredientListAndDetailDoNotPresentStalePricesAsVerified",
+      "count": 1,
+      "pass": true,
+      "cohort": "build40",
+      "log": "native-final40-api26/UnreadableWarningTest-ingredientListAndDetailDoNotPresentStalePricesAsVerified.log"
+    },
+    {
+      "test": "WalkThroughTest",
+      "count": 1,
+      "pass": true,
+      "cohort": "build40",
+      "log": "native-final40-api26/WalkThroughTest.log"
+    },
+    {
+      "test": "data.SqliteOperationStoreTest",
+      "count": 12,
+      "pass": true,
+      "cohort": "build40",
+      "log": "native-final40-api26/data.SqliteOperationStoreTest.log"
+    }
+  ],
+  "note": "All 32 existing Android tests rerun on final build40 on API26. Each suite uses a fresh instrumentation process. Physical viewport 942x2100 at 366dpi, RTL, font 100%. Original financial assertions retained."
+}

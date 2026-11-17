@@ -104,7 +104,7 @@ class UnreadableWarningTest {
         ActivityScenario.launch(MainActivity::class.java).use {
             waitFor("بخشی از داده‌ها خوانده نشد")
             click("فهمیدم")
-            click("مواد")
+            click("مواد اولیه")
             assertWarning()
             waitFor(BackupTexts.UNVERIFIED_PRICE)
             val id = (context.applicationContext as FoodCostApplication).container.state.value!!.ingredients.values.first { it.name == "گوشت" }.id.value

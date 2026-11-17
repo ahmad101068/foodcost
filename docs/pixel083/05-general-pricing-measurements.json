@@ -1,0 +1,138 @@
+{
+  "reference": "05-general-pricing.png",
+  "source_size_px": [
+    941,
+    1672
+  ],
+  "calibration_width_dp": 411,
+  "pixels_per_dp": 2.289537712895377,
+  "rectangles": {
+    "app_bar": {
+      "xyxy_px": [
+        0,
+        54,
+        941,
+        186
+      ],
+      "xywh_dp": [
+        0.0,
+        23.59,
+        411.0,
+        57.65
+      ]
+    },
+    "methods": {
+      "xyxy_px": [
+        26,
+        211,
+        916,
+        326
+      ],
+      "xywh_dp": [
+        11.36,
+        92.16,
+        388.72,
+        50.23
+      ]
+    },
+    "target": {
+      "xyxy_px": [
+        26,
+        341,
+        916,
+        578
+      ],
+      "xywh_dp": [
+        11.36,
+        148.94,
+        388.72,
+        103.51
+      ]
+    },
+    "equivalents": {
+      "xyxy_px": [
+        26,
+        593,
+        916,
+        753
+      ],
+      "xywh_dp": [
+        11.36,
+        259.0,
+        388.72,
+        69.88
+      ]
+    },
+    "pricing_settings": {
+      "xyxy_px": [
+        26,
+        769,
+        916,
+        1134
+      ],
+      "xywh_dp": [
+        11.36,
+        335.88,
+        388.72,
+        159.42
+      ]
+    },
+    "scope": {
+      "xyxy_px": [
+        26,
+        1148,
+        916,
+        1262
+      ],
+      "xywh_dp": [
+        11.36,
+        501.41,
+        388.72,
+        49.79
+      ]
+    },
+    "notice": {
+      "xyxy_px": [
+        28,
+        1278,
+        914,
+        1342
+      ],
+      "xywh_dp": [
+        12.23,
+        558.19,
+        386.98,
+        27.95
+      ]
+    },
+    "actions": {
+      "xyxy_px": [
+        32,
+        1363,
+        912,
+        1441
+      ],
+      "xywh_dp": [
+        13.98,
+        595.32,
+        384.36,
+        34.07
+      ]
+    },
+    "bottom_navigation": {
+      "xyxy_px": [
+        0,
+        1461,
+        941,
+        1594
+      ],
+      "xywh_dp": [
+        0.0,
+        638.12,
+        411.0,
+        58.09
+      ]
+    }
+  },
+  "method": "Card boundaries read from the original PNG at native resolution; edge uncertainty ±2px. Device density must be calibrated independently."
+}

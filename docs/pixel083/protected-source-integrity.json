@@ -1,0 +1,487 @@
+{
+  "baseline_commit": "6c2bf74b713f4febfda53019324af053298d56ef",
+  "protected_files": 80,
+  "all_identical": true,
+  "files": [
+    {
+      "path": "app/build.gradle.kts",
+      "baseline_sha256": "69fcddefb14cf20745877297be17bad319b2cf7c1565a4ebc81eec5791cd670a",
+      "candidate_sha256": "69fcddefb14cf20745877297be17bad319b2cf7c1565a4ebc81eec5791cd670a",
+      "identical": true
+    },
+    {
+      "path": "app/src/main/AndroidManifest.xml",
+      "baseline_sha256": "787b40c529d4fc42b06016a57fb58faa8cb86bb45d8b3d477d0be9375e948c3a",
+      "candidate_sha256": "787b40c529d4fc42b06016a57fb58faa8cb86bb45d8b3d477d0be9375e948c3a",
+      "identical": true
+    },
+    {
+      "path": "app/src/main/kotlin/ir/foodcost/app/AppContainer.kt",
+      "baseline_sha256": "c987bc89cae327959b02506e78d6242cb68c5f21528eccf045a55956a0caf12a",
+      "candidate_sha256": "c987bc89cae327959b02506e78d6242cb68c5f21528eccf045a55956a0caf12a",
+      "identical": true
+    },
+    {
+      "path": "app/src/main/kotlin/ir/foodcost/app/data/SqliteOperationStore.kt",
+      "baseline_sha256": "421baad84937743a131795ec488e3201446279027a356f88d686687cbc9e43a5",
+      "candidate_sha256": "421baad84937743a131795ec488e3201446279027a356f88d686687cbc9e43a5",
+      "identical": true
+    },
+    {
+      "path": "app/src/main/kotlin/ir/foodcost/app/ui/Navigation.kt",
+      "baseline_sha256": "d922cf3ce7e89fad29e95fdd8bc83a0ad70cd53d086d701c8e9093297411c21d",
+      "candidate_sha256": "d922cf3ce7e89fad29e95fdd8bc83a0ad70cd53d086d701c8e9093297411c21d",
+      "identical": true
+    },
+    {
+      "path": "build.gradle.kts",
+      "baseline_sha256": "e5b7dcbaa5996597304f52d08434b21f11a8a29415f592e7f5b74df9851c4d82",
+      "candidate_sha256": "e5b7dcbaa5996597304f52d08434b21f11a8a29415f592e7f5b74df9851c4d82",
+      "identical": true
+    },
+    {
+      "path": "core/build.gradle.kts",
+      "baseline_sha256": "6f682182a2747ab17245fa009abdcf02640611668363a8226435583d512d6623",
+      "candidate_sha256": "6f682182a2747ab17245fa009abdcf02640611668363a8226435583d512d6623",
+      "identical": true
+    },
+    {
+      "path": "core/src/main/kotlin/ir/foodcost/core/Decimals.kt",
+      "baseline_sha256": "834e92994152999387f6499459605fe90ecef876759a7c0bf9080ebc40def324",
+      "candidate_sha256": "834e92994152999387f6499459605fe90ecef876759a7c0bf9080ebc40def324",
+      "identical": true
+    },
+    {
+      "path": "core/src/main/kotlin/ir/foodcost/core/FoodCostCalculator.kt",
+      "baseline_sha256": "eda19e0524d2e6dfe0f61bd60b4765a53f0abaf7850ae0412ea7ac304c945981",
+      "candidate_sha256": "eda19e0524d2e6dfe0f61bd60b4765a53f0abaf7850ae0412ea7ac304c945981",
+      "identical": true
+    },
+    {
+      "path": "core/src/main/kotlin/ir/foodcost/core/costing/CostEngine.kt",
+      "baseline_sha256": "c9296ac348413930147395a9e286fc6cce59cfee491cad255f2d191495a926e3",
+      "candidate_sha256": "c9296ac348413930147395a9e286fc6cce59cfee491cad255f2d191495a926e3",
+      "identical": true
+    },
+    {
+      "path": "core/src/main/kotlin/ir/foodcost/core/costing/Costing.kt",
+      "baseline_sha256": "908c30625f200b1e2972889b931c309561bec1578aa6c628c643291f9f4c64ee",
+      "candidate_sha256": "908c30625f200b1e2972889b931c309561bec1578aa6c628c643291f9f4c64ee",
+      "identical": true
+    },
+    {
+      "path": "core/src/main/kotlin/ir/foodcost/core/model/Catalog.kt",
+      "baseline_sha256": "bc724407ccb368ab55008f01df8a373f2b5217d5e5164605acab1af21a713e15",
+      "candidate_sha256": "bc724407ccb368ab55008f01df8a373f2b5217d5e5164605acab1af21a713e15",
+      "identical": true
+    },
+    {
+      "path": "core/src/main/kotlin/ir/foodcost/core/model/Ingredient.kt",
+      "baseline_sha256": "4e819f7e05fedae3678f229e58a0108cd6eb0530df3f3ca5f3f44d148b44413e",
+      "candidate_sha256": "4e819f7e05fedae3678f229e58a0108cd6eb0530df3f3ca5f3f44d148b44413e",
+      "identical": true
+    },
+    {
+      "path": "core/src/main/kotlin/ir/foodcost/core/model/Recipe.kt",
+      "baseline_sha256": "e166260415a6ee292b6402ee319517f1c76105c0197d58b722296f567a3a4ec8",
+      "candidate_sha256": "e166260415a6ee292b6402ee319517f1c76105c0197d58b722296f567a3a4ec8",
+      "identical": true
+    },
+    {
+      "path": "core/src/main/kotlin/ir/foodcost/core/money/Money.kt",
+      "baseline_sha256": "baec97797d8441031cd0f03d5bd5d8b2ee9c2e61e30114d4a2c5ef9bf70c6b27",
+      "candidate_sha256": "baec97797d8441031cd0f03d5bd5d8b2ee9c2e61e30114d4a2c5ef9bf70c6b27",
+      "identical": true
+    },
+    {
+      "path": "core/src/main/kotlin/ir/foodcost/core/period/Period.kt",
+      "baseline_sha256": "0380a6cbfb2a7ccf6cba37c1b772075e757574cb29bb4a0541cec4714f6b17cc",
+      "candidate_sha256": "0380a6cbfb2a7ccf6cba37c1b772075e757574cb29bb4a0541cec4714f6b17cc",
+      "identical": true
+    },
+    {
+      "path": "core/src/main/kotlin/ir/foodcost/core/pricing/Pricing.kt",
+      "baseline_sha256": "997123449d1eb699109a078474ddfd392aa84b20ebc7ef0b62d2abefc03fc970",
+      "candidate_sha256": "997123449d1eb699109a078474ddfd392aa84b20ebc7ef0b62d2abefc03fc970",
+      "identical": true
+    },
+    {
+      "path": "core/src/main/kotlin/ir/foodcost/core/reports/Reports.kt",
+      "baseline_sha256": "1ae2f4f2253473d01bd0ee70705d44785198fe4de55fe482294b470b7b356b54",
+      "candidate_sha256": "1ae2f4f2253473d01bd0ee70705d44785198fe4de55fe482294b470b7b356b54",
+      "identical": true
+    },
+    {
+      "path": "core/src/main/kotlin/ir/foodcost/core/units/Units.kt",
+      "baseline_sha256": "2986c5deca111c9efd3b031a7f67e7b3bc7819a95dab9a614e5b87150878e36b",
+      "candidate_sha256": "2986c5deca111c9efd3b031a7f67e7b3bc7819a95dab9a614e5b87150878e36b",
+      "identical": true
+    },
+    {
+      "path": "core/src/test/kotlin/ir/foodcost/core/AcceptanceTest.kt",
+      "baseline_sha256": "710b49a8bdd9eb491d25c1cc065546df31b8426dbf4776a09d323cbb591ad7da",
+      "candidate_sha256": "710b49a8bdd9eb491d25c1cc065546df31b8426dbf4776a09d323cbb591ad7da",
+      "identical": true
+    },
+    {
+      "path": "core/src/test/kotlin/ir/foodcost/core/CorePricingAudit20261113Test.kt",
+      "baseline_sha256": "2be33d3cabb3f79145f04e748cb6a0eadf52bfe51d2038cb4c3872090cff0b6b",
+      "candidate_sha256": "2be33d3cabb3f79145f04e748cb6a0eadf52bfe51d2038cb4c3872090cff0b6b",
+      "identical": true
+    },
+    {
+      "path": "core/src/test/kotlin/ir/foodcost/core/CostEngineTest.kt",
+      "baseline_sha256": "10beb3accadc074c8f6df471a8b3d329c7f6b3a4b19b2924f09e8f7cdf877739",
+      "candidate_sha256": "10beb3accadc074c8f6df471a8b3d329c7f6b3a4b19b2924f09e8f7cdf877739",
+      "identical": true
+    },
+    {
+      "path": "core/src/test/kotlin/ir/foodcost/core/FinanceScenariosTest.kt",
+      "baseline_sha256": "e386b8e8547f5465e2e09b6c60db37e832631e4a452cd03dba9e15b0151adf5f",
+      "candidate_sha256": "e386b8e8547f5465e2e09b6c60db37e832631e4a452cd03dba9e15b0151adf5f",
+      "identical": true
+    },
+    {
+      "path": "core/src/test/kotlin/ir/foodcost/core/Fixtures.kt",
+      "baseline_sha256": "77145d9432e720493fdfedb2e4793820f8a8a300f269fb1226ccfbfd25d11a4b",
+      "candidate_sha256": "77145d9432e720493fdfedb2e4793820f8a8a300f269fb1226ccfbfd25d11a4b",
+      "identical": true
+    },
+    {
+      "path": "core/src/test/kotlin/ir/foodcost/core/PricingGuaranteeTest.kt",
+      "baseline_sha256": "0b23c47985a8a963d1420287719043d02873acca4bac029eb7b7792d00bb1973",
+      "candidate_sha256": "0b23c47985a8a963d1420287719043d02873acca4bac029eb7b7792d00bb1973",
+      "identical": true
+    },
+    {
+      "path": "core/src/test/kotlin/ir/foodcost/core/PricingScopeTest.kt",
+      "baseline_sha256": "544cc49c7f6555a4cbc4feb51b9dfdb3d501a4883ea6f0a646a7d685b2218545",
+      "candidate_sha256": "544cc49c7f6555a4cbc4feb51b9dfdb3d501a4883ea6f0a646a7d685b2218545",
+      "identical": true
+    },
+    {
+      "path": "core/src/test/kotlin/ir/foodcost/core/PricingTest.kt",
+      "baseline_sha256": "5b9b1fd141fe4aaef20887cfdfa065710c7194cc4f72c2dfc816b03dccfbd776",
+      "candidate_sha256": "5b9b1fd141fe4aaef20887cfdfa065710c7194cc4f72c2dfc816b03dccfbd776",
+      "identical": true
+    },
+    {
+      "path": "core/src/test/kotlin/ir/foodcost/core/ReportsTest.kt",
+      "baseline_sha256": "598d742bd13ab52854de9401eb9a254ffcbbe4bc5930cc86acbc8a5fadb793fd",
+      "candidate_sha256": "598d742bd13ab52854de9401eb9a254ffcbbe4bc5930cc86acbc8a5fadb793fd",
+      "identical": true
+    },
+    {
+      "path": "core/src/test/kotlin/ir/foodcost/core/SpecAcceptanceTest.kt",
+      "baseline_sha256": "ab376b1e75ffd6840612b1cc34298e1666ccb87ecacd1f0124a4ef18ab162219",
+      "candidate_sha256": "ab376b1e75ffd6840612b1cc34298e1666ccb87ecacd1f0124a4ef18ab162219",
+      "identical": true
+    },
+    {
+      "path": "data/build.gradle.kts",
+      "baseline_sha256": "39d5d6f64cd3ec149245bb28088363e7d6c12c29ecf8081fad912036a197ce20",
+      "candidate_sha256": "39d5d6f64cd3ec149245bb28088363e7d6c12c29ecf8081fad912036a197ce20",
+      "identical": true
+    },
+    {
+      "path": "data/src/main/kotlin/ir/foodcost/data/clock/HybridClock.kt",
+      "baseline_sha256": "1dbcc4109bdffdb02d8cad2310bd8cd597352e6b627cbc0edab32184470e00b9",
+      "candidate_sha256": "1dbcc4109bdffdb02d8cad2310bd8cd597352e6b627cbc0edab32184470e00b9",
+      "identical": true
+    },
+    {
+      "path": "data/src/main/kotlin/ir/foodcost/data/json/Json.kt",
+      "baseline_sha256": "83c4234ab8e68edcb1a1f8a97d9f15a454f702ff834857c1ccfcb559130cb25e",
+      "candidate_sha256": "83c4234ab8e68edcb1a1f8a97d9f15a454f702ff834857c1ccfcb559130cb25e",
+      "identical": true
+    },
+    {
+      "path": "data/src/main/kotlin/ir/foodcost/data/ledger/Ledger.kt",
+      "baseline_sha256": "4ea351e3719931c4e35f60f25a649a48d99653e6debbcced67e4d0a9d3d886d1",
+      "candidate_sha256": "4ea351e3719931c4e35f60f25a649a48d99653e6debbcced67e4d0a9d3d886d1",
+      "identical": true
+    },
+    {
+      "path": "data/src/main/kotlin/ir/foodcost/data/ledger/LedgerState.kt",
+      "baseline_sha256": "b8f4c85616acb2802ae711cb156ee51c4a6028841c8d0e6180391252b1832657",
+      "candidate_sha256": "b8f4c85616acb2802ae711cb156ee51c4a6028841c8d0e6180391252b1832657",
+      "identical": true
+    },
+    {
+      "path": "data/src/main/kotlin/ir/foodcost/data/ops/BackupSeal.kt",
+      "baseline_sha256": "e8a7ab6e09795e153d24a1cc8cba6b90b37b0cf25e1b3c7cc95a892fa8fced1d",
+      "candidate_sha256": "e8a7ab6e09795e153d24a1cc8cba6b90b37b0cf25e1b3c7cc95a892fa8fced1d",
+      "identical": true
+    },
+    {
+      "path": "data/src/main/kotlin/ir/foodcost/data/ops/Operation.kt",
+      "baseline_sha256": "e558dd240880d538487c289e2e38c7ddcdf070bb7e2fda6d49ff5bab23002d0e",
+      "candidate_sha256": "e558dd240880d538487c289e2e38c7ddcdf070bb7e2fda6d49ff5bab23002d0e",
+      "identical": true
+    },
+    {
+      "path": "data/src/main/kotlin/ir/foodcost/data/ops/OperationCodec.kt",
+      "baseline_sha256": "79c65020db2e5e4d30dda15dbd334e81237d827c80dc022f099f6d7f51409b64",
+      "candidate_sha256": "79c65020db2e5e4d30dda15dbd334e81237d827c80dc022f099f6d7f51409b64",
+      "identical": true
+    },
+    {
+      "path": "data/src/main/kotlin/ir/foodcost/data/store/OperationStore.kt",
+      "baseline_sha256": "751749b10d7f73cce64cdbab280038987dfc1e93d8286a2d66efa2c2a5fd7a47",
+      "candidate_sha256": "751749b10d7f73cce64cdbab280038987dfc1e93d8286a2d66efa2c2a5fd7a47",
+      "identical": true
+    },
+    {
+      "path": "data/src/main/kotlin/ir/foodcost/data/store/StoredRows.kt",
+      "baseline_sha256": "c95d8bc853fea34f3a3535eb7f097253c164a243a634fd4f086a205dfafac9ae",
+      "candidate_sha256": "c95d8bc853fea34f3a3535eb7f097253c164a243a634fd4f086a205dfafac9ae",
+      "identical": true
+    },
+    {
+      "path": "data/src/test/kotlin/ir/foodcost/data/BackupSafetyTest.kt",
+      "baseline_sha256": "cd05bb811e35d71b346131af3e6930295a2b9eb2e3aef37f842556af64a5ca51",
+      "candidate_sha256": "cd05bb811e35d71b346131af3e6930295a2b9eb2e3aef37f842556af64a5ca51",
+      "identical": true
+    },
+    {
+      "path": "data/src/test/kotlin/ir/foodcost/data/ClosedFiguresTest.kt",
+      "baseline_sha256": "6e8d9a05c4494eee0212be6349d6caa65554802afd4000a01a46a76199a50b8b",
+      "candidate_sha256": "6e8d9a05c4494eee0212be6349d6caa65554802afd4000a01a46a76199a50b8b",
+      "identical": true
+    },
+    {
+      "path": "data/src/test/kotlin/ir/foodcost/data/ClosedPeriodPropertyTest.kt",
+      "baseline_sha256": "85f6eceee696bdb527735ab04fb89fb39d611a22be4e3fd99da5a8c79c1c14dd",
+      "candidate_sha256": "85f6eceee696bdb527735ab04fb89fb39d611a22be4e3fd99da5a8c79c1c14dd",
+      "identical": true
+    },
+    {
+      "path": "data/src/test/kotlin/ir/foodcost/data/FinanceScenariosLedgerTest.kt",
+      "baseline_sha256": "920d1b06b1b1064e7401b7778c2d7b5cf871c0c2b42fef2ce9c9247b9c5c4c48",
+      "candidate_sha256": "920d1b06b1b1064e7401b7778c2d7b5cf871c0c2b42fef2ce9c9247b9c5c4c48",
+      "identical": true
+    },
+    {
+      "path": "data/src/test/kotlin/ir/foodcost/data/JsonAndClockTest.kt",
+      "baseline_sha256": "07de96b92a1f979f58ed1da33f56a672e2a286059332cfee7b1d97043dbc61fd",
+      "candidate_sha256": "07de96b92a1f979f58ed1da33f56a672e2a286059332cfee7b1d97043dbc61fd",
+      "identical": true
+    },
+    {
+      "path": "data/src/test/kotlin/ir/foodcost/data/LedgerTest.kt",
+      "baseline_sha256": "9a3efb030e7f3fa953f968cdc806117c0bb7185ee4da85a5349544bdede65958",
+      "candidate_sha256": "9a3efb030e7f3fa953f968cdc806117c0bb7185ee4da85a5349544bdede65958",
+      "identical": true
+    },
+    {
+      "path": "data/src/test/kotlin/ir/foodcost/data/Legacy074.kt",
+      "baseline_sha256": "eaa20d18a5eefb5817939bcac56a925e4af6e0ec8c5c0994293295f6d351a9ea",
+      "candidate_sha256": "eaa20d18a5eefb5817939bcac56a925e4af6e0ec8c5c0994293295f6d351a9ea",
+      "identical": true
+    },
+    {
+      "path": "data/src/test/kotlin/ir/foodcost/data/Legacy074ReadTest.kt",
+      "baseline_sha256": "91f9240d25cfaca9734962d165ff8cf94f266f7f23106ab47398e203eda2f986",
+      "candidate_sha256": "91f9240d25cfaca9734962d165ff8cf94f266f7f23106ab47398e203eda2f986",
+      "identical": true
+    },
+    {
+      "path": "data/src/test/kotlin/ir/foodcost/data/OperationCodecTest.kt",
+      "baseline_sha256": "0741ade41072dbf8a940eb44fe2ab8ae9b0d0b040308c509106ccd0a59ee5809",
+      "candidate_sha256": "0741ade41072dbf8a940eb44fe2ab8ae9b0d0b040308c509106ccd0a59ee5809",
+      "identical": true
+    },
+    {
+      "path": "data/src/test/kotlin/ir/foodcost/data/PricingScopeCodecTest.kt",
+      "baseline_sha256": "9581f83554185acf2422f1573f9bb5f707c7e7a0bf0306ea4839595ed3ca7df8",
+      "candidate_sha256": "9581f83554185acf2422f1573f9bb5f707c7e7a0bf0306ea4839595ed3ca7df8",
+      "identical": true
+    },
+    {
+      "path": "data/src/test/kotlin/ir/foodcost/data/TestKit.kt",
+      "baseline_sha256": "ba0edadb095151ff59db8bbb748bb3ca8d681e22d4a2ac2f0ca5210b7624cb18",
+      "candidate_sha256": "ba0edadb095151ff59db8bbb748bb3ca8d681e22d4a2ac2f0ca5210b7624cb18",
+      "identical": true
+    },
+    {
+      "path": "gradle.properties",
+      "baseline_sha256": "227fddd08c706f2fbd8ec825a1b4febe10f786c322fad27fefe115cb098b51e0",
+      "candidate_sha256": "227fddd08c706f2fbd8ec825a1b4febe10f786c322fad27fefe115cb098b51e0",
+      "identical": true
+    },
+    {
+      "path": "presentation/build.gradle.kts",
+      "baseline_sha256": "190a3ead6de05f76736669f411657e51bcb6495df3e27f9bba5f6a2489f24f77",
+      "candidate_sha256": "190a3ead6de05f76736669f411657e51bcb6495df3e27f9bba5f6a2489f24f77",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/main/kotlin/ir/foodcost/presentation/BackupTexts.kt",
+      "baseline_sha256": "f6e766bab471ee2c4517fe5265c2932d61d8e502c3e81bde0d7e0e9756788355",
+      "candidate_sha256": "f6e766bab471ee2c4517fe5265c2932d61d8e502c3e81bde0d7e0e9756788355",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/main/kotlin/ir/foodcost/presentation/DataSafety.kt",
+      "baseline_sha256": "7ee84e1a9de5eb4225cf9db90f6164ebb8c7c103ff3fbdcf63ba29b55604f853",
+      "candidate_sha256": "7ee84e1a9de5eb4225cf9db90f6164ebb8c7c103ff3fbdcf63ba29b55604f853",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/main/kotlin/ir/foodcost/presentation/Days.kt",
+      "baseline_sha256": "6dbd3255e83d4e15a144c78b77c858bacb647d19d6ca24ef16638fdac580aad3",
+      "candidate_sha256": "6dbd3255e83d4e15a144c78b77c858bacb647d19d6ca24ef16638fdac580aad3",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/main/kotlin/ir/foodcost/presentation/Forms.kt",
+      "baseline_sha256": "8be09b6fb51e8c5531a6f9c1f127e4ff6e9002a099f37fafdcc7e11253c20237",
+      "candidate_sha256": "8be09b6fb51e8c5531a6f9c1f127e4ff6e9002a099f37fafdcc7e11253c20237",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/main/kotlin/ir/foodcost/presentation/Help.kt",
+      "baseline_sha256": "492a371017ab4005b47fc8e6ef8f77170c4ad9353cb92df8c1d38743d7e5e6a1",
+      "candidate_sha256": "492a371017ab4005b47fc8e6ef8f77170c4ad9353cb92df8c1d38743d7e5e6a1",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/main/kotlin/ir/foodcost/presentation/JalaliDate.kt",
+      "baseline_sha256": "0b283af58d464e65eb03073e604f2d6bd30b92d994d8a538acc7352e103c7f36",
+      "candidate_sha256": "0b283af58d464e65eb03073e604f2d6bd30b92d994d8a538acc7352e103c7f36",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/main/kotlin/ir/foodcost/presentation/Labels.kt",
+      "baseline_sha256": "a663e22704e4e26c4e71cccce3fe73e29755d262257842f6ec87ddb2ee6de668",
+      "candidate_sha256": "a663e22704e4e26c4e71cccce3fe73e29755d262257842f6ec87ddb2ee6de668",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/main/kotlin/ir/foodcost/presentation/PricingPercent.kt",
+      "baseline_sha256": "a90612f93776eeb6614855e5571382c8f0b062d3155a8d53beca1902ebc2350f",
+      "candidate_sha256": "a90612f93776eeb6614855e5571382c8f0b062d3155a8d53beca1902ebc2350f",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/main/kotlin/ir/foodcost/presentation/QuickCalculator.kt",
+      "baseline_sha256": "0bd2114c20e6d7a5eadf2ae99e1979f435f4708892e2512764affd352e32f65d",
+      "candidate_sha256": "0bd2114c20e6d7a5eadf2ae99e1979f435f4708892e2512764affd352e32f65d",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/main/kotlin/ir/foodcost/presentation/QuickDrafts.kt",
+      "baseline_sha256": "8bc03d08d8b2f3abb21b76ceba4332210a91caab9e9f9de9187423353263ab81",
+      "candidate_sha256": "8bc03d08d8b2f3abb21b76ceba4332210a91caab9e9f9de9187423353263ab81",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/main/kotlin/ir/foodcost/presentation/Screens.kt",
+      "baseline_sha256": "735b9e97e74b0edfa762ef1ace9ad4dd87fd1e62cf813a1c77dc67236b2ae745",
+      "candidate_sha256": "735b9e97e74b0edfa762ef1ace9ad4dd87fd1e62cf813a1c77dc67236b2ae745",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/main/kotlin/ir/foodcost/presentation/Sections.kt",
+      "baseline_sha256": "ba03c4ae2ceffacf7ea5227665e6e6c8b9ea13dcce4cd2d7452949502b1d7118",
+      "candidate_sha256": "ba03c4ae2ceffacf7ea5227665e6e6c8b9ea13dcce4cd2d7452949502b1d7118",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/main/kotlin/ir/foodcost/presentation/Text.kt",
+      "baseline_sha256": "d4439a9ef27ce2d90dcd0dcb0750241e27ccd79b37f691b04c38e0e552dfb721",
+      "candidate_sha256": "d4439a9ef27ce2d90dcd0dcb0750241e27ccd79b37f691b04c38e0e552dfb721",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/test/kotlin/ir/foodcost/presentation/BackupTextsTest.kt",
+      "baseline_sha256": "f6f5fcb7ebaf666d89a45511528ef5a05070fa785d3ac69e52c810bb48aa05af",
+      "candidate_sha256": "f6f5fcb7ebaf666d89a45511528ef5a05070fa785d3ac69e52c810bb48aa05af",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/test/kotlin/ir/foodcost/presentation/CalculatorScopeTest.kt",
+      "baseline_sha256": "62a43f87d8e75ef1e215ac3b48256e63d68559cf05620a67af43edf9190e638f",
+      "candidate_sha256": "62a43f87d8e75ef1e215ac3b48256e63d68559cf05620a67af43edf9190e638f",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/test/kotlin/ir/foodcost/presentation/CategoryConversionTest.kt",
+      "baseline_sha256": "c428b5853ad22b525386f43188c317be82e88b8eb5333589ccf19fa8664fc376",
+      "candidate_sha256": "c428b5853ad22b525386f43188c317be82e88b8eb5333589ccf19fa8664fc376",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/test/kotlin/ir/foodcost/presentation/DataSafetyTest.kt",
+      "baseline_sha256": "b08635bbc5aa6410344a48eb14618d41ce6733171a388ab52acd290fc7edc157",
+      "candidate_sha256": "b08635bbc5aa6410344a48eb14618d41ce6733171a388ab52acd290fc7edc157",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/test/kotlin/ir/foodcost/presentation/DaysTest.kt",
+      "baseline_sha256": "1506cc690c560dfbeca601ef7811745bcd5af46a6867d9a4b8e750e1180641d5",
+      "candidate_sha256": "1506cc690c560dfbeca601ef7811745bcd5af46a6867d9a4b8e750e1180641d5",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/test/kotlin/ir/foodcost/presentation/FormsTest.kt",
+      "baseline_sha256": "5bbcd0eab04abd159e6be3c30c6391199957d0376fa5563a3c44ff35ee264e64",
+      "candidate_sha256": "5bbcd0eab04abd159e6be3c30c6391199957d0376fa5563a3c44ff35ee264e64",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/test/kotlin/ir/foodcost/presentation/HelpTest.kt",
+      "baseline_sha256": "9a8ba07d1c73e6d206ee1f8a1388fa064390c4cb193ddeaa6d48cd1a268e14cc",
+      "candidate_sha256": "9a8ba07d1c73e6d206ee1f8a1388fa064390c4cb193ddeaa6d48cd1a268e14cc",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/test/kotlin/ir/foodcost/presentation/JalaliDateTest.kt",
+      "baseline_sha256": "43c1e22556b6a775279a390f2ce2c916aea85900ddca0f544a877d5e007e46c0",
+      "candidate_sha256": "43c1e22556b6a775279a390f2ce2c916aea85900ddca0f544a877d5e007e46c0",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/test/kotlin/ir/foodcost/presentation/PresentationPricingAudit20261113Test.kt",
+      "baseline_sha256": "15d9e38c3ece730a7fcd7d0873567e8e5ff60c5a94c3929799b092c3efe074b0",
+      "candidate_sha256": "15d9e38c3ece730a7fcd7d0873567e8e5ff60c5a94c3929799b092c3efe074b0",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/test/kotlin/ir/foodcost/presentation/QuickCalculatorTest.kt",
+      "baseline_sha256": "72e2c4c2f67cd2104c5413475d3a42a681785f21caacce2406626300c84098d8",
+      "candidate_sha256": "72e2c4c2f67cd2104c5413475d3a42a681785f21caacce2406626300c84098d8",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/test/kotlin/ir/foodcost/presentation/ScreensTest.kt",
+      "baseline_sha256": "d0962c672cca75e955a32e2540e9274dbde88201433d4d8cdcaa3039cfc1238c",
+      "candidate_sha256": "d0962c672cca75e955a32e2540e9274dbde88201433d4d8cdcaa3039cfc1238c",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/test/kotlin/ir/foodcost/presentation/SettingsConversionTest.kt",
+      "baseline_sha256": "496ece9c5269f87d933c19275e8e919e4aa485cb8915585890d00eb758ea97cb",
+      "candidate_sha256": "496ece9c5269f87d933c19275e8e919e4aa485cb8915585890d00eb758ea97cb",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/test/kotlin/ir/foodcost/presentation/SettingsScopeTest.kt",
+      "baseline_sha256": "95fe48b2c65179e5d9983ae6ffe2b9aa4516269a7f62ab672e466cf08f71ef8e",
+      "candidate_sha256": "95fe48b2c65179e5d9983ae6ffe2b9aa4516269a7f62ab672e466cf08f71ef8e",
+      "identical": true
+    },
+    {
+      "path": "presentation/src/test/kotlin/ir/foodcost/presentation/TextTest.kt",
+      "baseline_sha256": "86efbdc9d9cefb55b32a9d8948655e50c8f1c505e801e25e8206d8a3e9058be3",
+      "candidate_sha256": "86efbdc9d9cefb55b32a9d8948655e50c8f1c505e801e25e8206d8a3e9058be3",
+      "identical": true
+    },
+    {
+      "path": "settings.gradle.kts",
+      "baseline_sha256": "5b7bf37cc9140434c4c5caa9d09cc8ee98bc31ca12b9836a02ce22b7676f8a11",
+      "candidate_sha256": "5b7bf37cc9140434c4c5caa9d09cc8ee98bc31ca12b9836a02ce22b7676f8a11",
+      "identical": true
+    }
+  ]
+}

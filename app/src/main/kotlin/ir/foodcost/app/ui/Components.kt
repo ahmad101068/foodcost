@@ -9,19 +9,18 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -34,19 +33,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -67,17 +61,17 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.isSpecified
+import androidx.compose.ui.unit.sp
 import ir.foodcost.app.ui.theme.displayColors
 import ir.foodcost.app.ui.theme.statusColors
 import ir.foodcost.core.pricing.PriceStatus
@@ -93,6 +87,7 @@ fun TabScaffold(
     topActions: @Composable RowScope.() -> Unit = {},
     floatingActionButton: @Composable () -> Unit = {},
     navigationIcon: @Composable () -> Unit = {},
+    bottomActions: @Composable () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
     var snackbarHeight by remember { mutableIntStateOf(0) }
@@ -101,21 +96,36 @@ fun TabScaffold(
     Scaffold(
         topBar = {
             Column {
-                TopAppBar(expandedHeight = 56.dp, title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) }, navigationIcon = navigationIcon, actions = topActions)
+                FoodCostAppBar(title, nav, topActions, navigationIcon)
                 UnreadableWarning(actions, nav)
                 BackupReminderLine(actions, nav)
             }
         },
-        bottomBar = { ReferenceBottomBar(nav, actions) },
+        bottomBar = {
+            Column {
+                bottomActions()
+                ReferenceBottomBar(nav, actions)
+            }
+        },
         floatingActionButton = floatingActionButton,
-        snackbarHost = { SnackbarHost(actions.snackbar, Modifier.onSizeChanged { snackbarHeight = it.height }) },
+        snackbarHost = {
+            SnackbarHost(actions.snackbar, Modifier.onSizeChanged { snackbarHeight = it.height })
+        },
         content = { padding ->
             // A snackbar must never cover a card or Save control, including with 2x text.
-            val extra = with(density) { if (actions.snackbar.currentSnackbarData != null) snackbarHeight.toDp() else 0.dp }
-            content(PaddingValues(
-                start = padding.calculateStartPadding(direction), end = padding.calculateEndPadding(direction),
-                top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + extra,
-            ))
+            val extra =
+                with(density) {
+                    if (actions.snackbar.currentSnackbarData != null) snackbarHeight.toDp()
+                    else 0.dp
+                }
+            content(
+                PaddingValues(
+                    start = padding.calculateStartPadding(direction),
+                    end = padding.calculateEndPadding(direction),
+                    top = padding.calculateTopPadding(),
+                    bottom = padding.calculateBottomPadding() + extra,
+                )
+            )
         },
     )
 }
@@ -130,10 +140,10 @@ private fun UnreadableWarning(actions: AppActions, nav: Navigator) {
     if (count == 0) return
     Surface(
         color = MaterialTheme.colorScheme.errorContainer,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClickLabel = "دیدن راه‌ها در پشتیبان") { nav.tab(Tab.SETTINGS) }
-            .testTag("unreadable-warning"),
+        modifier =
+            Modifier.fillMaxWidth()
+                .clickable(onClickLabel = "دیدن راه‌ها در پشتیبان") { nav.tab(Tab.SETTINGS) }
+                .testTag("unreadable-warning"),
     ) {
         Text(
             BackupTexts.LOCKED_BANNER,
@@ -151,9 +161,16 @@ private fun UnreadableWarning(actions: AppActions, nav: Navigator) {
 @Composable
 private fun BackupReminderLine(actions: AppActions, nav: Navigator) {
     val text = actions.backupReminder ?: return
-    Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth().testTag("backup-reminder")) {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = Modifier.fillMaxWidth().testTag("backup-reminder"),
+    ) {
         Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 6.dp)) {
-            Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+            Text(
+                text,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
             Row(Modifier.align(Alignment.End)) {
                 TextButton(onClick = { actions.snoozeBackupReminder() }) { Text("بعداً") }
                 TextButton(onClick = { nav.tab(Tab.SETTINGS) }) { Text("رفتن به پشتیبان") }
@@ -192,20 +209,30 @@ fun DetailScaffold(
             }
         },
         floatingActionButton = floatingActionButton,
-        snackbarHost = { SnackbarHost(actions.snackbar, Modifier.onSizeChanged { snackbarHeight = it.height }) },
+        snackbarHost = {
+            SnackbarHost(actions.snackbar, Modifier.onSizeChanged { snackbarHeight = it.height })
+        },
         content = { padding ->
-            val extra = with(density) { if (actions.snackbar.currentSnackbarData != null) snackbarHeight.toDp() else 0.dp }
-            content(PaddingValues(
-                start = padding.calculateStartPadding(direction), end = padding.calculateEndPadding(direction),
-                top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + extra,
-            ))
+            val extra =
+                with(density) {
+                    if (actions.snackbar.currentSnackbarData != null) snackbarHeight.toDp()
+                    else 0.dp
+                }
+            content(
+                PaddingValues(
+                    start = padding.calculateStartPadding(direction),
+                    end = padding.calculateEndPadding(direction),
+                    top = padding.calculateTopPadding(),
+                    bottom = padding.calculateBottomPadding() + extra,
+                )
+            )
         },
     )
 }
 
 /**
- * The floating "add" button. Its label stays in the accessibility tree, so screen readers
- * (and tests) can find it; the icon-and-text variant of the Material button hides the text.
+ * The floating "add" button. Its label stays in the accessibility tree, so screen readers (and
+ * tests) can find it; the icon-and-text variant of the Material button hides the text.
  */
 @Composable
 fun AddButton(text: String, onClick: () -> Unit) {
@@ -219,7 +246,11 @@ fun AddButton(text: String, onClick: () -> Unit) {
 /** An add action in the header leaves the list's entire touch area clear. */
 @Composable
 fun HeaderAddButton(text: String, onClick: () -> Unit) {
-    Button(onClick = onClick, shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
+    Button(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp),
+    ) {
         Icon(Icons.Filled.Add, contentDescription = null)
         Spacer(Modifier.width(4.dp))
         Text(text, style = MaterialTheme.typography.labelLarge)
@@ -228,24 +259,26 @@ fun HeaderAddButton(text: String, onClick: () -> Unit) {
 
 /** White cards on the paper background: calculator rows, dishes, prices and settings. */
 @Composable
-fun whiteCardColors(): CardColors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
+fun whiteCardColors(): CardColors =
+    CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
 
 /**
- * The lapis window that shows a cost: the calculator's display and the top of a recipe. Inside
- * it, text is light, the result color is saffron (as `primary`) and dividers and buttons follow.
+ * The lapis window that shows a cost: the calculator's display and the top of a recipe. Inside it,
+ * text is light, the result color is saffron (as `primary`) and dividers and buttons follow.
  */
 @Composable
 fun DisplayPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val display = displayColors()
-    val scheme = MaterialTheme.colorScheme.copy(
-        primary = display.result,
-        onPrimary = display.container,
-        onSurface = display.value,
-        onSurfaceVariant = display.label,
-        surfaceVariant = display.divider,
-        outline = display.label,
-        outlineVariant = display.divider,
-    )
+    val scheme =
+        MaterialTheme.colorScheme.copy(
+            primary = display.result,
+            onPrimary = display.container,
+            onSurface = display.value,
+            onSurfaceVariant = display.label,
+            surfaceVariant = display.divider,
+            outline = display.label,
+            outlineVariant = display.divider,
+        )
     MaterialTheme(colorScheme = scheme) {
         Surface(
             modifier = modifier.fillMaxWidth(),
@@ -263,12 +296,43 @@ fun DisplayPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope
 }
 
 @Composable
-fun StatusChip(status: PriceStatus, label: String, modifier: Modifier = Modifier, prominent: Boolean = false) {
+fun StatusChip(
+    status: PriceStatus,
+    label: String,
+    modifier: Modifier = Modifier,
+    prominent: Boolean = false,
+) {
     val colors = statusColors(status)
-    Surface(modifier = modifier, shape = RoundedCornerShape(50), color = colors.container, contentColor = colors.content) {
-        Row(Modifier.padding(horizontal = if (prominent) 14.dp else 9.dp, vertical = if (prominent) 4.dp else 3.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (!prominent && status in listOf(PriceStatus.OK, PriceStatus.NEAR, PriceStatus.UNDER)) Icon(if (status == PriceStatus.OK) ReferenceIcons.check else ReferenceIcons.warning, contentDescription = null, modifier = Modifier.size(14.dp))
-            Text(label, style = if (prominent) MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp) else MaterialTheme.typography.labelLarge)
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(50),
+        color = colors.container,
+        contentColor = colors.content,
+    ) {
+        Row(
+            Modifier.padding(
+                horizontal = if (prominent) 14.dp else 9.dp,
+                vertical = if (prominent) 2.dp else 3.dp,
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (!prominent && status in listOf(PriceStatus.OK, PriceStatus.NEAR, PriceStatus.UNDER))
+                Icon(
+                    if (status == PriceStatus.OK) ReferenceIcons.check else ReferenceIcons.warning,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                )
+            Text(
+                label,
+                style =
+                    if (prominent)
+                        MaterialTheme.typography.titleSmall.copy(
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp,
+                        )
+                    else MaterialTheme.typography.labelLarge,
+            )
         }
     }
 }
@@ -314,7 +378,12 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
  * the phone's largest text: a number with its last digits cut off reads as another number.
  */
 @Composable
-fun FitText(text: String, style: TextStyle, modifier: Modifier = Modifier, color: Color = Color.Unspecified) {
+fun FitText(
+    text: String,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+) {
     val width = LocalConfiguration.current.screenWidthDp
     // Starts at the full size for each new amount; an amount that fits never changes size.
     var scale by remember(text, style, width) { mutableFloatStateOf(1f) }
@@ -322,24 +391,32 @@ fun FitText(text: String, style: TextStyle, modifier: Modifier = Modifier, color
         text,
         modifier = modifier,
         color = color,
-        style = if (style.fontSize.isSpecified) style.copy(fontSize = style.fontSize * scale) else style,
+        style =
+            if (style.fontSize.isSpecified) style.copy(fontSize = style.fontSize * scale)
+            else style,
         maxLines = 1,
         softWrap = false,
         onTextLayout = { layout ->
-            if (layout.didOverflowWidth && scale > MIN_FIT_SCALE) scale = (scale * FIT_STEP).coerceAtLeast(MIN_FIT_SCALE)
+            if (layout.didOverflowWidth && scale > MIN_FIT_SCALE)
+                scale = (scale * FIT_STEP).coerceAtLeast(MIN_FIT_SCALE)
         },
     )
 }
 
 private const val FIT_STEP = 0.9f
-private const val MIN_FIT_SCALE = 0.5f
+private const val MIN_FIT_SCALE = 0.85f
 
 /**
  * An amount with its unit, as the screens write it (۳٬۹۲۹٬۴۵۰ ریال): the number stays whole on one
  * line, smaller if it must, and the unit goes beside it or below it. Anything else is plain text.
  */
 @Composable
-fun AmountText(value: String, style: TextStyle, modifier: Modifier = Modifier, color: Color = Color.Unspecified) {
+fun AmountText(
+    value: String,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+) {
     val parts = AMOUNT.matchEntire(value)?.groupValues
     if (parts == null) {
         Text(value, style = style, color = color, modifier = modifier)
@@ -355,10 +432,22 @@ private val AMOUNT = Regex("""([+\-−\u200E\u200F]*[۰-۹0-9][۰-۹0-9٬٫,.]*)
 
 /** A small caption over a value. An [amount] keeps its number whole, as [AmountText] does. */
 @Composable
-fun LabeledValue(label: String, value: String, modifier: Modifier = Modifier, emphasized: Boolean = false, amount: Boolean = false) {
+fun LabeledValue(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    emphasized: Boolean = false,
+    amount: Boolean = false,
+) {
     Column(modifier) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        val style = if (emphasized) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        val style =
+            if (emphasized) MaterialTheme.typography.titleMedium
+            else MaterialTheme.typography.bodyMedium
         if (amount) AmountText(value, style) else Text(value, style = style)
     }
 }
@@ -387,10 +476,13 @@ fun TextInput(
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     // A long number gets smaller rather than losing its first digits past the edge of the field.
-    val textStyle = remember(value, suffix, width, base, number, density) {
-        val room = width - with(density) { FIELD_PADDING.roundToPx() }
-        if (number && width > 0) fitted(measurer, DigitGroups.of(value)?.shown ?: value, suffix, base, room) else base
-    }
+    val textStyle =
+        remember(value, suffix, width, base, number, density) {
+            val room = width - with(density) { FIELD_PADDING.roundToPx() }
+            if (number && width > 0)
+                fitted(measurer, DigitGroups.of(value)?.shown ?: value, suffix, base, room)
+            else base
+        }
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -398,27 +490,33 @@ fun TextInput(
         modifier = modifier.fillMaxWidth().onSizeChanged { width = it.width },
         textStyle = textStyle,
         shape = RoundedCornerShape(14.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-        ),
+        colors =
+            OutlinedTextFieldDefaults.colors(
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+            ),
         singleLine = true,
         isError = error != null,
-        suffix = if (suffix != null) {
-            { Text(suffix) }
-        } else {
-            null
-        },
-        supportingText = if (message != null) {
-            { Text(message) }
-        } else {
-            null
-        },
-        keyboardOptions = KeyboardOptions(
-            keyboardType = if (number) KeyboardType.Decimal else KeyboardType.Text,
-            imeAction = imeAction,
-        ),
-        keyboardActions = if (onImeAction != null) KeyboardActions(onAny = { onImeAction() }) else KeyboardActions.Default,
+        suffix =
+            if (suffix != null) {
+                { Text(suffix) }
+            } else {
+                null
+            },
+        supportingText =
+            if (message != null) {
+                { Text(message) }
+            } else {
+                null
+            },
+        keyboardOptions =
+            KeyboardOptions(
+                keyboardType = if (number) KeyboardType.Decimal else KeyboardType.Text,
+                imeAction = imeAction,
+            ),
+        keyboardActions =
+            if (onImeAction != null) KeyboardActions(onAny = { onImeAction() })
+            else KeyboardActions.Default,
         visualTransformation = if (number) GroupDigits else VisualTransformation.None,
     )
 }
@@ -427,12 +525,26 @@ fun TextInput(
 private val FIELD_PADDING = 40.dp
 
 /** [style], made smaller until [text] and its [suffix] fit in [room] pixels. */
-internal fun fitted(measurer: TextMeasurer, text: String, suffix: String?, style: TextStyle, room: Int): TextStyle {
+internal fun fitted(
+    measurer: TextMeasurer,
+    text: String,
+    suffix: String?,
+    style: TextStyle,
+    room: Int,
+): TextStyle {
     if (!style.fontSize.isSpecified) return style
-    val available = room - (suffix?.let { measurer.measure(it, style = style, softWrap = false, maxLines = 1).size.width } ?: 0)
+    val available =
+        room -
+            (suffix?.let {
+                measurer.measure(it, style = style, softWrap = false, maxLines = 1).size.width
+            } ?: 0)
     var scale = 1f
     var current = style
-    while (scale > MIN_FIT_SCALE && measurer.measure(text, style = current, softWrap = false, maxLines = 1).size.width > available) {
+    while (
+        scale > MIN_FIT_SCALE &&
+            measurer.measure(text, style = current, softWrap = false, maxLines = 1).size.width >
+                available
+    ) {
         scale = (scale * FIT_STEP).coerceAtLeast(MIN_FIT_SCALE)
         current = style.copy(fontSize = style.fontSize * scale)
     }
@@ -442,7 +554,8 @@ internal fun fitted(measurer: TextMeasurer, text: String, suffix: String?, style
 /** Shows 1450000 as 1٬450٬000 while it is typed; the typed text itself is left alone. */
 internal object GroupDigits : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
-        val groups = DigitGroups.of(text.text) ?: return TransformedText(text, OffsetMapping.Identity)
+        val groups =
+            DigitGroups.of(text.text) ?: return TransformedText(text, OffsetMapping.Identity)
         return TransformedText(
             AnnotatedString(groups.shown),
             object : OffsetMapping {
@@ -455,10 +568,39 @@ internal object GroupDigits : VisualTransformation {
 }
 
 @Composable
-fun SearchField(query: String, onQueryChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, onOptions: (() -> Unit)? = null) {
-    ReferenceField(query, onQueryChange, placeholder, modifier.padding(vertical = 4.dp), height = 40.dp,
-        leading = { Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp)) },
-        trailing = onOptions?.let { action -> { Icon(ReferenceIcons.sliders, contentDescription = "فیلتر و دسته‌بندی", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp).clickable(onClick = action)) } })
+fun SearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    onOptions: (() -> Unit)? = null,
+) {
+    ReferenceField(
+        query,
+        onQueryChange,
+        placeholder,
+        modifier,
+        height = 38.dp,
+        leading = {
+            Icon(
+                Icons.Filled.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(22.dp),
+            )
+        },
+        trailing =
+            onOptions?.let { action ->
+                {
+                    Icon(
+                        ReferenceIcons.sliders,
+                        contentDescription = "فیلتر و دسته‌بندی",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(24.dp).clickable(onClick = action),
+                    )
+                }
+            },
+    )
 }
 
 /** A choice among a few short options, side by side. */
@@ -495,9 +637,16 @@ fun <T> ChoiceChips(
     modifier: Modifier = Modifier,
     onSelect: (T) -> Unit,
 ) {
-    FlowRow(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         options.forEach { option ->
-            FilterChip(selected = option == selected, onClick = { onSelect(option) }, label = { Text(label(option)) })
+            FilterChip(
+                selected = option == selected,
+                onClick = { onSelect(option) },
+                label = { Text(label(option)) },
+            )
         }
     }
 }
@@ -506,7 +655,7 @@ fun <T> ChoiceChips(
 fun SwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        FoodCostSwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
@@ -521,10 +670,20 @@ fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-fun ConfirmDialog(title: String, text: String, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+fun ConfirmDialog(
+    title: String,
+    text: String,
+    confirm: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onConfirm, modifier = Modifier.testTag("confirm")) { Text(confirm) } },
+        confirmButton = {
+            TextButton(onClick = onConfirm, modifier = Modifier.testTag("confirm")) {
+                Text(confirm)
+            }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } },
         title = { Text(title) },
         text = { Text(text) },

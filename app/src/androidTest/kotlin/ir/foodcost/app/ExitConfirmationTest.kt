@@ -42,6 +42,10 @@ class ExitConfirmationTest {
     @Test fun cancelExitKeepsTheCalculatorOpen() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             waitForTag("row-0-name")
+            // Settle the asynchronous startup focus/IME before testing Back with the IME hidden.
+            // Merely seeing the node can precede Android actually showing its keyboard.
+            compose.onNodeWithTag("row-0-name").performScrollTo().performClick()
+            waitForIme(scenario, visible = true)
             requestRootBack(scenario)
             waitForTag("exit-confirmation")
             compose.onNodeWithTag("exit-stay").performClick()
@@ -54,6 +58,10 @@ class ExitConfirmationTest {
     @Test fun confirmingExitFinishesTheActivity() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             waitForTag("row-0-name")
+            // Settle the asynchronous startup focus/IME before testing Back with the IME hidden.
+            // Merely seeing the node can precede Android actually showing its keyboard.
+            compose.onNodeWithTag("row-0-name").performScrollTo().performClick()
+            waitForIme(scenario, visible = true)
             requestRootBack(scenario)
             waitForTag("exit-confirmation")
             compose.onNodeWithTag("exit-confirm").performClick()
@@ -151,7 +159,7 @@ class ExitConfirmationTest {
         scenario.onActivity {
             val keyboard = it.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
             keyboard.hideSoftInputFromWindow(it.window.decorView.windowToken, 0)
-            it.currentFocus?.clearFocus()
+            // Keep Compose focus stable; clearing the Android host can refocus a field and reopen the IME.
         }
         waitForIme(scenario, visible = false)
         instrumentation.waitForIdleSync()
