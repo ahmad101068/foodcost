@@ -37,16 +37,41 @@ class SettingsScopeTest {
         assertEquals(pricing.generalSections, general.pricing.generalSections)
         assertEquals(costing, general.costing)
 
-        // The disabled general field may contain an unfinished draft; selecting section pricing
-        // must retain its confirmed value rather than validate or save that draft.
+        // The fallback stays editable in section mode, and a scope switch retains valid values.
         val sections = saved(
-            input(general.pricing).copy(scope = PricingScope.MENU_SECTIONS, percent = "unfinished", carried = true),
+            input(general.pricing).copy(scope = PricingScope.MENU_SECTIONS),
             SettingsPart.PRICING,
             general.pricing,
         )
         assertEquals(PricingScope.MENU_SECTIONS, sections.pricing.scope)
         assertEquals(general.pricing.defaultMethod, sections.pricing.defaultMethod)
         assertEquals(pricing.methodByCategory, sections.pricing.methodByCategory)
+    }
+
+    @Test
+    fun `section mode saves all three editable fallback methods without replacing section rules`() {
+        val choices = listOf(
+            Triple(MethodChoice.FOOD_COST, "40", PricingMethod.TargetFoodCost(40.bd)),
+            Triple(MethodChoice.MARGIN, "60", PricingMethod.TargetMargin(60.bd, ir.foodcost.core.pricing.CostBasis.FOOD_COST)),
+            Triple(MethodChoice.MARKUP, "150", PricingMethod.Markup(150.bd, ir.foodcost.core.pricing.CostBasis.FOOD_COST)),
+        )
+        for ((method, percent, expected) in choices) {
+            val form = input().copy(scope = PricingScope.MENU_SECTIONS, method = method, percent = percent, basis = ir.foodcost.core.pricing.CostBasis.FOOD_COST)
+            val draft = saved(form, SettingsPart.PRICING)
+            assertEquals(expected, draft.pricing.defaultMethod)
+            assertEquals(PricingScope.MENU_SECTIONS, draft.pricing.scope)
+            assertEquals(pricing.methodByCategory, draft.pricing.methodByCategory)
+            assertEquals(pricing.generalSections, draft.pricing.generalSections)
+            assertEquals(costing, draft.costing)
+        }
+    }
+
+    @Test
+    fun `invalid or unconfirmed fallback input is rejected in section mode too`() {
+        for (form in listOf(input().copy(percent = "unfinished"), input().copy(carried = true), input().copy(percent = "100"))) {
+            val errors = assertIs<Checked.Invalid>(form.checkPart(SettingsPart.PRICING, pricing, costing, money)).errors
+            assertEquals(setOf(Field.PERCENT), errors.keys)
+        }
     }
 
     @Test

@@ -337,7 +337,7 @@ data class SettingsInput(
     val carried: Boolean = false,
     /** The first value in an unchanged sequence of method switches, avoiding round-trip drift. */
     val conversionOrigin: PricingMethod? = null,
-    /** Only the selected policy affects suggested prices; inactive settings stay stored. */
+    /** Section mode applies overrides; the general method remains the fallback in either mode. */
     val scope: PricingScope = PricingScope.MENU_SECTIONS,
 ) {
     fun plusCategory(name: String): SettingsInput = copy(categories = categories + CategoryTargetInput(name))
@@ -443,17 +443,16 @@ data class SettingsInput(
         money: MoneyFormat,
     ): Checked<SettingsDraft> {
         val saved = of(currentPricing, currentCosting, money)
-        val activeGeneral = scope == PricingScope.GENERAL
         val dormantSections = if (part == SettingsPart.SECTIONS && currentPricing.scope == PricingScope.GENERAL) {
             inactiveSections(saved.categories)
         } else null
         val page = when (part) {
             SettingsPart.PRICING -> saved.copy(
                 scope = scope,
-                method = if (activeGeneral) method else saved.method,
-                percent = if (activeGeneral) percent else saved.percent,
-                basis = if (activeGeneral) basis else saved.basis,
-                carried = activeGeneral && carried,
+                method = method,
+                percent = percent,
+                basis = basis,
+                carried = carried,
                 vatPercent = vatPercent,
                 menuPriceIncludesVat = menuPriceIncludesVat,
                 roundingStepRials = roundingStepRials,
@@ -478,7 +477,7 @@ data class SettingsInput(
                 val pricing = when (part) {
                     SettingsPart.PRICING -> currentPricing.copy(
                         scope = scope,
-                        defaultMethod = if (activeGeneral) draft.pricing.defaultMethod else currentPricing.defaultMethod,
+                        defaultMethod = draft.pricing.defaultMethod,
                         vatPercent = draft.pricing.vatPercent,
                         menuPriceIncludesVat = menuPriceIncludesVat,
                         rounding = draft.pricing.rounding,

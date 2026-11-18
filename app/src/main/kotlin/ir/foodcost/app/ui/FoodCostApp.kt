@@ -65,7 +65,12 @@ fun FoodCostApp(container: AppContainer) {
 @Composable
 private fun AppContent(container: AppContainer, state: LedgerState, currency: DisplayCurrency) {
     val stack = rememberSaveable(saver = Navigator.Saver) { mutableStateListOf<Screen>(Screen.Calculator) }
-    val nav = remember(stack) { Navigator(stack) }
+    var settingsPage by rememberSaveable { mutableStateOf(SettingsPage.OVERVIEW) }
+    val nav = remember(stack) {
+        Navigator(stack) { tab ->
+            if (tab == Tab.SETTINGS) settingsPage = SettingsPage.OVERVIEW
+        }
+    }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val actions = remember(container, scope, snackbar) { AppActions(container, scope, snackbar) }
@@ -92,7 +97,6 @@ private fun AppContent(container: AppContainer, state: LedgerState, currency: Di
             settingsCurrency = currency
         }
     }
-    var settingsPage by rememberSaveable { mutableStateOf(SettingsPage.OVERVIEW) }
     var confirmExit by remember { mutableStateOf(false) }
     val activity = LocalContext.current.findActivity()
 

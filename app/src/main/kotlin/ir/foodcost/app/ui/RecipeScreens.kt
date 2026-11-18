@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -159,8 +160,61 @@ fun RecipesScreen(
         nav = nav,
         actions = actions,
         topActions = {
-            IconButton(onClick = { searching = !searching }) {
-                Icon(ReferenceIcons.sliders, "جستجو و فیلتر غذاها", Modifier.size(22.dp))
+            IconButton(onClick = {
+                searching = !searching
+                if (!searching) query = ""
+            }, modifier = Modifier.testTag("food-search-toggle")) {
+                Icon(Icons.Filled.Search, "جستجوی غذاها", Modifier.size(22.dp))
+            }
+            Box {
+                IconButton(onClick = { options = true }, modifier = Modifier.testTag("food-filter-menu")) {
+                    Icon(PremiumIcons.filter, "فیلتر و مرتب‌سازی غذاها", Modifier.size(22.dp))
+                }
+                DropdownMenu(options, { options = false }) {
+                    DropdownMenuItem(
+                        text = { Text("مرتب‌سازی بر اساس نام") },
+                        onClick = {
+                            sortByName = true
+                            sortByStatus = false
+                            options = false
+                        },
+                        modifier = Modifier.testTag("food-sort"),
+                    )
+                    DropdownMenuItem(
+                        text = { Text("مرتب‌سازی بر اساس وضعیت قیمت") },
+                        onClick = {
+                            sortByName = false
+                            sortByStatus = true
+                            options = false
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("ترتیب ایجاد غذا") },
+                        onClick = {
+                            sortByName = false
+                            sortByStatus = false
+                            options = false
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("همهٔ بخش‌ها") },
+                        onClick = {
+                            categoryFilter = null
+                            options = false
+                        },
+                        modifier = Modifier.testTag("food-filter-all-sections"),
+                    )
+                    categories.forEach { category ->
+                        DropdownMenuItem(
+                            text = { Text(category) },
+                            onClick = {
+                                categoryFilter = category
+                                options = false
+                            },
+                            modifier = Modifier.testTag("food-filter-category-$category"),
+                        )
+                    }
+                }
             }
         },
         bottomActions = {
@@ -251,58 +305,9 @@ fun RecipesScreen(
                             query,
                             { query = it },
                             "جستجوی غذا",
-                            onOptions = { options = true },
+                            Modifier.fillMaxWidth().testTag("food-search"),
                         )
-                        DropdownMenu(options, { options = false }) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        if (sortByName) "مرتب‌سازی بر اساس وضعیت قیمت"
-                                        else "مرتب‌سازی بر اساس نام"
-                                    )
-                                },
-                                onClick = {
-                                    sortByName = true
-                                    sortByStatus = false
-                                    options = false
-                                },
-                                modifier = Modifier.testTag("food-sort"),
-                            )
-                            DropdownMenuItem(
-                                text = { Text("مرتب‌سازی بر اساس وضعیت قیمت") },
-                                onClick = {
-                                    sortByName = false
-                                    sortByStatus = true
-                                    options = false
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("ترتیب ایجاد غذا") },
-                                onClick = {
-                                    sortByName = false
-                                    sortByStatus = false
-                                    options = false
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("همهٔ بخش‌ها") },
-                                onClick = {
-                                    categoryFilter = null
-                                    options = false
-                                },
-                                modifier = Modifier.testTag("food-filter-all-sections"),
-                            )
-                            categories.forEach { category ->
-                                DropdownMenuItem(
-                                    text = { Text(category) },
-                                    onClick = {
-                                        categoryFilter = category
-                                        options = false
-                                    },
-                                    modifier = Modifier.testTag("food-filter-category-$category"),
-                                )
-                            }
-                        }
+
                     }
                 }
             activeCategory?.let { category ->

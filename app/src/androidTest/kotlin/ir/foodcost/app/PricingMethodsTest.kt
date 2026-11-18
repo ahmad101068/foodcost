@@ -128,6 +128,7 @@ class PricingMethodsTest {
             shot("33-pricing-near100-commission")
 
             tab("تنظیمات")
+            clickTag("settings-section-costs")
             replace("کمیسیون سامانه", "20")
             replace("تخفیف معمول آنلاین", "99." + "9".repeat(40))
             clickTag("settings-save-costs")

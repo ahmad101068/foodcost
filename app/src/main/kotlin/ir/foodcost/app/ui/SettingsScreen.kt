@@ -77,6 +77,8 @@ enum class SettingsPage {
     CURRENCY,
     BACKUP,
     HELP,
+    ABOUT,
+    HEALTH,
 }
 
 /**
@@ -106,10 +108,8 @@ fun SettingsScreen(
     fun categoryName(i: Int): FocusRequester = categoryNames.getOrPut(i) { FocusRequester() }
     fun categoryPercent(i: Int): FocusRequester = categoryPercents.getOrPut(i) { FocusRequester() }
     var focusCategory by remember { mutableStateOf<Pair<Int, Boolean>?>(null) }
-    val generalPricingEnabled = input.scope == PricingScope.GENERAL
     // The sections page edits the policy that is actually saved, not an unsaved scope preview.
     val sectionPricingEnabled = state.pricing.scope == PricingScope.MENU_SECTIONS
-    val backupFirst = !actions.integrity.verified || actions.backupReminder != null
 
     // Material Snackbar is anchored to the bottom and may cover the Save action while the user
     // quickly switches pages or pricing modes. Dismiss transient feedback on a new user choice.
@@ -124,8 +124,8 @@ fun SettingsScreen(
         if (page == SettingsPage.SECTIONS) SettingsPage.PRICING else SettingsPage.OVERVIEW
     val pageScroll = rememberSaveable(page, saver = ScrollState.Saver) { ScrollState(0) }
     BackHandler(enabled = page != SettingsPage.OVERVIEW) { navigateTo(parentPage()) }
-    LaunchedEffect(backupFirst, actions.integrity.verified) {
-        if (!actions.integrity.verified || (backupFirst && page == SettingsPage.OVERVIEW)) {
+    LaunchedEffect(actions.integrity.verified, page) {
+        if (!actions.integrity.verified && page != SettingsPage.BACKUP) {
             onPageChange(SettingsPage.BACKUP)
         }
     }
@@ -161,7 +161,9 @@ fun SettingsScreen(
             SettingsPage.SECTIONS -> "بخش‌های منو"
             SettingsPage.CURRENCY -> "واحد پول"
             SettingsPage.BACKUP -> "پشتیبان و بازیابی"
-            SettingsPage.HELP -> "راهنما و درباره برنامه"
+            SettingsPage.HELP -> "راهنما"
+            SettingsPage.ABOUT -> "درباره برنامه"
+            SettingsPage.HEALTH -> "سلامت اطلاعات"
         }
     TabScaffold(
         title = pageTitle,
@@ -224,6 +226,12 @@ fun SettingsScreen(
                 )
             if (page == SettingsPage.SECTIONS) {
                 SettingsCard("بخش‌های منو") {
+                    if (!sectionPricingEnabled) {
+                        Text("برای اعمال و ویرایش روش اختصاصی بخش‌ها، حالت بخش‌های منو را فعال کنید. روش پیش‌فرض و سایر تنظیمات حفظ می‌شوند.", style = MaterialTheme.typography.bodySmall)
+                        Button(onClick = {
+                            actions.run({ ledger -> ledger.saveSettings(pricing = ledger.state.pricing.copy(scope = PricingScope.MENU_SECTIONS), effectiveFrom = today) })
+                        }, modifier = Modifier.testTag("activate-section-pricing")) { Text("فعال‌سازی بخش‌های منو") }
+                    }
                     if (input.scope != state.pricing.scope) {
                         SettingsNotice(
                             "تغییر دامنه هنوز ذخیره نشده است؛ ابتدا آن را در قیمت‌گذاری ذخیره کنید. این صفحه از حالت ذخیره‌شده پیروی می‌کند."
@@ -507,13 +515,14 @@ fun SettingsScreen(
                 }
             }
             if (page == SettingsPage.BACKUP) BackupCard(container, today, actions)
+            if (page == SettingsPage.HEALTH) DataHealthCard(container, state, actions) { navigateTo(SettingsPage.BACKUP) }
             if (page == SettingsPage.HELP) {
                 SettingsCard("راهنما") {
                     Text(
                         "معنی واژه‌هایی مثل فودکاست، مارجین، مارک‌آپ و بهای تمام‌شده، و راهنمای کار با برنامه.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { nav.open(Screen.Help(Screen.Help.TERMS)) }) {
                             Text("واژه‌ها")
                         }
@@ -523,6 +532,8 @@ fun SettingsScreen(
                     }
                 }
 
+            }
+            if (page == SettingsPage.ABOUT) {
                 SettingsCard("دربارهٔ برنامه") {
                     Text(
                         "فودکاست، نسخهٔ ${Persian.digits(versionLabel(context))}",

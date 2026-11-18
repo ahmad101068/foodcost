@@ -1,0 +1,223 @@
+{
+  "base": "b532f2d41a0af7ac92bd402bdeeaef4f20b67553",
+  "version": "0.8.3",
+  "version_code": 803000,
+  "min_sdk": 26,
+  "target_sdk": 36,
+  "jvm": {
+    "core": {
+      "tests": 77,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "data": {
+      "tests": 79,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "presentation": {
+      "tests": 153,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "totals": {
+      "tests": 309,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "native_unique_tests": 34,
+  "native_successful_runs": 35,
+  "existing_native_suites": [
+    {
+      "suite": "CurrencyPreferenceTest",
+      "tests": 3,
+      "pass": true
+    },
+    {
+      "suite": "ExitConfirmationTest",
+      "tests": 6,
+      "pass": true
+    },
+    {
+      "suite": "PricingMethodsTest",
+      "tests": 1,
+      "pass": true
+    },
+    {
+      "suite": "RecoveryGuardTest",
+      "tests": 4,
+      "pass": true
+    },
+    {
+      "suite": "ReferenceVisualTest",
+      "tests": 1,
+      "pass": true
+    },
+    {
+      "suite": "SettingsScopeTest",
+      "tests": 1,
+      "pass": true
+    },
+    {
+      "suite": "UnreadableWarningTest-everyScreenBlocksUnverifiedFinancialResultsAfterWarningAcknowledgement",
+      "tests": 1,
+      "pass": true
+    },
+    {
+      "suite": "UnreadableWarningTest-goingOnWithoutTheUnreadablePriceShowsTheFiguresWithoutIt",
+      "tests": 1,
+      "pass": true
+    },
+    {
+      "suite": "UnreadableWarningTest-ingredientListAndDetailDoNotPresentStalePricesAsVerified",
+      "tests": 1,
+      "pass": true
+    },
+    {
+      "suite": "WalkThroughTest",
+      "tests": 1,
+      "pass": true
+    },
+    {
+      "suite": "data.SqliteOperationStoreTest",
+      "tests": 12,
+      "pass": true
+    }
+  ],
+  "cohorts": {
+    "ux-screens-411": {
+      "apk_sha256": "e83e3aedae33aba0291b4a144aa25ac40bec87940871ec64851b83f9150fca31",
+      "native_app": true,
+      "api": 26,
+      "screenshots": 10,
+      "device": "widthDp=411, density=2.2875001, fontScale=1.0",
+      "image_edits": false,
+      "android_test_apk_sha256": "79c854c24f48ca53154a7c36d41b76c53fc36c02f49abd85470ca36b215e7518",
+      "harness_note": "Normal viewport passed before tab lookup was made independent of the large-font line break; application APK and assertions are unchanged."
+    },
+    "ux-screens-320-200": {
+      "apk_sha256": "e83e3aedae33aba0291b4a144aa25ac40bec87940871ec64851b83f9150fca31",
+      "android_test_apk_sha256": "77a15d03f58f8ef1673540dc81442c45cbc4b401fd5c9310c7bc4a21924e79f3",
+      "native_app": true,
+      "api": 26,
+      "screenshots": 10,
+      "device": "widthDp=319, density=2.2875001, fontScale=2.0",
+      "image_edits": false
+    },
+    "audit-screens": {
+      "apk_sha256": "e83e3aedae33aba0291b4a144aa25ac40bec87940871ec64851b83f9150fca31",
+      "android_test_apk_sha256": "77a15d03f58f8ef1673540dc81442c45cbc4b401fd5c9310c7bc4a21924e79f3",
+      "native_app": true,
+      "api": 26,
+      "screenshots": 6,
+      "device": "widthDp=411, density=2.2875001, fontScale=1.0",
+      "image_edits": false
+    },
+    "reference-screens": {
+      "apk_sha256": "e83e3aedae33aba0291b4a144aa25ac40bec87940871ec64851b83f9150fca31",
+      "android_test_apk_sha256": "77a15d03f58f8ef1673540dc81442c45cbc4b401fd5c9310c7bc4a21924e79f3",
+      "native_app": true,
+      "api": 26,
+      "screenshots": 9,
+      "device": "widthDp=411, density=2.2875001, fontScale=1.0",
+      "image_edits": false
+    }
+  },
+  "data_upgrade": {
+    "pass": true,
+    "before": {
+      "phase": "before",
+      "rows": 32,
+      "operations_sha256": "af37ba3e8f04e6eebf6206145c60eb6b15fed69ba020d7a6d7ac87658e927c14",
+      "ddl_sha256": "02ed943a82b9288cc9414667edf739bc967c199237124ce1868fd1dce834a4bd",
+      "sqlite_user_version": 1,
+      "installed_apk_sha256": "80b01a9ba6cdf78e71b26ce8d4a3c8a6b1f926546edd121184a086a68cd0b302",
+      "data": "Synthetic emulator state retained from audit-fixed r4, not user data."
+    },
+    "after": {
+      "phase": "after",
+      "rows": 32,
+      "operations_sha256": "af37ba3e8f04e6eebf6206145c60eb6b15fed69ba020d7a6d7ac87658e927c14",
+      "ddl_sha256": "02ed943a82b9288cc9414667edf739bc967c199237124ce1868fd1dce834a4bd",
+      "sqlite_user_version": 1,
+      "installed_apk_sha256": "e83e3aedae33aba0291b4a144aa25ac40bec87940871ec64851b83f9150fca31",
+      "data": "Synthetic emulator state retained from audit-fixed r4, not user data."
+    }
+  },
+  "source_scope": {
+    "base": "b532f2d41a0af7ac92bd402bdeeaef4f20b67553",
+    "branch": "fix/foodcost-r4-navigation-controls",
+    "core_data_and_stores_unchanged": true,
+    "changed_kotlin_files": [
+      {
+        "path": "app/src/androidTest/kotlin/ir/foodcost/app/PricingMethodsTest.kt",
+        "sha256": "7b4a9bda1b2b789d1bca80819dd90c05a2db2bdc3964e655914c00df36e160c1"
+      },
+      {
+        "path": "app/src/androidTest/kotlin/ir/foodcost/app/SettingsScopeTest.kt",
+        "sha256": "bb51430da32daf1c408c1e0ca5f6f5bd039609728a1ab570dfd7b5a86dd7768c"
+      },
+      {
+        "path": "app/src/androidTest/kotlin/ir/foodcost/app/UxControlsTest.kt",
+        "sha256": "b1a67c51899579ef79872771957408f98322a551120d7cbfbee330730bbf3552"
+      },
+      {
+        "path": "app/src/main/kotlin/ir/foodcost/app/ui/CalculatorScreen.kt",
+        "sha256": "3a09e8482c91fdb8778cf86e185e5b4d325d18822d09e357de44bcdca233e6b1"
+      },
+      {
+        "path": "app/src/main/kotlin/ir/foodcost/app/ui/DataHealthCard.kt",
+        "sha256": "81abc8872d6bf45ff23616d77e9497c8455553c6e2da2b8532727883792f3991"
+      },
+      {
+        "path": "app/src/main/kotlin/ir/foodcost/app/ui/FoodCostApp.kt",
+        "sha256": "635478bb91cda8e3adb1cfbc1745d60206ab44e5d6d55994679a5432024ab83f"
+      },
+      {
+        "path": "app/src/main/kotlin/ir/foodcost/app/ui/Navigation.kt",
+        "sha256": "66dfe484e81b4c7b0140b09db075b6b68333a969d18770bd7454a349822d1a08"
+      },
+      {
+        "path": "app/src/main/kotlin/ir/foodcost/app/ui/PremiumSettings.kt",
+        "sha256": "b111b752649e9eab414d7a63f4061b600612a739b3b36f14a482c717f6b80d96"
+      },
+      {
+        "path": "app/src/main/kotlin/ir/foodcost/app/ui/RecipeScreens.kt",
+        "sha256": "81ba629bfa24dfe8cc603e60320f05823f826419f3f206de9366dbc40c911988"
+      },
+      {
+        "path": "app/src/main/kotlin/ir/foodcost/app/ui/SettingsScreen.kt",
+        "sha256": "27475e2391df4de304f3c722a8921494b3b460f905b2c3c7f813094ddada95f8"
+      },
+      {
+        "path": "presentation/src/main/kotlin/ir/foodcost/presentation/Forms.kt",
+        "sha256": "94745f4810676209a227e09ed4c453195654befd1cb82cb14788d291e7e64d6e"
+      },
+      {
+        "path": "presentation/src/test/kotlin/ir/foodcost/presentation/SettingsScopeTest.kt",
+        "sha256": "c25ae8afb50a2f72a892e41e3822d6991e4fee6f7acf8801c1381de63041d6bc"
+      }
+    ]
+  },
+  "artifacts": {
+    "debug_apk": {
+      "file": "FoodCost-0.8.3-r4-UX-Fixes.apk",
+      "bytes": 10709451,
+      "sha256": "e83e3aedae33aba0291b4a144aa25ac40bec87940871ec64851b83f9150fca31"
+    },
+    "change_from_audit_fixed_r4_bytes": 8858,
+    "release_unsigned_bytes": 1716702,
+    "android_test_apk_sha256": "77a15d03f58f8ef1673540dc81442c45cbc4b401fd5c9310c7bc4a21924e79f3"
+  },
+  "limitations": [
+    "Current native tests run on API26 only; API34/35 and a physical phone not retested.",
+    "No new pixel-accuracy/SSIM=0.98 certification, full assistive-technology audit or device performance benchmark. Existing long bottom-navigation labels still wrap within words at measured319dp/font200%.",
+    "Installable APK is signed with the existing debug certificate and uses ir.foodcost.app.debug. No production release.",
+    "CI intentionally skipped to avoid the production signing/release workflow; local evidence is supplied."
+  ]
+}

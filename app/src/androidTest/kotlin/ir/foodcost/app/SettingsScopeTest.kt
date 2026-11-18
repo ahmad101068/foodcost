@@ -68,7 +68,7 @@ class SettingsScopeTest {
             assertEquals(false, exists("settings-section-sections"))
             clickTag("settings-section-pricing")
             waitForTag("general-pricing-percent")
-            rule.onNodeWithTag("general-pricing-percent").assertIsNotEnabled()
+            rule.onNodeWithTag("general-pricing-percent").assertIsEnabled()
 
             clickTag("pricing-scope-general")
             rule.onNodeWithTag("general-pricing-percent").assertIsEnabled().assertTextContains("35")
@@ -84,7 +84,7 @@ class SettingsScopeTest {
             clickTag("settings-back")
             waitForTag("general-pricing-percent")
             clickTag("pricing-scope-sections")
-            rule.onNodeWithTag("general-pricing-percent").assertIsNotEnabled().assertTextContains("35")
+            rule.onNodeWithTag("general-pricing-percent").assertIsEnabled().assertTextContains("35")
             // The previous success snackbar must not intercept this real touchscreen tap.
             scrolled(rule.onNodeWithTag("settings-save-pricing")).performClick()
             waitForScope(PricingScope.MENU_SECTIONS)
