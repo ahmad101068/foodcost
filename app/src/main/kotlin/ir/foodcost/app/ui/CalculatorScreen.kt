@@ -218,15 +218,21 @@ fun CalculatorScreen(
                 Text("ذخیره")
             }
 
-        if (recipeId == null && input != QuickInput()) {
-            IconButton(
-                onClick = {
+        IconButton(
+            enabled = recipeId != null || input != QuickInput(),
+            modifier = Modifier.testTag("calculator-reset"),
+            onClick = {
+                if (recipeId != null) {
+                    container.quickDraft.value = QuickInput()
+                    container.saveDraft()
+                    nav.tab(Tab.CALC)
+                } else {
                     update(QuickInput())
                     runCatching { firstName.requestFocus() }
                 }
-            ) {
-                Icon(Icons.Filled.Refresh, contentDescription = "محاسبهٔ تازه")
             }
+        ) {
+            Icon(Icons.Filled.Refresh, contentDescription = "محاسبهٔ تازه")
         }
         if (result.hasLines && actions.unreadableRows == 0) {
             IconButton(

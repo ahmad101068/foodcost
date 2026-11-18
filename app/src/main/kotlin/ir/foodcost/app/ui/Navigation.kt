@@ -125,7 +125,10 @@ enum class Tab(val label: String, val icon: ImageVector, val screen: Screen) {
 }
 
 /** The way back: a stack of screens whose bottom is always a tab. */
-class Navigator(private val stack: SnapshotStateList<Screen>) {
+class Navigator(
+    private val stack: SnapshotStateList<Screen>,
+    private val onTabSelected: (Tab) -> Unit = {},
+) {
     val current: Screen get() = stack.last()
 
     val tab: Tab get() = Tab.entries.firstOrNull { it.screen == stack.first() } ?: Tab.CALC
@@ -146,6 +149,7 @@ class Navigator(private val stack: SnapshotStateList<Screen>) {
     }
 
     fun tab(tab: Tab) {
+        onTabSelected(tab)
         stack.clear()
         stack.add(tab.screen)
     }

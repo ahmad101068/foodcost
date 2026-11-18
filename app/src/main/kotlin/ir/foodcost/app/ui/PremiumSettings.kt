@@ -15,7 +15,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -135,7 +137,8 @@ fun PremiumSettingsOverview(
                 "سلامت اطلاعات و یادآوری پشتیبان",
                 "بررسی وضعیت داده‌ها و نسخه پشتیبان",
                 ReferenceIcons.check,
-                { navigate(SettingsPage.BACKUP) },
+                { navigate(SettingsPage.HEALTH) },
+                Modifier.testTag("settings-section-health"),
             )
         }
     }
@@ -159,7 +162,7 @@ fun PremiumSettingsOverview(
             "درباره برنامه",
             "نسخه، قلم و مجوزهای برنامه",
             ReferenceIcons.info,
-            { navigate(SettingsPage.HELP) },
+            { navigate(SettingsPage.ABOUT) },
             Modifier.testTag("settings-section-about"),
             verticalPadding = 7.75.dp,
         )
@@ -176,7 +179,7 @@ fun PremiumGeneralPricing(
     openSections: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
-    val enabled = input.scope == PricingScope.GENERAL
+    val sectionScope = input.scope == PricingScope.MENU_SECTIONS
     val large = LocalDensity.current.fontScale > 1.25f
     val context = LocalContext.current
     val titles =
@@ -192,6 +195,9 @@ fun PremiumGeneralPricing(
             MethodChoice.MARKUP to ReferenceIcons.layers,
         )
     FoodCostCard(Modifier.testTag("pricing-methods")) {
+        if (sectionScope) {
+            Text("روش پیش‌فرض برای غذاهای بدون قانون اختصاصی", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp).testTag("pricing-fallback-note"))
+        }
         FlowRow(
             Modifier.padding(6.dp)
                 .fillMaxWidth()
@@ -204,13 +210,16 @@ fun PremiumGeneralPricing(
             MethodChoice.entries.forEach { method ->
                 val selected = input.method == method
                 Surface(
-                    onClick = { if (enabled) onChange(input.withMethod(method)) },
+                    onClick = { onChange(input.withMethod(method)) },
                     color = Color.Transparent,
                     shape = RoundedCornerShape(9.dp),
                     modifier =
                         Modifier.weight(1f)
-                            .testTag("general-method-$method")
-                            .then(if (!enabled) Modifier.semantics { disabled() } else Modifier),
+                            .semantics {
+                                this.selected = selected
+                                role = Role.Tab
+                            }
+                            .testTag("general-method-$method"),
                 ) {
                     Row(
                         Modifier.then(
@@ -277,11 +286,11 @@ fun PremiumGeneralPricing(
                     fontSize = 20.sp,
                     verticalPadding = 0.dp,
                     suffix = "٪",
-                    enabled = enabled,
+                    enabled = true,
                     leading = {
                         IconButton(
                             { step(true) },
-                            enabled = enabled,
+                            enabled = true,
                             modifier =
                                 Modifier.size(24.dp)
                                     .background(
@@ -300,7 +309,7 @@ fun PremiumGeneralPricing(
                     trailing = {
                         IconButton(
                             { step(false) },
-                            enabled = enabled,
+                            enabled = true,
                             modifier =
                                 Modifier.size(24.dp)
                                     .background(
@@ -551,7 +560,7 @@ fun PremiumGeneralPricing(
                 )
             }
             FoodCostSwitch(
-                checked = !enabled,
+                checked = sectionScope,
                 onCheckedChange = {
                     onChange(
                         input.copy(
@@ -561,7 +570,7 @@ fun PremiumGeneralPricing(
                 },
                 modifier =
                     Modifier.size(width = 42.dp, height = 30.dp)
-                        .testTag(if (enabled) "pricing-scope-sections" else "pricing-scope-general"),
+                        .testTag(if (sectionScope) "pricing-scope-general" else "pricing-scope-sections"),
             )
         }
         // The existing sections feature is preserved; it is already part of the approved 0.8.3.
