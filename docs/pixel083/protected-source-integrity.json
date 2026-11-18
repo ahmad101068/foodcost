@@ -483,5 +483,7 @@
       "candidate_sha256": "5b7bf37cc9140434c4c5caa9d09cc8ee98bc31ca12b9836a02ce22b7676f8a11",
       "identical": true
     }
-  ]
+  ],
+  "snapshot_commit": "0adf7c52808acb21125f13ddf2dc1a984f6ac767",
+  "scope": "Historical UI-only r4 snapshot; authorized audit-fix differences are recorded in docs/audit-r4/validation.json."
 }

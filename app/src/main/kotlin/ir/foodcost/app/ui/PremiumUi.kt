@@ -244,9 +244,11 @@ fun FoodCostOutlinedButton(
     icon: ImageVector? = null,
     compact: Boolean = false,
     neutral: Boolean = false,
+    enabled: Boolean = true,
 ) {
     Surface(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier.heightIn(min = if (compact) 26.dp else 36.dp),
         shape = RoundedCornerShape(T.controlRadius),
         color = Color.Transparent,
@@ -262,7 +264,7 @@ fun FoodCostOutlinedButton(
                 Icon(
                     icon,
                     null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = .38f),
                     modifier = Modifier.size(if (compact) 18.dp else 20.dp),
                 )
                 Spacer(Modifier.width(7.dp))
@@ -270,7 +272,8 @@ fun FoodCostOutlinedButton(
             Text(
                 text,
                 color =
-                    if (neutral) MaterialTheme.colorScheme.onSurface
+                    if (!enabled) MaterialTheme.colorScheme.onSurface.copy(alpha = .38f)
+                    else if (neutral) MaterialTheme.colorScheme.onSurface
                     else MaterialTheme.colorScheme.primary,
                 style =
                     MaterialTheme.typography.labelLarge.copy(

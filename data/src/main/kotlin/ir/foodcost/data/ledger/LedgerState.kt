@@ -216,6 +216,10 @@ data class LedgerState(
     /** Works out each day on the yields, sections and settings in force that day. */
     fun calculator(): FoodCostCalculator = FoodCostCalculator(catalog, costing, pricing, earlier = ::termsAt)
 
+    /** The same dated view used by [calculator], for previews built from editable input. */
+    fun termsOn(date: LocalDate): FoodCostCalculator.Terms =
+        termsAt(date) ?: FoodCostCalculator.Terms(catalog, costing, pricing)
+
     // Worked out at most once for each state, and only when asked: a state never changes.
     private val dayCalculator: FoodCostCalculator by lazy { calculator() }
     private val figuresByClose = ConcurrentHashMap<Hlc, Map<RecipeId, List<Any?>>>()

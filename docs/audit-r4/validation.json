@@ -1,0 +1,131 @@
+{
+  "r4_base": "cbe9a027e6d4f5db2bdbc798300538d29a4b0bf7",
+  "version": "0.8.3",
+  "jvm": {
+    "tests": 307,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "new_jvm_regression_tests": 11,
+  "native_unique_tests": 33,
+  "native_total_runs": 34,
+  "native_existing_suites": [
+    {
+      "suite": "CurrencyPreferenceTest",
+      "tests": 3,
+      "pass": true,
+      "log": "native-existing/CurrencyPreferenceTest.log"
+    },
+    {
+      "suite": "ExitConfirmationTest",
+      "tests": 6,
+      "pass": true,
+      "log": "native-existing/ExitConfirmationTest.log"
+    },
+    {
+      "suite": "PricingMethodsTest",
+      "tests": 1,
+      "pass": true,
+      "log": "native-existing/PricingMethodsTest.log"
+    },
+    {
+      "suite": "RecoveryGuardTest",
+      "tests": 4,
+      "pass": true,
+      "log": "native-existing/RecoveryGuardTest.log"
+    },
+    {
+      "suite": "ReferenceVisualTest",
+      "tests": 1,
+      "pass": true,
+      "log": "native-existing/ReferenceVisualTest.log"
+    },
+    {
+      "suite": "SettingsScopeTest",
+      "tests": 1,
+      "pass": true,
+      "log": "native-existing/SettingsScopeTest.log"
+    },
+    {
+      "suite": "UnreadableWarningTest-everyScreenBlocksUnverifiedFinancialResultsAfterWarningAcknowledgement",
+      "tests": 1,
+      "pass": true,
+      "log": "native-existing/UnreadableWarningTest-everyScreenBlocksUnverifiedFinancialResultsAfterWarningAcknowledgement.log"
+    },
+    {
+      "suite": "UnreadableWarningTest-goingOnWithoutTheUnreadablePriceShowsTheFiguresWithoutIt",
+      "tests": 1,
+      "pass": true,
+      "log": "native-existing/UnreadableWarningTest-goingOnWithoutTheUnreadablePriceShowsTheFiguresWithoutIt.log"
+    },
+    {
+      "suite": "UnreadableWarningTest-ingredientListAndDetailDoNotPresentStalePricesAsVerified",
+      "tests": 1,
+      "pass": true,
+      "log": "native-existing/UnreadableWarningTest-ingredientListAndDetailDoNotPresentStalePricesAsVerified.log"
+    },
+    {
+      "suite": "WalkThroughTest",
+      "tests": 1,
+      "pass": true,
+      "log": "native-existing/WalkThroughTest.log"
+    },
+    {
+      "suite": "data.SqliteOperationStoreTest",
+      "tests": 12,
+      "pass": true,
+      "log": "native-existing/data.SqliteOperationStoreTest.log"
+    }
+  ],
+  "native_audit": {
+    "normal_411dp_100_percent": "PASS",
+    "narrow_320dp_200_percent": "PASS"
+  },
+  "upgrade": {
+    "pass": true,
+    "before": {
+      "phase": "before",
+      "rows": 32,
+      "operations_sha256": "d53e6f7d0f68b2924da393c1f99ca155cdc0dbf140cc8b720004ccb486812585",
+      "ddl_sha256": "02ed943a82b9288cc9414667edf739bc967c199237124ce1868fd1dce834a4bd",
+      "sqlite_user_version": 1,
+      "installed_apk_sha256": "be8f7ec1008cf2fb96449fa753b6bb0348ffc78834717cacb3b05203800b051b",
+      "data": "Synthetic emulator state retained from r4, not user data."
+    },
+    "after": {
+      "phase": "after",
+      "rows": 32,
+      "operations_sha256": "d53e6f7d0f68b2924da393c1f99ca155cdc0dbf140cc8b720004ccb486812585",
+      "ddl_sha256": "02ed943a82b9288cc9414667edf739bc967c199237124ce1868fd1dce834a4bd",
+      "sqlite_user_version": 1,
+      "installed_apk_sha256": "80b01a9ba6cdf78e71b26ce8d4a3c8a6b1f926546edd121184a086a68cd0b302",
+      "data": "Synthetic emulator state retained from r4, not user data."
+    }
+  },
+  "source_scope": {
+    "r4_base": "cbe9a027e6d4f5db2bdbc798300538d29a4b0bf7",
+    "authorized_protected_changes": [
+      "data/src/main/kotlin/ir/foodcost/data/ledger/LedgerState.kt",
+      "presentation/src/main/kotlin/ir/foodcost/presentation/QuickCalculator.kt"
+    ],
+    "core_financial_formulas_unchanged": true,
+    "sqlite_and_operation_codec_unchanged": true,
+    "version_sdk_manifest_unchanged": true
+  },
+  "apk": {
+    "debug_apk": {
+      "name": "FoodCost-0.8.3-r4-Audit-Fixes.apk",
+      "bytes": 10700593,
+      "sha256": "80b01a9ba6cdf78e71b26ce8d4a3c8a6b1f926546edd121184a086a68cd0b302"
+    },
+    "debug_change_from_r4_bytes": 901,
+    "release_unsigned_bytes": 1716702,
+    "test_apk_sha256": "d3d51dd41807ff8794302db439f21d6fbab52f6397f87a876e25b7c31d49398f"
+  },
+  "api26_current": true,
+  "api34_api35_final_build_not_tested": true,
+  "physical_device_not_tested": true,
+  "pixel_target_098_not_claimed": true,
+  "f04_contract": "Blank existing menu-price input explicitly retains the saved price; preview, sharing and saving agree. A new dish with no price has no menu price. Price history and closed periods are preserved."
+}
