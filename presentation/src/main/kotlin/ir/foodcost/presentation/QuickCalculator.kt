@@ -51,6 +51,12 @@ data class QuickRow(
     val ingredientId: IngredientId? = null,
 ) {
     val isBlank: Boolean get() = name.isBlank() && price.isBlank() && qty.isBlank()
+
+    /** Spacing and equivalent Persian letters do not change the selected ingredient's identity. */
+    fun withName(value: String): QuickRow = copy(
+        name = value,
+        ingredientId = ingredientId.takeIf { Persian.searchKey(value) == Persian.searchKey(name) },
+    )
 }
 
 /** A cost of a portion that is not food, as typed: a box, a cup and lid, a share of a wage. */
@@ -212,6 +218,10 @@ data class QuickResult(
     val provisional: Boolean = false,
     /** The names of the rows and other costs not complete, which the figures leave out. */
     val leftOut: List<String> = emptyList(),
+    /** A nonpositive or malformed count cannot produce definitive per-portion figures. */
+    val portionsProblem: String? = null,
+    /** An empty saved-price field explicitly keeps this price; it never deletes history. */
+    val keptMenuPrice: String? = null,
 ) {
     /** The suggested price's name, saying when it leaves out what is not complete yet. */
     val suggestedLabel: String get() = if (provisional) "قیمت پیشنهادی (ناقص)" else "قیمت پیشنهادی"
@@ -266,6 +276,7 @@ data class QuickPlan(
     val name: String,
     val rows: List<QuickPlanRow>,
     val portions: BigDecimal,
+    /** Null keeps an existing menu price; a new dish then has no menu price. */
     val menuPriceRials: Long?,
     val recipeId: RecipeId?,
     val miscPercent: BigDecimal?,
@@ -297,7 +308,8 @@ object QuickCalculator {
     )
 
     fun compute(input: QuickInput, state: LedgerState, money: MoneyFormat, today: LocalDate): QuickResult {
-        val catalog = state.catalog
+        val terms = state.termsOn(today)
+        val catalog = terms.catalog
         val ingredients = ArrayList<Ingredient>()
         val prices = ArrayList<PurchasePrice>()
         val lines = ArrayList<RecipeLine>()
@@ -306,7 +318,7 @@ object QuickCalculator {
         val waiting = HashSet<Int>()
         input.rows.forEachIndexed { i, row ->
             if (row.isBlank) return@forEachIndexed
-            val saved = row.ingredientId?.let { catalog.ingredient(it) }
+            val saved = matchedIngredient(state, row, catalog)
             val dimension = priceDimension(row, saved)
             val rials = money.parse(row.price)?.takeIf { it > 0 }
             val qty = Numbers.parse(row.qty)?.takeIf { it.signum() > 0 }
@@ -343,17 +355,22 @@ object QuickCalculator {
             }
         }
 
-        val savedDish = editedDish(input, state)?.let { catalog.recipe(it) }
-        val portions = Numbers.parse(input.portions)?.takeIf { it.signum() > 0 } ?: BigDecimal.ONE
+        val editing = editedDish(input, state)
+        val savedDish = (editing ?: dishNamed(state, input.dishName))?.let { catalog.recipe(it) }
+        val checkedPortions = portionCount(input)
+        val portionsProblem = if (checkedPortions == null) PORTIONS_ERROR else null
+        // The engine requires a positive divisor; its per-portion outputs are hidden until valid.
+        val portions = checkedPortions ?: BigDecimal.ONE
         val recipe = Recipe(
             id = QUICK,
             name = input.dishName.ifBlank { "محاسبه" },
             kind = savedDish?.kind ?: RecipeKind.MENU_ITEM,
             versions = listOf(RecipeVersion(today, portions, lines, miscPercent = input.miscPercent, extras = extras)),
-            category = input.category,
+            category = selectedCategory(input, savedDish?.category.takeIf { editing == null }),
             pricing = savedDish?.pricing,
         )
-        val menuRials = money.parse(input.menuPrice)?.takeIf { it > 0 }
+        val keptMenuRials = keptMenuPrice(input, state, catalog, today)
+        val menuRials = money.parse(input.menuPrice)?.takeIf { it > 0 } ?: keptMenuRials
         val discount = discountRials(input, money, menuRials)
         val discountedMenuRials = if (discount != null && menuRials != null && discount < BigDecimal(menuRials)) {
             BigDecimal(menuRials).subtract(discount).longValueExact()
@@ -362,16 +379,16 @@ object QuickCalculator {
         }
         val calculator = FoodCostCalculator(
             Catalog(ingredients, prices, listOf(recipe), listOfNotNull(discountedMenuRials?.let { MenuPrice(QUICK, today, it) })),
-            state.costing,
-            state.pricing,
+            terms.costing,
+            terms.pricing,
         )
         val evaluation = calculator.evaluate(QUICK, today)
         val cost = evaluation.cost
-        val hasLines = lines.isNotEmpty()
-        val warnings = rowWarnings(input, state, money, today)
+        val hasLines = lines.isNotEmpty() && portionsProblem == null
+        val warnings = rowWarnings(input, state, money, today, catalog)
 
         val rows = input.rows.mapIndexed { i, row ->
-            val saved = row.ingredientId?.let { catalog.ingredient(it) }
+            val saved = matchedIngredient(state, row, catalog)
             val dimension = priceDimension(row, saved)
             val lineCost = lineOfRow[i]?.let { index -> cost.lines.firstOrNull { it.section == Section.BATCH && it.index == index } }
             QuickRowResult(
@@ -386,6 +403,7 @@ object QuickCalculator {
             )
         }
         val status = when {
+            portionsProblem != null -> PriceStatus.INCOMPLETE
             !hasLines -> PriceStatus.EMPTY
             problems.isNotEmpty() -> PriceStatus.INCOMPLETE
             else -> evaluation.status
@@ -395,10 +413,10 @@ object QuickCalculator {
         val other = pricer.otherCosts(cost, SalesChannel.DINE_IN)
         val sale = discountedMenuRials?.takeIf { hasLines }?.let { pricer.sale(cost, SalesChannel.DINE_IN, it) }
         val maxCost = discountedMenuRials?.takeIf { hasLines }?.let { pricer.maxCost(recipe, it) }
-        val overhead = state.pricing.overhead?.perPortion?.takeIf { it.signum() > 0 && recipe.kind != RecipeKind.PREP }
+        val overhead = terms.pricing.overhead?.perPortion?.takeIf { hasLines && it.signum() > 0 && recipe.kind != RecipeKind.PREP }
         // «فودکاست هدف ۲۰٪ برای نوشیدنی گرم» when the dish's section has a target of its own.
         val section = recipe.category?.takeIf {
-            state.pricing.scope == PricingScope.MENU_SECTIONS && recipe.pricing == null && it in state.pricing.methodByCategory
+            terms.pricing.scope == PricingScope.MENU_SECTIONS && recipe.pricing == null && it in terms.pricing.methodByCategory
         }
         return QuickResult(
             rows = rows,
@@ -431,7 +449,7 @@ object QuickCalculator {
             statusLabel = Labels.status(status),
             incompleteRows = problems.size,
             extras = extraResults,
-            channels = if (sale == null || menuRials == null) emptyList() else channels(pricer, cost, sale, menuRials, extras, state.pricing.online.isSet, money),
+            channels = if (sale == null || menuRials == null) emptyList() else channels(pricer, cost, sale, menuRials, extras, terms.pricing.online.isSet, money),
             totalCostRials = if (hasLines) cost.foodCostPerPortion + other else null,
             foodCostRials = if (hasLines) cost.foodCostPerPortion else null,
             menuRials = discountedMenuRials,
@@ -443,8 +461,10 @@ object QuickCalculator {
             grossProfit = sale?.let { signed(it.netSales - cost.foodCostPerPortion, money) },
             grossProfitNegative = sale != null && (sale.netSales - cost.foodCostPerPortion).signum() < 0,
             grossProfitRials = sale?.let { it.netSales - cost.foodCostPerPortion },
-            explanations = if (hasLines) explanations(cost, other, sale, s, maxCost, discountedMenuRials, state.pricing.vatFactor, money) else emptyMap(),
-            provisional = hasLines && (problems.isNotEmpty() || extraResults.any { it.problem != null }),
+            explanations = if (hasLines) explanations(cost, other, sale, s, maxCost, discountedMenuRials, terms.pricing.vatFactor, money) else emptyMap(),
+            provisional = portionsProblem != null || (hasLines && (problems.isNotEmpty() || extraResults.any { it.problem != null })),
+            portionsProblem = portionsProblem,
+            keptMenuPrice = keptMenuRials?.let { money.full(it) },
             leftOut = if (!hasLines) {
                 emptyList()
             } else {
@@ -458,7 +478,7 @@ object QuickCalculator {
      * What is wrong with the discount typed, or null when it is fine or none is typed: the one rule
      * the calculator's line under the field, its check before saving and its figures all follow.
      */
-    fun discountProblem(input: QuickInput, money: MoneyFormat): String? {
+    fun discountProblem(input: QuickInput, money: MoneyFormat, menuRials: Long? = money.parse(input.menuPrice)): String? {
         if (input.discountValue.isBlank()) return null
         return when (input.discountMode) {
             QuickInput.PERCENT -> {
@@ -467,7 +487,7 @@ object QuickCalculator {
             }
             QuickInput.FIXED -> {
                 val fixed = money.parse(input.discountValue)
-                val menu = money.parse(input.menuPrice)?.takeIf { it > 0 }
+                val menu = menuRials?.takeIf { it > 0 }
                 when {
                     fixed == null || fixed < 0 -> "مبلغ تخفیف درست نیست."
                     menu == null -> "برای تخفیف مبلغی، اول قیمت منو را بنویسید."
@@ -482,7 +502,7 @@ object QuickCalculator {
     /** The discount on [menuRials] in rials: zero when none is typed, null when the one typed is not valid. */
     private fun discountRials(input: QuickInput, money: MoneyFormat, menuRials: Long?): BigDecimal? {
         if (input.discountValue.isBlank()) return BigDecimal.ZERO
-        if (discountProblem(input, money) != null) return null
+        if (discountProblem(input, money, menuRials) != null) return null
         return when (input.discountMode) {
             QuickInput.PERCENT -> menuRials?.let { price ->
                 BigDecimal(price).multiply(Numbers.parse(input.discountValue)!!).divide(BigDecimal(100), 0, java.math.RoundingMode.HALF_UP)
@@ -562,12 +582,12 @@ object QuickCalculator {
         (Sections.of(state) + listOfNotNull(input.category)).distinct()
 
     /** Prices about a power of ten away from the last one, and ingredients already in an earlier row. */
-    private fun rowWarnings(input: QuickInput, state: LedgerState, money: MoneyFormat, today: LocalDate): Map<Int, String> {
+    private fun rowWarnings(input: QuickInput, state: LedgerState, money: MoneyFormat, today: LocalDate, catalog: Catalog): Map<Int, String> {
         val warnings = HashMap<Int, String>()
         val firstRow = HashMap<String, Pair<Int, String>>()
         input.rows.forEachIndexed { i, row ->
             if (row.isBlank) return@forEachIndexed
-            val matched = matchedIngredient(state, row)
+            val matched = matchedIngredient(state, row, catalog)
             val name = matched?.name ?: row.name.trim()
             if (name.isEmpty()) return@forEachIndexed
             val key = matched?.id?.value ?: "typed|${Persian.searchKey(name)}|${priceDimension(row, null)}"
@@ -585,8 +605,7 @@ object QuickCalculator {
     }
 
     /** The saved ingredient a row stands for: the one picked, or one with the same name and kind. */
-    private fun matchedIngredient(state: LedgerState, row: QuickRow): Ingredient? {
-        val catalog = state.catalog
+    private fun matchedIngredient(state: LedgerState, row: QuickRow, catalog: Catalog): Ingredient? {
         val saved = row.ingredientId?.let { catalog.ingredient(it) }
         if (saved != null || row.ingredientId != null) return saved
         return findByName(state, row.name, priceDimension(row, null))?.let { catalog.ingredient(it) }
@@ -685,9 +704,10 @@ object QuickCalculator {
         if (row.ingredientId != null || row.name.isBlank()) return emptyList()
         val key = Persian.searchKey(row.name)
         val names = Persian.nameOrder()
+        val catalog = state.termsOn(today).catalog
         return state.ingredients.values
             .filter { !it.archived }
-            .mapNotNull { state.catalog.ingredient(it.id) }
+            .mapNotNull { catalog.ingredient(it.id) }
             .filter { Persian.matches(it.name, row.name) }
             .sortedWith(compareBy<Ingredient> { if (Persian.searchKey(it.name).startsWith(key)) 0 else 1 }.thenBy(names) { it.name })
             .take(limit)
@@ -703,7 +723,7 @@ object QuickCalculator {
 
     /** [row] after picking a saved ingredient: its name, today's price and a unit that fits it. */
     fun pick(state: LedgerState, row: QuickRow, id: IngredientId, today: LocalDate, money: MoneyFormat): QuickRow {
-        val ingredient = state.catalog.ingredient(id) ?: return row
+        val ingredient = state.termsOn(today).catalog.ingredient(id) ?: return row
         val units = lineUnits(ingredient.baseDimension, ingredient.conversions, saved = true)
         return row.copy(
             name = ingredient.name,
@@ -718,7 +738,7 @@ object QuickCalculator {
      * and dishes with sub-recipes, per-portion lines or quantities written as bought.
      */
     fun open(state: LedgerState, recipeId: RecipeId, today: LocalDate, money: MoneyFormat): QuickInput? {
-        val catalog = state.catalog
+        val catalog = state.termsOn(today).catalog
         val recipe = catalog.recipe(recipeId) ?: return null
         if (recipe.kind == RecipeKind.PREP) return null
         val menu = catalog.menuPriceAt(recipeId, today)?.rials?.let { money.editable(it) }.orEmpty()
@@ -757,6 +777,7 @@ object QuickCalculator {
      */
     fun check(input: QuickInput, state: LedgerState, money: MoneyFormat, today: LocalDate): Checked<QuickPlan> {
         val p = Problems()
+        val catalog = state.termsOn(today).catalog
         val name = input.dishName.trim()
         if (name.isEmpty()) p.add(Field.NAME, "نام غذا را بنویسید.")
         val editing = editedDish(input, state)
@@ -769,13 +790,13 @@ object QuickCalculator {
         val priceOf = HashMap<String, Long>()
         input.rows.forEachIndexed { i, row ->
             if (row.isBlank) return@forEachIndexed
-            val saved = row.ingredientId?.let { state.catalog.ingredient(it) }
+            val saved = matchedIngredient(state, row, catalog)
             val dimension = priceDimension(row, saved)
             val rials = money.parse(row.price)?.takeIf { it > 0 }
             val qty = Numbers.parse(row.qty)?.takeIf { it.signum() > 0 }
             val rowName = saved?.name ?: row.name.trim()
             val where = "ردیف ${Persian.digits(i + 1)}"
-            val key = matchedIngredient(state, row)?.id?.value ?: "typed|${Persian.searchKey(rowName)}|$dimension"
+            val key = saved?.id?.value ?: "typed|${Persian.searchKey(rowName)}|$dimension"
             when {
                 rowName.isEmpty() -> p.add(Field.ROW, "نام مادهٔ $where را بنویسید.")
                 money.tooLarge(row.price) -> p.add(Field.ROW, "قیمت «$rowName» بیش از حد بزرگ است.")
@@ -801,13 +822,13 @@ object QuickCalculator {
                 else -> extras += ExtraCost(extraName, rials, extra.takeawayOnly)
             }
         }
-        val portions = p.decimal(input.portions.ifBlank { "1" }, Field.PORTIONS, "تعداد پرس باید بیشتر از صفر باشد.") { it.signum() > 0 }
+        val portions = portionCount(input)
+        if (portions == null) p.add(Field.PORTIONS, PORTIONS_ERROR)
         val menu = if (input.menuPrice.isBlank()) null else money.parse(input.menuPrice)
         if (input.menuPrice.isNotBlank() && (menu == null || menu <= 0)) p.add(Field.AMOUNT, "قیمت منو درست نیست.")
-        discountProblem(input, money)?.let { p.add(Field.DISCOUNT, it) }
+        discountProblem(input, money, menu ?: keptMenuPrice(input, state, catalog, today))?.let { p.add(Field.DISCOUNT, it) }
         // An untouched new calculation keeps a namesake's section; explicitly choosing none clears it.
-        val category = if (input.categoryChosen) input.category?.trim()?.ifEmpty { null }
-            else input.category?.trim()?.ifEmpty { null } ?: namesake?.let { state.recipes[it]?.category }
+        val category = selectedCategory(input, namesake?.let { catalog.recipe(it)?.category })
         return p.result { QuickPlan(name, rows, portions!!, menu, editing ?: namesake, input.miscPercent, extras, category) }
     }
 
@@ -889,6 +910,10 @@ object QuickCalculator {
     fun shareText(input: QuickInput, result: QuickResult, money: MoneyFormat, unreadable: Int = 0): String = buildString {
         appendLine(input.dishName.trim().ifEmpty { "محاسبهٔ فودکاست" })
         if (result.provisional) appendLine("این حساب ناقص است؛ عددهای آن قطعی نیستند.")
+        if (result.portionsProblem != null) {
+            appendLine(result.portionsProblem)
+            return@buildString
+        }
         if (unreadable > 0) appendLine(BackupTexts.unreadableShort(unreadable))
         input.category?.let { appendLine("بخش منو: $it") }
         appendLine()
@@ -929,9 +954,24 @@ object QuickCalculator {
 
     /** مواد یک پرس, or مواد ۴ پرس for a batch. */
     fun portionsLabel(input: QuickInput): String {
-        val portions = Numbers.parse(input.portions)
-        return if (portions == null || portions.compareTo(BigDecimal.ONE) == 0) "مواد یک پرس" else "مواد ${Numbers.format(portions, 2)} پرس"
+        val portions = portionCount(input) ?: return "تعداد پرس نامعتبر"
+        return if (portions.compareTo(BigDecimal.ONE) == 0) "مواد یک پرس" else "مواد ${Numbers.format(portions, 2)} پرس"
     }
+
+    private const val PORTIONS_ERROR = "تعداد پرس باید عددی بیشتر از صفر باشد."
+
+    /** An empty count retains the established one-portion default; other invalid values do not. */
+    private fun portionCount(input: QuickInput): BigDecimal? =
+        Numbers.parse(input.portions.ifBlank { "1" })?.takeIf { it.signum() > 0 }
+
+    private fun keptMenuPrice(input: QuickInput, state: LedgerState, catalog: Catalog, today: LocalDate): Long? =
+        if (input.menuPrice.isBlank()) {
+            (editedDish(input, state) ?: dishNamed(state, input.dishName))
+                ?.let { catalog.menuPriceAt(it, today)?.rials }
+        } else null
+
+    private fun selectedCategory(input: QuickInput, saved: String?): String? =
+        input.category?.trim()?.ifEmpty { null } ?: saved.takeUnless { input.categoryChosen }
 
     /**
      * Saves [plan]: creates the ingredients it does not know yet (reusing ones with the same name),
@@ -1018,8 +1058,9 @@ object QuickCalculator {
     }
 
     private fun currentPriceRials(state: LedgerState, ingredient: Ingredient, today: LocalDate): Long? {
-        val found = LatestPurchasePrice(state.catalog).unitCost(ingredient, today) as? UnitCostResult.Found ?: return null
-        return found.rialsPerBaseUnit.multiply(Prices.shownUnitSize(ingredient.baseDimension)).roundToRials()
+        val dated = state.ingredients[ingredient.id]?.asOf(today)?.toIngredient() ?: ingredient
+        val found = LatestPurchasePrice(state.catalog).unitCost(dated, today) as? UnitCostResult.Found ?: return null
+        return found.rialsPerBaseUnit.multiply(Prices.shownUnitSize(dated.baseDimension)).roundToRials()
     }
 
     /** A saved ingredient prices in its own kind; a typed one in the kind of the unit chosen. */

@@ -144,6 +144,7 @@ fun CalculatorScreen(
     }
     val result =
         remember(input, state, money, today) { QuickCalculator.compute(input, state, money, today) }
+    val pricing = remember(state, today) { state.termsOn(today).pricing }
     var askName by remember { mutableStateOf(false) }
     // A save that changes a dish on the menu or recorded prices waits for a look at what it
     // changes.
@@ -260,8 +261,8 @@ fun CalculatorScreen(
                 compact = WindowInsets.isImeVisible,
                 dataUnreliable = actions.unreadableRows > 0,
                 vatNote =
-                    if (state.pricing.menuPriceIncludesVat)
-                        "قیمت منو با مالیات ${Persian.digits(state.pricing.vatPercent.stripTrailingZeros().toPlainString())}٪"
+                    if (pricing.menuPriceIncludesVat)
+                        "قیمت منو با مالیات ${Persian.digits(pricing.vatPercent.stripTrailingZeros().toPlainString())}٪"
                     else "قیمت منو بدون مالیات",
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.5.dp),
                 onExplain = { explaining = listOf(it) },
@@ -352,6 +353,7 @@ fun CalculatorScreen(
                                 height = 27.dp,
                                 fontSize = 14.sp,
                                 verticalPadding = 1.5.dp,
+                                errorMessage = result.portionsProblem,
                                 leading = {
                                     Icon(
                                         PremiumIcons.plus,
@@ -406,6 +408,9 @@ fun CalculatorScreen(
                                 },
                             )
                         }
+                        result.portionsProblem?.let { problem ->
+                            Text(problem, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("portions-error"))
+                        }
                         fieldRow("قیمت فروش (هر پرس)", ReferenceIcons.tag) {
                             ReferenceField(
                                 input.menuPrice,
@@ -421,6 +426,9 @@ fun CalculatorScreen(
                                 height = 27.dp,
                                 fontSize = 13.sp,
                             )
+                        }
+                        result.keptMenuPrice?.let { kept ->
+                            Text("فیلد خالی است؛ قیمت ثبت‌شدهٔ $kept حفظ می‌شود.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("menu-price-kept"))
                         }
                         val mainExtraIndex = input.extras.indexOfFirst { !it.takeawayOnly }
                         fieldRow(
@@ -457,7 +465,7 @@ fun CalculatorScreen(
                                 fontSize = 13.sp,
                             )
                         }
-                        val discountProblem = QuickCalculator.discountProblem(input, money)
+                        val discountProblem = QuickCalculator.discountProblem(input, money, result.originalMenuRials)
                         if (discountExpanded || discountProblem != null)
                             DisclosureRow(
                                 title = "تخفیف فروش (اختیاری)",
@@ -530,7 +538,7 @@ fun CalculatorScreen(
                         } else if (input.discountValue.isNotBlank()) {
                             Text(
                                 "تخفیف فقط برای دیدن اثرش است و با غذا ذخیره نمی‌شود. روی فروش حضوری و بیرون‌بر حساب می‌شود" +
-                                    if (state.pricing.online.isSet)
+                                    if (pricing.online.isSet)
                                         "؛ فروش آنلاین تخفیف خودش را از تنظیمات دارد."
                                     else ".",
                                 style = MaterialTheme.typography.bodySmall,
@@ -752,7 +760,7 @@ fun CalculatorScreen(
                                 update(input.plusExtra(preset))
                             },
                             policy =
-                                if (state.pricing.scope == PricingScope.GENERAL)
+                                if (pricing.scope == PricingScope.GENERAL)
                                     "قانون قیمت‌گذاری عمومی · ${result.method}"
                                 else "قانون بخش منو · ${result.method}",
                         )
@@ -827,8 +835,9 @@ fun CalculatorScreen(
                                 ),
                             )
                         },
-                        Modifier.weight(1f),
+                        Modifier.weight(1f).testTag("calculator-share"),
                         PremiumIcons.share,
+                        enabled = result.portionsProblem == null,
                     )
                 }
             },
@@ -1593,7 +1602,7 @@ private fun RowCard(
     fun nameField(modifier: Modifier) {
         ReferenceField(
             value = row.name,
-            onValueChange = { onChange(row.copy(name = it, ingredientId = null)) },
+            onValueChange = { onChange(row.withName(it)) },
             label = "نام ماده",
             modifier =
                 modifier
@@ -1750,7 +1759,7 @@ private fun RowCard(
                         AssistChip(
                             onClick = { onPick(suggestion) },
                             label = { Text("${suggestion.name}، ${suggestion.detail}") },
-                            modifier = Modifier.focusProperties { canFocus = false },
+                            modifier = Modifier.focusProperties { canFocus = false }.testTag("row-$index-suggestion-${suggestion.id.value}"),
                         )
                     }
                 }

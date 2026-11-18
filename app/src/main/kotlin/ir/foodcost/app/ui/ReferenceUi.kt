@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -388,6 +389,7 @@ fun ReferenceField(
     textInsetEnd: Dp = 0.dp,
     fontWeight: FontWeight = FontWeight.Bold,
     horizontalPadding: Dp = 9.dp,
+    errorMessage: String? = null,
 ) {
     val interactions = remember { MutableInteractionSource() }
     val focused by interactions.collectIsFocusedAsState()
@@ -433,7 +435,10 @@ fun ReferenceField(
             modifier
                 .fillMaxWidth()
                 .onSizeChanged { width = it.width }
-                .semantics { contentDescription = label },
+                .semantics {
+                    contentDescription = label
+                    errorMessage?.let { error(it) }
+                },
         decorationBox = { inner ->
             Row(
                 Modifier.fillMaxWidth()
@@ -451,6 +456,7 @@ fun ReferenceField(
                             if (focused) 1.4.dp else 0.8.dp
                         } else 0.dp,
                         if (!outlined) Color.Transparent
+                        else if (errorMessage != null) colors.error
                         else if (focused) colors.primary else idleOutline,
                         RoundedCornerShape(9.dp),
                     )
