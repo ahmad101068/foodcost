@@ -3,6 +3,7 @@ package ir.foodcost.app
 import android.graphics.Bitmap
 import android.os.ParcelFileDescriptor
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.text.TextLayoutResult
@@ -10,6 +11,9 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
+import java.time.LocalDate
+import kotlinx.coroutines.runBlocking
+import ir.foodcost.presentation.*
 import kotlin.math.roundToInt
 import org.junit.Assert.*
 import org.junit.Rule
@@ -26,6 +30,19 @@ class NavigationAccessibilityTest {
 
     @Test fun largestFontOnNarrowScreenKeepsWholeWordsAndClickableTabs() {
         check(shell("getprop ro.kernel.qemu") == "1") { "Disposable emulator only" }
+        val container = (inst.targetContext.applicationContext as FoodCostApplication).container
+        val sample = QuickInput(dishName = "چلوکباب کوبیده", menuPrice = "500000",
+            rows = listOf(QuickRow("برنج آزمایش", "100000", "1000")))
+        runBlocking { container.change { ledger ->
+            if (ledger.state.recipes.values.none { it.name == sample.dishName }) {
+                val checked = QuickCalculator.check(sample, ledger.state, MoneyFormat(container.currency.value), LocalDate.now())
+                check(checked is Checked.Valid)
+                QuickCalculator.save(ledger, checked.value, LocalDate.now())
+            }
+        } }
+        container.quickDraft.value = sample
+        container.saveDraft()
+        container.snoozeBackupReminder()
         val oldFont = shell("settings get system font_scale")
         val oldSize = Regex("Override size: (\\d+x\\d+)").find(shell("wm size"))?.groupValues?.get(1)
         val density = inst.targetContext.resources.displayMetrics.density
@@ -43,6 +60,11 @@ class NavigationAccessibilityTest {
                     val tag = "foodcost-nav-$tab"
                     val node = rule.onNodeWithTag(tag)
                     node.assertIsDisplayed().assertHasClickAction()
+                    // The overridden virtual display can offset injected pointer coordinates.
+                    // Exercise the accessible tab action, and require its actual selected state.
+                    node.performSemanticsAction(SemanticsActions.OnClick) { check(it()) }
+                    rule.waitUntil(15000) { rule.onNodeWithTag(tag).fetchSemanticsNode().config.getOrNull(SemanticsProperties.Selected) == true }
+                    node.assertIsSelected()
                     val bounds = node.fetchSemanticsNode().boundsInRoot
                     assertTrue(bounds.width >= 48 * density && bounds.height >= 48 * density)
                     val label = rule.onNode(hasAnyAncestor(hasTestTag(tag)) and SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult), useUnmergedTree = true)
@@ -69,8 +91,25 @@ class NavigationAccessibilityTest {
                         val end = layout.getLineEnd(line)
                         assertTrue("A Persian word split inside $tab: $text", text[end - 1].isWhitespace() || text.getOrNull(end)?.isWhitespace() == true)
                     }
-                    node.performClick()
-                    rule.waitForIdle()
+                    if (tab == "recipes") {
+                        for (textToCheck in listOf("مناسب", "نیازمند بررسی", sample.dishName)) {
+                            if (textToCheck == sample.dishName)
+                                rule.onNodeWithTag("food-list").performScrollToNode(hasText(textToCheck))
+                            val item = rule.onAllNodesWithText(textToCheck, useUnmergedTree = true).onFirst()
+                            item.performScrollTo()
+                            val textLayouts = mutableListOf<TextLayoutResult>()
+                            item.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(textLayouts) }
+                            for (textLayout in textLayouts) {
+                                for (line in 0 until textLayout.lineCount - 1) {
+                                    val end = textLayout.getLineEnd(line)
+                                    val value = textLayout.layoutInput.text.text
+                                    assertTrue("A word split inside $value", value[end - 1].isWhitespace() || value.getOrNull(end)?.isWhitespace() == true)
+                                }
+                            }
+                        }
+                        val dishImage = checkNotNull(inst.uiAutomation.takeScreenshot())
+                        File(dir, "05-recipe-320dp-font200.png").outputStream().use { dishImage.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                    }
                 }
                 val bitmap = checkNotNull(inst.uiAutomation.takeScreenshot())
                 File(dir, "04-navigation-320dp-font200.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }

@@ -25,6 +25,9 @@ the export again. Explicitly selecting an unencrypted backup remains supported.
 The navigation change applies to accessibility font scaling. At the reference viewport and 100%
 font the four-column structure remains. Stronger essential outlines are a documented contrast
 correction relative to the pale reference images, not a claim of exact pixel equivalence.
+The large-font review also found broken words in recipe titles and filter controls. Recipe
+summaries and filters stack above 150% font, and the recipe status moves below its title in the
+existing narrow/large layout. The native test checks whole words and actual tab selection.
 
 ## Validation and release boundary
 

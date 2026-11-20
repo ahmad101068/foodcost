@@ -47,6 +47,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import ir.foodcost.core.model.ComponentRef
@@ -235,11 +237,11 @@ fun RecipesScreen(
             verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
             item {
-                Row(
+                RecipeSummaryRow(
                     Modifier.padding(bottom = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    FoodCostCard(Modifier.weight(1.1f)) {
+                    gap = 10.dp,
+                ) { itemModifier ->
+                    FoodCostCard(itemModifier(1.1f)) {
                         Box(Modifier.padding(5.dp)) {
                             PremiumStatistic(
                                 "تعداد غذاها",
@@ -249,7 +251,7 @@ fun RecipesScreen(
                             )
                         }
                     }
-                    FoodCostCard(Modifier.weight(1f)) {
+                    FoodCostCard(itemModifier(1f)) {
                         Box(Modifier.padding(5.dp)) {
                             PremiumStatistic(
                                 "پرخطر",
@@ -264,15 +266,15 @@ fun RecipesScreen(
                 }
             }
             item {
-                Row(
+                RecipeSummaryRow(
                     Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
+                    gap = 6.dp,
+                ) { itemModifier ->
                     CountChoice(
                         "همه",
                         "",
                         activeFilter == FoodFilter.ALL,
-                        Modifier.weight(1f).testTag("food-filter-all"),
+                        itemModifier(1f).testTag("food-filter-all"),
                     ) {
                         filter = FoodFilter.ALL
                     }
@@ -280,7 +282,7 @@ fun RecipesScreen(
                         "مناسب",
                         "",
                         activeFilter == FoodFilter.SUITABLE,
-                        Modifier.weight(1f).testTag("food-filter-suitable"),
+                        itemModifier(1f).testTag("food-filter-suitable"),
                         enabled = !dataUnreliable,
                         tone = PriceStatus.OK,
                     ) {
@@ -290,7 +292,7 @@ fun RecipesScreen(
                         "نیازمند بررسی",
                         "",
                         activeFilter == FoodFilter.NEEDS_PRICE,
-                        Modifier.weight(1.25f).testTag("food-filter-needs"),
+                        itemModifier(1.25f).testTag("food-filter-needs"),
                         enabled = !dataUnreliable,
                         tone = PriceStatus.NEAR,
                     ) {
@@ -421,6 +423,23 @@ fun RecipesScreen(
                 }
             },
         )
+    }
+}
+
+@Composable
+private fun RecipeSummaryRow(
+    modifier: Modifier,
+    gap: Dp,
+    content: @Composable ((Float) -> Modifier) -> Unit,
+) {
+    if (LocalDensity.current.fontScale > 1.5f) {
+        Column(modifier, verticalArrangement = Arrangement.spacedBy(gap)) {
+            content { Modifier.fillMaxWidth() }
+        }
+    } else {
+        Row(modifier, horizontalArrangement = Arrangement.spacedBy(gap)) {
+            content { Modifier.weight(it) }
+        }
     }
 }
 
