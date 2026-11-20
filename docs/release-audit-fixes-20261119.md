@@ -29,7 +29,7 @@ correction relative to the pale reference images, not a claim of exact pixel equ
 ## Validation and release boundary
 
 Local JVM checks: 321 tests (77 core, 84 data, 160 presentation). The canonical native suite
-contains 42 tests in 21 isolated runs. See CI run results and the delivery report for actual
+contains 42 tests in 26 isolated runs. See CI run results and the delivery report for actual
 Android execution outcomes; inclusion in the suite alone is not a passing execution result.
 
 ```sh
@@ -37,6 +37,8 @@ Android execution outcomes; inclusion in the suite alone is not a passing execut
 python3 scripts/check_android_test_suite.py
 ./scripts/pixel083/run_device_checks.sh "$(command -v adb)" native-results
 ```
+
+Exit/IME cases also start in separate processes: their database cleanup must not reuse an application container that has already loaded the previous case.
 
 Only run the native suite on a disposable emulator: its fixtures replace test data. The runner
 refuses a physical device. Signed build jobs now require a successful complete walkthrough, run

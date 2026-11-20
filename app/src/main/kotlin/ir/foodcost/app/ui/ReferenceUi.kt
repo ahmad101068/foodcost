@@ -588,6 +588,7 @@ fun ReferenceBottomBar(nav: Navigator, actions: AppActions) {
                                         tab == Tab.CALC && fontScale > 1.25f -> "ماشین\nحساب"
                                         else -> label
                                     },
+                                    modifier = Modifier.fillMaxWidth(),
                                     style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, lineHeight = 18.sp),
                                     color = color,
                                     textAlign = TextAlign.Center,
