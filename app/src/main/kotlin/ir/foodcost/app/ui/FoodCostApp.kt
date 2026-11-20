@@ -44,6 +44,8 @@ import ir.foodcost.data.ledger.LedgerState
 import ir.foodcost.presentation.BackupTexts
 import ir.foodcost.presentation.MoneyFormat
 import ir.foodcost.presentation.SettingsInput
+import ir.foodcost.presentation.rebaseSettingsDraft
+import ir.foodcost.presentation.acknowledgeSettingsSave
 
 @Composable
 fun FoodCostApp(container: AppContainer) {
@@ -85,10 +87,9 @@ private fun AppContent(container: AppContainer, state: LedgerState, currency: Di
     // run *after* a scope chip was tapped, treating that new choice as an old draft and silently
     // restoring the previous policy. SideEffect runs at the end of the composition which observed
     // the new ledger, before the user can interact with that rendered frame.
-    val latestSettings = remember(state.pricing, state.costing, money) {
-        SettingsInput.of(state.pricing, state.costing, money)
-    }
     SideEffect {
+        val committed = container.state.value ?: state
+        val latestSettings = SettingsInput.of(committed.pricing, committed.costing, money)
         if (settingsBaseline != latestSettings || settingsCurrency != currency) {
             val draft = settingsInput.inCurrency(settingsCurrency, currency)
             val previous = settingsBaseline.inCurrency(settingsCurrency, currency)
@@ -116,7 +117,13 @@ private fun AppContent(container: AppContainer, state: LedgerState, currency: Di
         Screen.Ingredients -> IngredientsScreen(state, money, today, nav, actions)
         Screen.Settings -> SettingsScreen(container, state, money, today, nav, actions,
             input = settingsInput, onInputChange = { settingsInput = it },
-            page = settingsPage, onPageChange = { settingsPage = it })
+            page = settingsPage, onPageChange = { settingsPage = it },
+            onSaved = { part, submitted ->
+                val committed = container.state.value ?: state
+                val latest = SettingsInput.of(committed.pricing, committed.costing, money)
+                settingsInput = acknowledgeSettingsSave(settingsInput, settingsBaseline, submitted, latest, part)
+                settingsBaseline = latest
+            })
         is Screen.Recipe -> RecipeScreen(RecipeId(screen.id), state, money, today, nav, actions)
         is Screen.Line -> LineEditorScreen(screen, state, money, today, nav, actions)
         is Screen.Ingredient -> IngredientScreen(IngredientId(screen.id), state, money, today, nav, actions)
@@ -207,36 +214,6 @@ private fun Context.findActivity(): Activity? {
         current = next
     }
     return current as? Activity
-}
-
-/** Update saved groups without discarding edits in another settings section. */
-private fun rebaseSettingsDraft(draft: SettingsInput, previous: SettingsInput, latest: SettingsInput): SettingsInput {
-    var result = latest
-    val pricingChanged = draft.copy(
-        categories = previous.categories, miscPercent = previous.miscPercent,
-        monthlyFixed = previous.monthlyFixed, monthlyPortions = previous.monthlyPortions,
-        onlineCommission = previous.onlineCommission, onlineDiscount = previous.onlineDiscount, onlineUplift = previous.onlineUplift,
-        conversionOrigin = previous.conversionOrigin,
-    ) != previous
-    if (pricingChanged) result = result.copy(
-        method = draft.method, percent = draft.percent, basis = draft.basis, scope = draft.scope,
-        carried = draft.carried, conversionOrigin = draft.conversionOrigin,
-        vatPercent = draft.vatPercent, menuPriceIncludesVat = draft.menuPriceIncludesVat,
-        roundingStepRials = draft.roundingStepRials, roundingDirection = draft.roundingDirection,
-    )
-    // Conversion history is transient, like the general rule's origin above. It must not
-    // make an already-saved section override a newer committed rule during rebasing.
-    val sectionDraft = draft.categories.map { it.copy(conversionOrigin = null) }
-    val sectionBaseline = previous.categories.map { it.copy(conversionOrigin = null) }
-    if (sectionDraft != sectionBaseline) result = result.copy(categories = draft.categories)
-    if (draft.miscPercent != previous.miscPercent || draft.monthlyFixed != previous.monthlyFixed ||
-        draft.monthlyPortions != previous.monthlyPortions || draft.onlineCommission != previous.onlineCommission ||
-        draft.onlineDiscount != previous.onlineDiscount || draft.onlineUplift != previous.onlineUplift
-    ) result = result.copy(
-        miscPercent = draft.miscPercent, monthlyFixed = draft.monthlyFixed, monthlyPortions = draft.monthlyPortions,
-        onlineCommission = draft.onlineCommission, onlineDiscount = draft.onlineDiscount, onlineUplift = draft.onlineUplift,
-    )
-    return result
 }
 
 private fun SettingsInput.inCurrency(from: DisplayCurrency, to: DisplayCurrency): SettingsInput {

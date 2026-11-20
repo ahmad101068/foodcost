@@ -13,6 +13,7 @@ on:
       - "settings.gradle.kts"
       - "gradle.properties"
       - "gradle/**"
+      - "scripts/**"
       - ".github/workflows/android.yml"
       - ".github/preview-notes.md"
   workflow_dispatch:
@@ -26,6 +27,7 @@ concurrency:
 
 jobs:
   apk:
+    needs: walkthrough
     permissions:
       contents: write
       actions: write # Remove legacy binary artifacts after keeping the new build in a draft.
@@ -58,7 +60,7 @@ jobs:
           FOODCOST_KEYSTORE_PASSWORD: ${{ secrets.FOODCOST_KEYSTORE_PASSWORD }}
         run: |
           set -o pipefail
-          ./gradlew :presentation:test :app:assembleRelease :app:bundleRelease --no-daemon 2>&1 | tee build.log
+          ./gradlew :core:test :data:test :presentation:test :app:lintRelease :app:assembleRelease :app:bundleRelease --no-daemon 2>&1 | tee build.log
       # The certificate's fingerprint is public, the same in every APK: a different one means the
       # APK was signed with another key and is not kept.
       - name: Check the APK's signature
@@ -118,7 +120,7 @@ jobs:
   # published as a draft release (visible only to the repository's owners).
   walkthrough:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5
@@ -133,6 +135,7 @@ jobs:
         shell: bash
         run: |
           pass=$(openssl rand -hex 16)
+          echo "::add-mask::$pass"
           keytool -genkeypair -keystore "$RUNNER_TEMP/throwaway.p12" -storetype PKCS12 -alias foodcost \
             -keyalg RSA -keysize 2048 -validity 2 -storepass "$pass" -keypass "$pass" -dname "CN=throwaway" > /dev/null
           echo "FOODCOST_KEYSTORE_FILE=$RUNNER_TEMP/throwaway.p12" >> "$GITHUB_ENV"

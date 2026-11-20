@@ -348,9 +348,10 @@ fun PremiumRecipeCard(
                     modifier = Modifier.size(24.dp),
                 )
                 Text(row.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                if (!unreliable) StatusChip(row.status, row.statusLabel)
+                if (!large && !unreliable) StatusChip(row.status, row.statusLabel)
                 RowChevron(expanded, onToggle)
             }
+            if (large && !unreliable) StatusChip(row.status, row.statusLabel)
             HorizontalDivider(color = scheme.outlineVariant, thickness = .6.dp)
             if (unreliable) Text(BackupTexts.UNVERIFIED_RESULT, color = scheme.error)
             else {

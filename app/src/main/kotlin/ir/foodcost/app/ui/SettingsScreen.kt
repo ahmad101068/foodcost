@@ -59,6 +59,7 @@ import ir.foodcost.core.money.DisplayCurrency
 import ir.foodcost.core.pricing.CostBasis
 import ir.foodcost.core.pricing.PricingScope
 import ir.foodcost.data.ledger.LedgerState
+import ir.foodcost.data.ledger.saveMenuSections
 import ir.foodcost.presentation.Checked
 import ir.foodcost.presentation.Field
 import ir.foodcost.presentation.Labels
@@ -96,6 +97,7 @@ fun SettingsScreen(
     onInputChange: (SettingsInput) -> Unit,
     page: SettingsPage,
     onPageChange: (SettingsPage) -> Unit,
+    onSaved: (SettingsPart, SettingsInput) -> Unit,
 ) {
     val currency by container.currency.collectAsState()
     var pricingDetails by remember { mutableStateOf(false) }
@@ -141,12 +143,14 @@ fun SettingsScreen(
             is Checked.Valid -> {
                 errors = emptyMap()
                 actions.run({
-                    it.saveSettings(
-                        checked.value.costing,
-                        checked.value.pricing,
-                        effectiveFrom = today,
+                    if (part == SettingsPart.SECTIONS) {
+                        it.saveMenuSections(checked.value.pricing, checked.value.sectionRenames, today)
+                    } else it.saveSettings(
+                        costing = checked.value.costing.takeIf { part == SettingsPart.COSTS },
+                        pricing = checked.value.pricing, effectiveFrom = today,
                     )
                 }) {
+                    onSaved(part, draft)
                     actions.say("تنظیمات ذخیره شد.")
                 }
             }

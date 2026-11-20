@@ -284,6 +284,8 @@ data class CategoryTargetInput(
     val useGeneral: Boolean = false,
     val carried: Boolean = false,
     val conversionOrigin: PricingMethod? = null,
+    /** Stable identity for this edit only; persisted sections still use the existing format. */
+    val originalName: String? = null,
 ) {
     val isBlank: Boolean get() = name.isBlank() && (useGeneral || percent.isBlank())
 
@@ -306,7 +308,11 @@ data class CategoryTargetInput(
 }
 
 /** The pricing rules and misc share, ready to save. */
-data class SettingsDraft(val costing: CostingRules, val pricing: PricingSettings)
+data class SettingsDraft(
+    val costing: CostingRules,
+    val pricing: PricingSettings,
+    val sectionRenames: Map<String, String> = emptyMap(),
+)
 
 /** The independently saved settings pages. Costs includes overhead and online sales terms. */
 enum class SettingsPart { PRICING, SECTIONS, COSTS }
@@ -427,6 +433,10 @@ data class SettingsInput(
                     methodByCategory = byCategory,
                     generalSections = general,
                 ),
+                sectionRenames = categories.mapNotNull { row ->
+                    row.originalName?.takeIf { it != row.name.trim() && !row.isBlank }
+                        ?.let { it to row.name.trim() }
+                }.toMap(),
             )
         }
     }
@@ -495,26 +505,18 @@ data class SettingsInput(
                         online = draft.pricing.online,
                     )
                 }
-                Checked.Valid(SettingsDraft(if (part == SettingsPart.COSTS) draft.costing else currentCosting, pricing))
+                Checked.Valid(SettingsDraft(if (part == SettingsPart.COSTS) draft.costing else currentCosting, pricing,
+                    if (part == SettingsPart.SECTIONS) draft.sectionRenames else emptyMap()))
             }
         }
     }
 
     /** Section names stay editable in general mode, but their disabled pricing controls do not. */
     private fun inactiveSections(saved: List<CategoryTargetInput>): Pair<List<CategoryTargetInput>, Map<String, String>> {
-        val requestedNames = categories.map { Persian.searchKey(it.name) }.toSet()
         val savedByName = saved.associateBy { Persian.searchKey(it.name) }
-        val availableRenames = saved.filter { Persian.searchKey(it.name) !in requestedNames }.toMutableList()
         val sourceNames = LinkedHashMap<String, String>()
         val rows = categories.map { row ->
-            val existing = savedByName[Persian.searchKey(row.name)]
-            // A renamed row carries its old disabled fields. Match those before treating a new
-            // name as a plain section, so renaming does not discard its dormant target.
-            val renamed = if (existing == null) availableRenames.firstOrNull {
-                it.percent == row.percent && it.method == row.method && it.basis == row.basis && it.useGeneral == row.useGeneral
-            } else null
-            if (renamed != null) availableRenames.remove(renamed)
-            val prior = existing ?: renamed
+            val prior = savedByName[Persian.searchKey(row.originalName ?: row.name)]
             if (prior != null) sourceNames[row.name.trim()] = prior.name
             prior?.copy(name = row.name) ?: row.copy(percent = "", useGeneral = true)
         }
@@ -613,6 +615,7 @@ data class SettingsInput(
                 categories = pricing.methodByCategory.map { (name, method) ->
                     CategoryTargetInput(
                         name = name,
+                        originalName = name,
                         percent = Numbers.editable(when (method) {
                             is PricingMethod.TargetFoodCost -> method.percent
                             is PricingMethod.TargetMargin -> method.percent
@@ -629,7 +632,7 @@ data class SettingsInput(
                             is PricingMethod.Markup -> method.basis
                         },
                     )
-                } + pricing.generalSections.filter { it !in pricing.methodByCategory }.map { CategoryTargetInput(name = it, useGeneral = true) },
+                } + pricing.generalSections.filter { it !in pricing.methodByCategory }.map { CategoryTargetInput(name = it, useGeneral = true, originalName = it) },
             )
         }
     }

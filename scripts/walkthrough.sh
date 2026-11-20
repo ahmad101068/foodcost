@@ -2,7 +2,7 @@
 # Runs the walk-through test on the emulator that is already running, then copies the
 # screenshots the test leaves in the app's files to ./screenshots.
 # Used by the android workflow; needs adb and the debug and test APKs built.
-set -uo pipefail
+set -euo pipefail
 APP=ir.foodcost.app.debug
 
 # Give the emulator's own launcher time to settle, so it does not freeze over the screenshots.
@@ -12,51 +12,18 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb logcat -c || true
 
-# The walk-through, and the tests of the phone's own database, which uses a file of its own.
-adb shell am instrument -w -e class ir.foodcost.app.WalkThroughTest,ir.foodcost.app.data.SqliteOperationStoreTest "$APP.test/androidx.test.runner.AndroidJUnitRunner" | tee walkthrough.log
-
-mkdir -p screenshots
-for f in $(adb shell run-as "$APP" ls files/screenshots | tr -d '\r'); do
-  adb exec-out run-as "$APP" cat "files/screenshots/$f" > "screenshots/$f"
-done
+# One canonical list covers recovery, pricing, visual and audit regressions.
 failed=0
-grep -qE "^OK \([0-9]+ tests?\)" walkthrough.log || failed=1
-
-# Runs the test or class $1 in a process of its own and adds what it says to the log $2. The app
-# reads its data once, when it first opens, so a test of data it could not read needs its own.
-alone() {
-  adb shell am instrument -w -e class "$1" "$APP.test/androidx.test.runner.AndroidJUnitRunner" > alone.log
-  tee -a "$2" < alone.log
-  grep -qE "^OK \([0-9]+ tests?\)" alone.log || failed=1
-}
-
-# Settings and exit checks each begin in a fresh instrumentation process. Closing the
-# calculator in the exit test must not close the activity used by the long walkthrough.
-: > settings.log
-alone ir.foodcost.app.SettingsScopeTest settings.log
-: > pricing-methods.log
-alone ir.foodcost.app.PricingMethodsTest pricing-methods.log
-for f in $(adb shell run-as "$APP" ls files/pricing-screenshots | tr -d '\r'); do
-  adb exec-out run-as "$APP" cat "files/pricing-screenshots/$f" > "screenshots/$f"
+./scripts/pixel083/run_device_checks.sh "$(command -v adb)" native-results || failed=1
+cat native-results/*.log > walkthrough.log
+mkdir -p screenshots
+for directory in screenshots pricing-screenshots audit-fixes-screenshots ux-control-screenshots complete-audit-screens pixel083-screenshots; do
+  for f in $(adb shell run-as "$APP" ls "files/$directory" 2>/dev/null | tr -d '\r'); do
+    case "$f" in
+      *.png) adb exec-out run-as "$APP" cat "files/$directory/$f" > "screenshots/$f" ;;
+    esac
+  done
 done
-: > currency.log
-alone ir.foodcost.app.CurrencyPreferenceTest currency.log
-: > exit.log
-alone ir.foodcost.app.ExitConfirmationTest exit.log
-
-# A stored change that cannot be read: no figure is shown and every screen says why, and the user
-# can go on without it. Each test on data it makes and removes itself.
-: > unreadable.log
-for test in everyScreenBlocksUnverifiedFinancialResultsAfterWarningAcknowledgement \
-  ingredientListAndDetailDoNotPresentStalePricesAsVerified \
-  goingOnWithoutTheUnreadablePriceShowsTheFiguresWithoutIt; do
-  alone "ir.foodcost.app.UnreadableWarningTest#$test" unreadable.log
-done
-
-# A damaged database set aside, and a row not read: no change and no whole backup until a backup
-# is brought back or the user chooses to go on without it.
-: > recovery.log
-alone ir.foodcost.app.RecoveryGuardTest recovery.log
 adb logcat -d '*:E' > logcat.txt || true
 
 # The release build is shrunk by R8, which the test above does not cover: it must start too.

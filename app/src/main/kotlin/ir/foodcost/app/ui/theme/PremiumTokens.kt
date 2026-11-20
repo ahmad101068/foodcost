@@ -16,8 +16,9 @@ object PremiumTokens {
     val textPrimary = Color(0xFF1B1D1B)
     val textSecondary = Color(0xFF65686C)
     val outline = Color(0xFFD4DDDA)
-    val outlineStrong = Color(0xFFBCC9C5)
-    val inputOutline = Color(0xFFBDC3CE)
+    // Essential control boundaries need 3:1 contrast; decorative dividers keep the reference tint.
+    val outlineStrong = Color(0xFF7F8B85)
+    val inputOutline = outlineStrong
     val recipeSelection = Color(0xFFC3EEDC)
     val warning = Color(0xFFC85A19)
     val warningText = Color(0xFFA54817)
