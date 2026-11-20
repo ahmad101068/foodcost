@@ -174,7 +174,7 @@ class FormsTest {
         assertEquals(listOf("غذای اصلی", "پیش‌غذا و سالاد", "نوشیدنی سرد", "دسر و کیک", "صبحانه"), input.categoryPresets())
         val pricing = valid(input.check(PricingSettings(), CostingRules(), toman)).pricing
         assertEquals(mapOf("نوشیدنی گرم" to PricingMethod.TargetFoodCost(BigDecimal(20))), pricing.methodByCategory)
-        assertEquals(listOf(CategoryTargetInput("نوشیدنی گرم", "20")), SettingsInput.of(pricing, CostingRules(), toman).categories)
+        assertEquals(listOf(CategoryTargetInput("نوشیدنی گرم", "20", originalName = "نوشیدنی گرم")), SettingsInput.of(pricing, CostingRules(), toman).categories)
 
         fun error(form: SettingsInput) = assertIs<Checked.Invalid>(form.check(PricingSettings(), CostingRules(), toman)).errors[Field.CATEGORY]
         assertEquals("فودکاست هدف «دسر و کیک» باید بیشتر از ۰ و کمتر از ۱۰۰ باشد.", error(input.plusCategory("دسر و کیک")))
@@ -184,7 +184,7 @@ class FormsTest {
 
         // A section stored as a margin retains its actual method and percentage.
         val margin = PricingSettings(methodByCategory = mapOf("نوشیدنی سرد" to PricingMethod.TargetMargin(BigDecimal(75))))
-        assertEquals(listOf(CategoryTargetInput("نوشیدنی سرد", "75", MethodChoice.MARGIN)), SettingsInput.of(margin, CostingRules(), toman).categories)
+        assertEquals(listOf(CategoryTargetInput("نوشیدنی سرد", "75", MethodChoice.MARGIN, originalName = "نوشیدنی سرد")), SettingsInput.of(margin, CostingRules(), toman).categories)
     }
 
     @Test
@@ -196,7 +196,7 @@ class FormsTest {
         )
         val form = SettingsInput.of(pricing, CostingRules(), toman)
         assertEquals(
-            listOf(CategoryTargetInput("نوشیدنی سرد", "75", MethodChoice.MARGIN, CostBasis.FULL_COST), CategoryTargetInput("پیش‌غذا", useGeneral = true)),
+            listOf(CategoryTargetInput("نوشیدنی سرد", "75", MethodChoice.MARGIN, CostBasis.FULL_COST, originalName = "نوشیدنی سرد"), CategoryTargetInput("پیش‌غذا", useGeneral = true, originalName = "پیش‌غذا")),
             form.categories,
         )
         val back = valid(form.check(pricing, CostingRules(), toman)).pricing

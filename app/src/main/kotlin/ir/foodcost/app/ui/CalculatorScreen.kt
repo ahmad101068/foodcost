@@ -987,7 +987,7 @@ private fun Display(
                         }
                     }
                     metric(
-                        "قیمت فروش پیشنهادی",
+                        if (result.provisional) result.suggestedLabel else "قیمت فروش پیشنهادی",
                         result.suggested ?: "—",
                         ReferenceIcons.tag,
                         accents.sales.container,

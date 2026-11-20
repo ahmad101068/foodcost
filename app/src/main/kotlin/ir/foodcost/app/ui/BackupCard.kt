@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -74,10 +75,14 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
     val scope = rememberCoroutineScope()
     var exporting by remember { mutableStateOf(false) }
     // True when the backup being made is an emergency one, made whatever state the data is in.
-    var emergency by remember { mutableStateOf(false) }
+    var emergency by rememberSaveable { mutableStateOf(false) }
     var continuing by remember { mutableStateOf(false) }
     // The password of the backup being saved, empty for none; kept only until the file is written.
     var exportPassword by remember { mutableStateOf("") }
+    // Only non-secret intent survives recreation. Missing intent or a missing requested secret
+    // aborts the export; an encrypted request can never become a plaintext request.
+    var pendingExport by rememberSaveable { mutableStateOf(false) }
+    var pendingEncrypted by rememberSaveable { mutableStateOf(false) }
     var importing by remember { mutableStateOf<Importing?>(null) }
     val integrity = actions.integrity
     val locked = !integrity.verified
@@ -92,9 +97,14 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         val password = exportPassword
         val isEmergency = emergency
+        val validRequest = pendingExport && (!pendingEncrypted || password.isNotEmpty())
         exportPassword = ""
+        pendingExport = false
+        pendingEncrypted = false
         if (uri != null) {
-            scope.launch {
+            if (!validRequest) {
+                actions.say("ذخیرهٔ پشتیبان متوقف شد؛ برای حفظ رمزگذاری، دوباره ساخت پشتیبان را انتخاب کنید.")
+            } else scope.launch {
                 val saved = try {
                     withContext(Dispatchers.IO) {
                         val text = if (isEmergency) container.exportEmergencyBackup() else container.exportVerifiedBackup()
@@ -242,6 +252,8 @@ fun BackupCard(container: AppContainer, today: LocalDate, actions: AppActions) {
             onExport = { password ->
                 exporting = false
                 exportPassword = password
+                pendingExport = true
+                pendingEncrypted = password.isNotEmpty()
                 val kind = if (emergency) "foodcost-emergency" else "foodcost"
                 exportLauncher.launch("$kind-${JalaliDate.of(today).isoLike()}.json")
             },
@@ -400,7 +412,7 @@ private fun writeText(context: Context, uri: Uri, text: String): Boolean =
     context.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray(Charsets.UTF_8)) } != null
 
 private fun readText(context: Context, uri: Uri): String? =
-    context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+    context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
 
 /** The damaged database files, as they are, in one zip file. */
 private fun writeZip(context: Context, uri: Uri, files: List<File>): Boolean =

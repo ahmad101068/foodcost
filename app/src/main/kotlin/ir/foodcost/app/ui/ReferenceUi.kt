@@ -532,69 +532,68 @@ fun ReferenceField(
 @Composable
 fun ReferenceBottomBar(nav: Navigator, actions: AppActions) {
     val scheme = MaterialTheme.colorScheme
+    val fontScale = LocalDensity.current.fontScale
     Surface(
         modifier = Modifier.testTag("foodcost-bottom-navigation"),
         color = scheme.surfaceContainerLowest,
         shadowElevation = 2.dp,
         shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
     ) {
-        Column(Modifier.navigationBarsPadding()) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                listOf(Tab.CALC, Tab.INGREDIENTS, Tab.RECIPES, Tab.SETTINGS).forEach { tab ->
-                    val selected = nav.tab == tab
-                    val mintSelected = selected && tab == Tab.RECIPES && !isSystemInDarkTheme()
-                    val label = if (tab == Tab.INGREDIENTS) "مواد اولیه" else tab.label
-                    val brush =
-                        if (mintSelected)
-                            Brush.linearGradient(
-                                listOf(PremiumTokens.recipeSelection, PremiumTokens.recipeSelection)
-                            )
-                        else if (selected) premiumBrush()
-                        else Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
-                    Column(
-                        Modifier.weight(1f)
-                            .clip(RoundedCornerShape(13.dp))
-                            .background(brush, RoundedCornerShape(13.dp))
-                            .testTag("foodcost-nav-${tab.name.lowercase()}")
-                            .semantics {
-                                this.selected = selected
-                                role = Role.Tab
-                            }
-                            .clickable(onClickLabel = label) {
-                                actions.snackbar.currentSnackbarData?.dismiss()
-                                nav.tab(tab)
-                            }
-                            .padding(horizontal = 2.dp, vertical = 1.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
+        BoxWithConstraints(Modifier.navigationBarsPadding()) {
+            val twoRows = fontScale > 1.5f && maxWidth < 600.dp
+            val tabs = listOf(Tab.CALC, Tab.INGREDIENTS, Tab.RECIPES, Tab.SETTINGS)
+            Column(verticalArrangement = Arrangement.spacedBy(if (twoRows) 4.dp else 0.dp)) {
+                tabs.chunked(if (twoRows) 2 else 4).forEach { rowTabs ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Icon(
-                            when (tab) {
-                                Tab.CALC -> ReferenceIcons.calculator
-                                Tab.RECIPES -> ReferenceIcons.dishes
-                                Tab.INGREDIENTS -> ReferenceIcons.layers
-                                Tab.SETTINGS -> ReferenceIcons.settings
-                            },
-                            null,
-                            tint = if (selected && !mintSelected) Color.White else scheme.onSurface,
-                            modifier = Modifier.size(24.dp),
-                        )
-                        Text(
-                            if (tab == Tab.CALC && LocalDensity.current.fontScale > 1.25f)
-                                "ماشین\nحساب"
-                            else label,
-                            style =
-                                MaterialTheme.typography.labelMedium.copy(
-                                    fontSize = 12.sp,
-                                    lineHeight = 18.sp,
-                                ),
-                            color =
-                                if (selected && !mintSelected) Color.White else scheme.onSurface,
-                            textAlign = TextAlign.Center,
-                        )
+                        rowTabs.forEach { tab ->
+                            val selected = nav.tab == tab
+                            val mintSelected = selected && tab == Tab.RECIPES && !isSystemInDarkTheme()
+                            val label = if (tab == Tab.INGREDIENTS) "مواد اولیه" else tab.label
+                            val color = if (selected && !mintSelected) Color.White else scheme.onSurface
+                            val brush = when {
+                                mintSelected -> Brush.linearGradient(listOf(PremiumTokens.recipeSelection, PremiumTokens.recipeSelection))
+                                selected -> premiumBrush()
+                                else -> Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
+                            }
+                            Column(
+                                Modifier.weight(1f)
+                                    .clip(RoundedCornerShape(13.dp))
+                                    .background(brush, RoundedCornerShape(13.dp))
+                                    .testTag("foodcost-nav-${tab.name.lowercase()}")
+                                    .semantics { this.selected = selected; role = Role.Tab }
+                                    .clickable(onClickLabel = label) {
+                                        actions.snackbar.currentSnackbarData?.dismiss()
+                                        nav.tab(tab)
+                                    }
+                                    .heightIn(min = 48.dp)
+                                    .padding(horizontal = if (twoRows) 4.dp else 2.dp, vertical = if (twoRows) 4.dp else 1.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Icon(
+                                    when (tab) {
+                                        Tab.CALC -> ReferenceIcons.calculator
+                                        Tab.RECIPES -> ReferenceIcons.dishes
+                                        Tab.INGREDIENTS -> ReferenceIcons.layers
+                                        Tab.SETTINGS -> ReferenceIcons.settings
+                                    },
+                                    null, tint = color, modifier = Modifier.size(24.dp),
+                                )
+                                Text(
+                                    when {
+                                        twoRows -> label.replace('\u200c', ' ')
+                                        tab == Tab.CALC && fontScale > 1.25f -> "ماشین\nحساب"
+                                        else -> label
+                                    },
+                                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, lineHeight = 18.sp),
+                                    color = color,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        }
                     }
                 }
             }

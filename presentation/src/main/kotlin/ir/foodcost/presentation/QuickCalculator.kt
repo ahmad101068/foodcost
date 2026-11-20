@@ -405,7 +405,7 @@ object QuickCalculator {
         val status = when {
             portionsProblem != null -> PriceStatus.INCOMPLETE
             !hasLines -> PriceStatus.EMPTY
-            problems.isNotEmpty() -> PriceStatus.INCOMPLETE
+            problems.isNotEmpty() || extraResults.any { it.problem != null } -> PriceStatus.INCOMPLETE
             else -> evaluation.status
         }
         val s = evaluation.suggestion

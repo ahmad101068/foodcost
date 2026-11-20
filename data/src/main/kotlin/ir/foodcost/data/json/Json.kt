@@ -82,6 +82,8 @@ val Int.json: JsonNumber get() = JsonNumber(toString())
 val BigDecimal.json: JsonNumber get() = JsonNumber(toPlainString())
 
 object Json {
+    /** Backup documents are shallow; bound recursion before exhausting a phone's stack. */
+    const val MAX_DEPTH = 64
     fun write(value: JsonValue): String = StringBuilder().also { write(value, it) }.toString()
 
     fun parse(text: String): JsonValue = Parser(text).document()
@@ -133,6 +135,7 @@ object Json {
 
     private class Parser(private val s: String) {
         private var i = 0
+        private var depth = 0
 
         fun document(): JsonValue {
             val value = value()
@@ -145,14 +148,20 @@ object Json {
             skipSpace()
             if (i >= s.length) fail("Unexpected end")
             return when (s[i]) {
-                '{' -> obj()
-                '[' -> array()
+                '{' -> nested { obj() }
+                '[' -> nested { array() }
                 '"' -> JsonString(string())
                 't' -> literal("true", JsonBool(true))
                 'f' -> literal("false", JsonBool(false))
                 'n' -> literal("null", JsonNull)
                 else -> number()
             }
+        }
+
+        private inline fun <T> nested(block: () -> T): T {
+            if (depth >= MAX_DEPTH) fail("JSON nesting exceeds $MAX_DEPTH levels")
+            depth++
+            return try { block() } finally { depth-- }
         }
 
         private fun obj(): JsonObject {

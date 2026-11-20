@@ -19,6 +19,15 @@ import kotlin.test.assertTrue
 class JsonAndClockTest {
 
     @Test
+    fun `nesting limit rejects hostile input and allows ordinary documents`() {
+        val deepest = "[".repeat(Json.MAX_DEPTH) + "0" + "]".repeat(Json.MAX_DEPTH)
+        assertEquals(deepest, Json.write(Json.parse(deepest)))
+        assertFailsWith<JsonException> { Json.parse("[$deepest]") }
+        assertFailsWith<JsonException> { Json.parse("{\"a\":".repeat(12000) + "0" + "}".repeat(12000)) }
+        assertEquals("[0]", Json.write(Json.parse("[0]")))
+    }
+
+    @Test
     fun `text, numbers and nesting survive a round trip exactly`() {
         val value = jsonObject(
             "name" to "چلوکباب \"ویژه\"\nبا\tکره \\ و 🍢".json,
