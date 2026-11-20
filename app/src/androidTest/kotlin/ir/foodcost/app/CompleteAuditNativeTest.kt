@@ -121,7 +121,7 @@ class CompleteAuditNativeTest {
                 rule.onNodeWithText("رمز (اگر می‌خواهید)").performTextReplacement("AuditOnly123!")
                 rule.onNodeWithText("تکرار رمز").performTextReplacement("AuditOnly123!")
             }
-            hideIme()
+            if (encrypted) hideIme()
             rule.onNodeWithText(if (encrypted) "ساخت با رمز" else "ساخت بدون رمز").performClick()
             rule.waitUntil(15000){registry.launchedCode!=null}
             if (recreate) {
