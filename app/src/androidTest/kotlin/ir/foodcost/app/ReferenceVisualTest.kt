@@ -99,8 +99,10 @@ class ReferenceVisualTest {
             tab("مواد اولیه")
             rule.onNodeWithTag("ingredients-list").performScrollToNode(hasTestTag("ingredient-$sampleMeat"))
             if (!exists("ingredient-history-$sampleMeat")) clickTag("ingredient-$sampleMeat")
-            rule.onNodeWithTag("ingredients-list").performScrollToIndex(0)
             figure("ingredient-price-$sampleMeat", "۱٬۴۵۰٬۰۰۰")
+            // Verify the row while it is in view; shorter phones can recycle it after scrolling
+            // to the overview. The screenshot still records the top of the list.
+            rule.onNodeWithTag("ingredients-list").performScrollToIndex(0)
             shot("02-ingredients")
             clickTag("ingredients-filter-missing")
             rule.onNodeWithTag("ingredient-register-$missingSpice").assertIsDisplayed()
