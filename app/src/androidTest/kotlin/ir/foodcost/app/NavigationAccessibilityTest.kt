@@ -1,9 +1,11 @@
 package ir.foodcost.app
 
 import android.graphics.Bitmap
+import android.content.Context
 import android.os.ParcelFileDescriptor
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.text.TextLayoutResult
@@ -14,6 +16,7 @@ import java.io.File
 import java.time.LocalDate
 import kotlinx.coroutines.runBlocking
 import ir.foodcost.presentation.*
+import ir.foodcost.app.data.SqliteOperationStore
 import kotlin.math.roundToInt
 import org.junit.Assert.*
 import org.junit.Rule
@@ -30,6 +33,9 @@ class NavigationAccessibilityTest {
 
     @Test fun largestFontOnNarrowScreenKeepsWholeWordsAndClickableTabs() {
         check(shell("getprop ro.kernel.qemu") == "1") { "Disposable emulator only" }
+        inst.targetContext.deleteDatabase(SqliteOperationStore.DATABASE)
+        inst.targetContext.getSharedPreferences("foodcost", Context.MODE_PRIVATE).edit().clear().commit()
+        File(inst.targetContext.filesDir, "calculator-draft.json").delete()
         val container = (inst.targetContext.applicationContext as FoodCostApplication).container
         val sample = QuickInput(dishName = "چلوکباب کوبیده", menuPrice = "500000",
             rows = listOf(QuickRow("برنج آزمایش", "100000", "1000")))
