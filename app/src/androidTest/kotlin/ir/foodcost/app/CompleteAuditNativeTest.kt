@@ -17,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.core.app.ActivityOptionsCompat
@@ -121,8 +122,12 @@ class CompleteAuditNativeTest {
                 rule.onNodeWithText("رمز (اگر می‌خواهید)").performTextReplacement("AuditOnly123!")
                 rule.onNodeWithText("تکرار رمز").performTextReplacement("AuditOnly123!")
             }
-            if (encrypted) hideIme()
-            rule.onNodeWithText(if (encrypted) "ساخت با رمز" else "ساخت بدون رمز").performClick()
+            // This harness tests export/lifecycle state, not IME key delivery. Escape can close
+            // the dialog on devices where text replacement did not open the keyboard. Invoke
+            // the real button's accessibility action; pointer/IME flows have separate coverage.
+            rule.onNodeWithText(if (encrypted) "ساخت با رمز" else "ساخت بدون رمز")
+                .assertIsDisplayed()
+                .performSemanticsAction(SemanticsActions.OnClick) { check(it()) }
             rule.waitUntil(15000){registry.launchedCode!=null}
             if (recreate) {
                 // Keep launcher identity and pending encryption intent, without saving the secret.

@@ -135,6 +135,7 @@ jobs:
         shell: bash
         run: |
           pass=$(openssl rand -hex 16)
+          echo "::add-mask::$pass"
           keytool -genkeypair -keystore "$RUNNER_TEMP/throwaway.p12" -storetype PKCS12 -alias foodcost \
             -keyalg RSA -keysize 2048 -validity 2 -storepass "$pass" -keypass "$pass" -dname "CN=throwaway" > /dev/null
           echo "FOODCOST_KEYSTORE_FILE=$RUNNER_TEMP/throwaway.p12" >> "$GITHUB_ENV"

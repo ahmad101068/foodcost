@@ -74,7 +74,7 @@ class ExitConfirmationTest {
         }
     }
 
-    @Test fun systemBackFromASettingsSectionReturnsToItsOverview() {
+    @Test fun appBackFromASettingsSectionReturnsToItsOverview() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             openSettingsOverview()
             compose.onNodeWithTag("settings-section-pricing").performScrollTo().performClick()
@@ -109,7 +109,7 @@ class ExitConfirmationTest {
         }
     }
 
-    @Test fun menuSectionsAreNestedUnderPricingAndPhysicalBackRespectsBothLevels() {
+    @Test fun menuSectionsAreNestedUnderPricingAndAppBackRespectsBothLevels() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             openSettingsOverview()
             compose.onNodeWithTag("settings-section-sections").assertDoesNotExist()
@@ -126,9 +126,12 @@ class ExitConfirmationTest {
     }
 
     private fun requestRootBack(scenario: ActivityScenario<MainActivity>) {
-        // Separate hiding the IME from the real system Back whose navigation we are testing.
+        // Exercise the app's registered Back handler independently of asynchronous IME key
+        // interception. The physicalBackClosesTheKeyboardBeforeRequestingExit case below
+        // separately verifies both actual system-key presses and their order.
         hideKeyboard(scenario)
-        physicalBack(scenario)
+        scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
     }
 
     private fun focusedWindow(scenario: ActivityScenario<MainActivity>) {
